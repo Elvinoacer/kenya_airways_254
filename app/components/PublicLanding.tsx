@@ -5,8 +5,7 @@ import BookingWidget from "./BookingWidget";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const HERO_BG =
-  "https://lh3.googleusercontent.com/aida/ADBb0ujEO2vDQP8jviMH9gMJHZu1UjoSnBp3FqnNjE_ahEVIkL8V_GTsbVm3E3LUpg8MFyksyx1sRR8JbBJpaBou3RjmqHCu6xlJpRiLpYmOPsGc-bTHCtYEhdw7lxQSvFXtaVsvrFU-vkCDteC71hnaNkhpEuN9nNxhexW3-EINoNI1CC-iX6xmxXwJX9WXzIIq27gRAeE6MIOF90SKMBA88xss0HlbZRCTfn76f-baQz7rslCnIqmsxEakZx2d";
+const HERO_BG = "/images/hero_banner.png";
 
 const CARD_IMG =
   "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/cross_the_world.png";
