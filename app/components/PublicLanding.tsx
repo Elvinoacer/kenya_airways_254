@@ -9,7 +9,7 @@ const HERO_BG =
   "https://lh3.googleusercontent.com/aida/ADBb0ujEO2vDQP8jviMH9gMJHZu1UjoSnBp3FqnNjE_ahEVIkL8V_GTsbVm3E3LUpg8MFyksyx1sRR8JbBJpaBou3RjmqHCu6xlJpRiLpYmOPsGc-bTHCtYEhdw7lxQSvFXtaVsvrFU-vkCDteC71hnaNkhpEuN9nNxhexW3-EINoNI1CC-iX6xmxXwJX9WXzIIq27gRAeE6MIOF90SKMBA88xss0HlbZRCTfn76f-baQz7rslCnIqmsxEakZx2d";
 
 const CARD_IMG =
-  "https://lh3.googleusercontent.com/aida/ADBb0ugmVd_s_qVV_ZitMSI5i453lVlXmh1xSNe_0-r78c_V_iCZlanfnK8z3pYqiZiRSUNNGCbSP5RFifaL1DOPtHFdr93wHzdnpyFwzH4MmlPvdc7a8Q1qsfun4jiolh7SFiwizZ3r0ggZK_F7rTPFoNpuMyZ09d6n_bJ76UmPI8hhIldRcV_G0uzW0gRGnh81RwBc1FjGuZ4P_Uq8SXN0FJJemfg1NtH2uRq4UwW5sDIq0NZz2sPJvLg_ZWbx";
+  "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/cross_the_world.png";
 
 const PLAN_THUMB_1 =
   "https://lh3.googleusercontent.com/aida/ADBb0uhRZml1Dnf17P-nGfJ7IEfnUOLCHNT9sixdO7AZc_2FF7mkovs6RC31IeSK5TTPJGdi8LBXayi-xB7prOlTuKLYzYK4ZYreRoGD3YuiD4067hYgGygQTwiZvJ5SAUZXJb4959vgbD13anBqCLL1VuOV5VhgtD68AXf2AblVSA0E5m7HtD0_jIJrSGLRjNyCmiFJlMQtASZmIGAKSw7_VdKrbvQsyM9SUum06bzkybII1_7335WbW3HFVkKz";
@@ -31,29 +31,29 @@ const offers = [
     city: "Kigali",
     dates: "03 Sept - 16 Sept 26",
     price: "USD 960",
-    img: "/images/dest_mombasa.png",
+    img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/lux_items.png",
   },
   {
     city: "Lagos",
     dates: "31 Aug - 15 Sept 26",
     price: "USD 966",
-    img: "/images/dest_zanzibar.png",
+    img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/beach_happy.png",
   },
   {
     city: "Entebbe",
     dates: "26 Aug - 10 Sept 26",
     price: "USD 989",
-    img: "/images/dest_capetown.png",
+    img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/man_in_vacation.png",
   },
 ];
 
 const popularDestinations = [
-  { city: "Mombasa", country: "Kenya", img: "/images/dest_mombasa.png", price: "USD 120" },
-  { city: "Zanzibar", country: "Tanzania", img: "/images/dest_zanzibar.png", price: "USD 240" },
-  { city: "Cape Town", country: "South Africa", img: "/images/dest_capetown.png", price: "USD 450" },
-  { city: "Dubai", country: "UAE", img: "/images/dest_dubai.png", price: "USD 380" },
-  { city: "London", country: "UK", img: "/images/dest_london.png", price: "USD 620" },
-  { city: "Paris", country: "France", img: "/images/dest_paris.png", price: "USD 590" },
+  { city: "Mombasa", country: "Kenya", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/desert_view.png", price: "USD 120" },
+  { city: "Zanzibar", country: "Tanzania", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/celebration_stad.png", price: "USD 240" },
+  { city: "Cape Town", country: "South Africa", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/happy_vacation_woman.png", price: "USD 450" },
+  { city: "Dubai", country: "UAE", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/gamers_park.png", price: "USD 380" },
+  { city: "London", country: "UK", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/travellers.png", price: "USD 620" },
+  { city: "Paris", country: "France", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/travellers_bags.png", price: "USD 590" },
 ];
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -515,7 +515,7 @@ export default function KenyaAirwaysPage() {
         {/* ── Fleet Showcase ── */}
         <section className="w-full bg-[#1A1A1A] relative overflow-hidden">
           <div className="absolute inset-0 z-0 opacity-40 mix-blend-screen">
-             <img src="/images/fleet_dreamliner.svg" alt="" className="w-full h-full object-cover" />
+             <img src="https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/flyover.png" alt="" className="w-full h-full object-cover" loading="lazy" />
           </div>
           <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#1A1A1A] via-[#1A1A1A]/80 to-transparent" />
           
@@ -616,9 +616,9 @@ export default function KenyaAirwaysPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {[
-                { name: "Sarah Jenkins", role: "Frequent Flyer", text: "The hospitality on board was unmatched. The crew made sure I was comfortable throughout the entire 12-hour flight from New York to Nairobi.", avatar: "/images/avatar_1.svg" },
-                { name: "David Ochieng", role: "Business Traveler", text: "I fly KQ monthly for business across the continent. Their punctuality and the seamless connections at JKIA make my work so much easier.", avatar: "/images/avatar_2.svg" },
-                { name: "Elena Rossi", role: "Tourist", text: "Starting our safari vacation with Kenya Airways set the perfect tone. The Dreamliner experience was fantastic, and the food was surprisingly good!", avatar: "/images/avatar_3.svg" }
+                { name: "Sarah Jenkins", role: "Frequent Flyer", text: "The hospitality on board was unmatched. The crew made sure I was comfortable throughout the entire 12-hour flight from New York to Nairobi.", avatar: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/happy_vacation_woman.png" },
+                { name: "David Ochieng", role: "Business Traveler", text: "I fly KQ monthly for business across the continent. Their punctuality and the seamless connections at JKIA make my work so much easier.", avatar: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/man_in_vacation.png" },
+                { name: "Elena Rossi", role: "Tourist", text: "Starting our safari vacation with Kenya Airways set the perfect tone. The Dreamliner experience was fantastic, and the food was surprisingly good!", avatar: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/happy_booking.png" }
               ].map((testimonial, i) => (
                 <div key={i} className="bg-white p-8 rounded-2xl shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
                   <div className="flex text-[#ffb4ab] mb-6">
