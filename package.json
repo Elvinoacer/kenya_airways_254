@@ -11,7 +11,17 @@
   "dependencies": {
     "next": "16.2.6",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "luxon": "^3.5.0",
+    "exceljs": "^4.3.0",
+    "pdfkit": "^0.13.0",
+    "uuid": "^9.0.0",
+    "chart.js": "^4.4.0",
+    "react-chartjs-2": "^5.2.0"
+  },
+  "optionalDependencies": {
+    "ioredis": "^5.3.2",
+    "lru-cache": "^10.1.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

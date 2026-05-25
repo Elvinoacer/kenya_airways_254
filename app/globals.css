@@ -24,3 +24,50 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* UX helpers */
+.toast {
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 25%,
+    rgba(255, 255, 255, 0.05) 37%,
+    rgba(255, 255, 255, 0.1) 63%
+  );
+  background-size: 400% 100%;
+}
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+.offline-banner {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+}
+
+/* Focus indicators & high contrast */
+:focus {
+  outline: 2px solid Highlight;
+  outline-offset: 2px;
+}
+
+/* Better visible focus for keyboard users */
+* :where(:focus-visible) {
+  outline: 3px solid rgba(59, 130, 246, 0.8);
+  outline-offset: 2px;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
