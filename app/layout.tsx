@@ -1,22 +1,31 @@
-import type { Metadata } from "next";
 import "./globals.css";
-import ClientProviders from "./ClientProviders";
 
-export const metadata: Metadata = {
-  title: "Kenya Airways - Ticketing & passenger Portal",
+export const metadata = {
+  title: "Kenya Airways – The Pride of Africa",
   description:
-    "Secure passenger ticketing portal for Kenya Airways. Manage passenger identity details, active sessions, and secure Two-Factor Authentication credentials.",
+    "Exclusive Flight Savings with Mastercard. Discover the world with Kenya Airways.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" className="h-full antialiased font-sans">
-      <body className="min-h-full flex flex-col bg-slate-50">
-        <ClientProviders>{children}</ClientProviders>
+    <html lang="en">
+      <head>
+        {/* Hanken Grotesk Font */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        {/* Material Symbols Outlined */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="font-sans antialiased">
+        {children}
       </body>
     </html>
   );

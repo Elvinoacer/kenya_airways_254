@@ -194,32 +194,32 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
+    <div className="min-h-screen bg-[#fcf9f8] text-[#1A1A1A]">
       {/* Navbar */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+      <header className="bg-white border-b border-[#e5e2e1] sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xl font-black tracking-wider text-[#002b5c]">
+            <span className="text-xl font-black tracking-wider text-[#1A1A1A]">
               KENYA <span className="text-[#c8102e]">AIRWAYS</span>
             </span>
-            <span className="bg-slate-100 text-xs text-slate-600 font-semibold px-2 py-0.5 rounded-full uppercase">
+            <span className="bg-[#f6f3f2] text-xs text-[#5e3f3c] font-semibold px-2 py-0.5 rounded-full uppercase">
               {user.role}
             </span>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-[#002b5c] text-white flex items-center justify-center text-lg font-bold border border-slate-200">
+              <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-lg font-bold border border-[#e5e2e1]">
                 {avatar || user.name?.[0] || user.email[0].toUpperCase()}
               </div>
-              <span className="text-sm font-semibold text-slate-700 hidden sm:inline-block">
+              <span className="text-sm font-semibold text-[#1A1A1A] hidden sm:inline-block">
                 {user.name || user.email}
               </span>
             </div>
             <button
               onClick={handleLogout}
               disabled={loading}
-              className="text-sm font-semibold text-slate-500 hover:text-[#c8102e] transition-colors cursor-pointer"
+              className="text-sm font-semibold text-[#5e3f3c] hover:text-[#c8102e] transition-colors cursor-pointer"
             >
               Sign Out
             </button>
@@ -236,8 +236,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
               onClick={() => { setActiveTab('overview'); clearMessages(); }}
               className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-3 cursor-pointer ${
                 activeTab === 'overview'
-                  ? 'bg-[#002b5c] text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  ? 'bg-primary text-white shadow-md'
+                  : 'bg-white text-[#5e3f3c] hover:bg-[#f6f3f2] border border-[#e5e2e1]'
               }`}
             >
               Overview
@@ -248,8 +248,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                 onClick={() => { setActiveTab('profile'); clearMessages(); }}
                 className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-3 cursor-pointer ${
                   activeTab === 'profile'
-                    ? 'bg-[#002b5c] text-white shadow-md'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    ? 'bg-primary text-white shadow-md'
+                    : 'bg-white text-[#5e3f3c] hover:bg-[#f6f3f2] border border-[#e5e2e1]'
                 }`}
               >
                 Passenger Profile
@@ -260,14 +260,14 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
               onClick={() => { setActiveTab('security'); clearMessages(); }}
               className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-3 cursor-pointer ${
                 activeTab === 'security'
-                  ? 'bg-[#002b5c] text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  ? 'bg-primary text-white shadow-md'
+                  : 'bg-white text-[#5e3f3c] hover:bg-[#f6f3f2] border border-[#e5e2e1]'
               }`}
             >
               Security & Sessions
             </button>
 
-            <hr className="border-slate-200 my-4" />
+            <hr className="border-[#e5e2e1] my-4" />
 
             <button
               onClick={handleLogoutAllDevices}
@@ -294,29 +294,29 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
             {/* TAB: OVERVIEW */}
             {activeTab === 'overview' && (
-              <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-[#e5e2e1] space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#002b5c]">Welcome back, {user.name || 'Traveler'}!</h2>
-                  <p className="text-slate-500 text-sm">Review your flight portal credentials and basic settings.</p>
+                  <h2 className="text-2xl font-bold text-[#1A1A1A]">Welcome back, {user.name || 'Traveler'}!</h2>
+                  <p className="text-[#5e3f3c] text-sm">Review your flight portal credentials and basic settings.</p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center p-6 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className="w-16 h-16 rounded-full bg-[#002b5c] text-white flex items-center justify-center text-3xl font-bold">
+                <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center p-6 bg-[#fcf9f8] rounded-xl border border-[#e5e2e1]">
+                  <div className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-3xl font-bold">
                     {avatar || user.name?.[0] || user.email[0].toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg text-slate-800">{user.name || 'Not set'}</h3>
-                    <p className="text-slate-500 text-sm">{user.email}</p>
-                    <p className="text-xs text-slate-400 mt-1">User ID: {user.id}</p>
+                    <h3 className="font-bold text-lg text-[#1A1A1A]">{user.name || 'Not set'}</h3>
+                    <p className="text-[#5e3f3c] text-sm">{user.email}</p>
+                    <p className="text-xs text-[#5e3f3c] mt-1">User ID: {user.id}</p>
                   </div>
                 </div>
 
                 <form onSubmit={handleUpdateProfile} className="space-y-4">
-                  <h3 className="text-lg font-bold text-[#002b5c]">Edit Display Profile</h3>
+                  <h3 className="text-lg font-bold text-[#1A1A1A]">Edit Display Profile</h3>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="name-input" className="block text-sm font-medium text-slate-600 mb-1">
+                      <label htmlFor="name-input" className="block text-sm font-medium text-[#5e3f3c] mb-1">
                         Display Name
                       </label>
                       <input
@@ -324,13 +324,13 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                         id="name-input"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#002b5c] text-slate-900"
+                        className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
                         placeholder="John Doe"
                       />
                     </div>
                     
                     <div>
-                      <span className="block text-sm font-medium text-slate-600 mb-2">
+                      <span className="block text-sm font-medium text-[#5e3f3c] mb-2">
                         Select Avatar Emoji
                       </span>
                       <div className="flex gap-2">
@@ -340,7 +340,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                             key={emoji}
                             onClick={() => selectMockAvatar(emoji)}
                             className={`w-10 h-10 rounded-lg text-xl flex items-center justify-center border transition-all cursor-pointer ${
-                              avatar === emoji ? 'border-[#002b5c] bg-blue-50 scale-110 shadow-sm' : 'border-slate-200 bg-white hover:bg-slate-50'
+                              avatar === emoji ? 'border-primary bg-primary/10 scale-110 shadow-sm' : 'border-[#e5e2e1] bg-white hover:bg-[#fcf9f8]'
                             }`}
                           >
                             {emoji}
@@ -354,7 +354,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="px-6 py-2 rounded-lg bg-[#002b5c] text-white font-semibold hover:bg-[#001f44] cursor-pointer disabled:bg-slate-400"
+                      className="px-6 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Save General Settings
                     </button>
@@ -365,16 +365,16 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
             {/* TAB: PASSENGER PROFILE */}
             {activeTab === 'profile' && user.role === 'PASSENGER' && (
-              <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-[#e5e2e1] space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#002b5c]">Passenger flight Profile</h2>
-                  <p className="text-slate-500 text-sm">International travel document registry for secure booking validation.</p>
+                  <h2 className="text-2xl font-bold text-[#1A1A1A]">Passenger flight Profile</h2>
+                  <p className="text-[#5e3f3c] text-sm">International travel document registry for secure booking validation.</p>
                 </div>
 
                 <form onSubmit={handleUpdateProfile} className="space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="fn-input" className="block text-sm font-medium text-slate-600 mb-1">
+                      <label htmlFor="fn-input" className="block text-sm font-medium text-[#5e3f3c] mb-1">
                         First Name
                       </label>
                       <input
@@ -383,12 +383,12 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                         required
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
-                        className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#002b5c] text-slate-900"
+                        className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="ln-input" className="block text-sm font-medium text-slate-600 mb-1">
+                      <label htmlFor="ln-input" className="block text-sm font-medium text-[#5e3f3c] mb-1">
                         Last / Family Name
                       </label>
                       <input
@@ -397,12 +397,12 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                         required
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
-                        className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#002b5c] text-slate-900"
+                        className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="phone-input" className="block text-sm font-medium text-slate-600 mb-1">
+                      <label htmlFor="phone-input" className="block text-sm font-medium text-[#5e3f3c] mb-1">
                         Phone Number
                       </label>
                       <input
@@ -410,12 +410,12 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                         id="phone-input"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#002b5c] text-slate-900"
+                        className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="pass-input" className="block text-sm font-medium text-slate-600 mb-1">
+                      <label htmlFor="pass-input" className="block text-sm font-medium text-[#5e3f3c] mb-1">
                         Passport Number
                       </label>
                       <input
@@ -424,12 +424,12 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                         required
                         value={passportNo}
                         onChange={(e) => setPassportNo(e.target.value.toUpperCase())}
-                        className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#002b5c] text-slate-900"
+                        className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="nat-input" className="block text-sm font-medium text-slate-600 mb-1">
+                      <label htmlFor="nat-input" className="block text-sm font-medium text-[#5e3f3c] mb-1">
                         Nationality
                       </label>
                       <input
@@ -438,12 +438,12 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                         required
                         value={nationality}
                         onChange={(e) => setNationality(e.target.value)}
-                        className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#002b5c] text-slate-900"
+                        className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="dob-input" className="block text-sm font-medium text-slate-600 mb-1">
+                      <label htmlFor="dob-input" className="block text-sm font-medium text-[#5e3f3c] mb-1">
                         Date of Birth
                       </label>
                       <input
@@ -452,7 +452,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                         required
                         value={dateOfBirth}
                         onChange={(e) => setDateOfBirth(e.target.value)}
-                        className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#002b5c] text-slate-900"
+                        className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
                       />
                     </div>
                   </div>
@@ -461,7 +461,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="px-6 py-2.5 rounded-lg bg-[#002b5c] text-white font-semibold hover:bg-[#001f44] cursor-pointer disabled:bg-slate-400"
+                      className="px-6 py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Update Flight Documents
                     </button>
@@ -474,18 +474,18 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             {activeTab === 'security' && (
               <div className="space-y-6">
                 {/* 2FA Panel */}
-                <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+                <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-[#e5e2e1] space-y-6">
                   <div>
-                    <h3 className="text-xl font-bold text-[#002b5c]">Two-Factor Authentication (2FA)</h3>
-                    <p className="text-slate-500 text-sm">Add an extra layer of protection to your passenger profile. A login token will be generated upon login verification.</p>
+                    <h3 className="text-xl font-bold text-[#1A1A1A]">Two-Factor Authentication (2FA)</h3>
+                    <p className="text-[#5e3f3c] text-sm">Add an extra layer of protection to your passenger profile. A login token will be generated upon login verification.</p>
                   </div>
 
-                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="flex items-center justify-between p-4 bg-[#fcf9f8] rounded-xl border border-[#e5e2e1]">
                     <div className="flex flex-col">
-                      <span className="font-semibold text-slate-800">
+                      <span className="font-semibold text-[#1A1A1A]">
                         {twoFactorEnabled ? '2FA is Enabled' : '2FA is Disabled'}
                       </span>
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-[#5e3f3c]">
                         {twoFactorEnabled ? 'Your account is extra secure.' : 'Turn on to require code upon credentials check.'}
                       </span>
                     </div>
@@ -505,16 +505,16 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                 </div>
 
                 {/* Password panel */}
-                <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+                <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-[#e5e2e1] space-y-6">
                   <div>
-                    <h3 className="text-xl font-bold text-[#002b5c]">Change Security Password</h3>
-                    <p className="text-slate-500 text-sm">Ensure your booking login is strong and complex.</p>
+                    <h3 className="text-xl font-bold text-[#1A1A1A]">Change Security Password</h3>
+                    <p className="text-[#5e3f3c] text-sm">Ensure your booking login is strong and complex.</p>
                   </div>
 
                   <form onSubmit={handleChangePassword} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
-                        <label htmlFor="old-pass" className="block text-sm font-medium text-slate-600 mb-1">
+                        <label htmlFor="old-pass" className="block text-sm font-medium text-[#5e3f3c] mb-1">
                           Current Password
                         </label>
                         <input
@@ -523,13 +523,13 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                           required
                           value={currentPassword}
                           onChange={(e) => setCurrentPassword(e.target.value)}
-                          className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#002b5c] text-slate-900"
+                          className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
                           placeholder="••••••••"
                         />
                       </div>
                       
                       <div>
-                        <label htmlFor="new-pass" className="block text-sm font-medium text-slate-600 mb-1">
+                        <label htmlFor="new-pass" className="block text-sm font-medium text-[#5e3f3c] mb-1">
                           New Password
                         </label>
                         <input
@@ -538,13 +538,13 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                           required
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
-                          className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#002b5c] text-slate-900"
+                          className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
                           placeholder="••••••••"
                         />
                       </div>
 
                       <div>
-                        <label htmlFor="conf-new-pass" className="block text-sm font-medium text-slate-600 mb-1">
+                        <label htmlFor="conf-new-pass" className="block text-sm font-medium text-[#5e3f3c] mb-1">
                           Confirm New Password
                         </label>
                         <input
@@ -553,7 +553,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                           required
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#002b5c] text-slate-900"
+                          className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
                           placeholder="••••••••"
                         />
                       </div>
@@ -563,7 +563,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                       <button
                         type="submit"
                         disabled={loading}
-                        className="px-6 py-2 rounded-lg bg-[#002b5c] text-white font-semibold hover:bg-[#001f44] cursor-pointer disabled:bg-slate-400"
+                        className="px-6 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Change Password
                       </button>
@@ -572,10 +572,10 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                 </div>
 
                 {/* Device Sessions Panel */}
-                <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+                <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-[#e5e2e1] space-y-6">
                   <div>
-                    <h3 className="text-xl font-bold text-[#002b5c]">Active Device Sessions</h3>
-                    <p className="text-slate-500 text-sm">Monitor and terminate other active web portal logins.</p>
+                    <h3 className="text-xl font-bold text-[#1A1A1A]">Active Device Sessions</h3>
+                    <p className="text-[#5e3f3c] text-sm">Monitor and terminate other active web portal logins.</p>
                   </div>
 
                   <div className="space-y-4">
@@ -583,24 +583,24 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                       <div
                         key={session.id}
                         className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl border transition-all ${
-                          session.isCurrent ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-100'
+                          session.isCurrent ? 'bg-primary/10 border-primary/20' : 'bg-[#fcf9f8] border-[#e5e2e1]'
                         }`}
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-800 text-sm sm:text-base">
+                            <span className="font-semibold text-[#1A1A1A] text-sm sm:text-base">
                               IP: {session.ipAddress || 'unknown'}
                             </span>
                             {session.isCurrent && (
-                              <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                              <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                                 Current
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-slate-500 truncate max-w-md">
+                          <p className="text-xs text-[#5e3f3c] truncate max-w-md">
                             {session.userAgent || 'unknown'}
                           </p>
-                          <p className="text-[10px] text-slate-400">
+                          <p className="text-[10px] text-[#5e3f3c]">
                             Logged in: {new Date(session.createdAt).toLocaleString()}
                           </p>
                         </div>

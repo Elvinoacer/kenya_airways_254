@@ -12,12 +12,12 @@ function MetricCard({
   hint?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+    <div className="rounded-2xl border border-[#e5e2e1] bg-white p-5 shadow-[0_4px_12px_rgba(13,13,13,0.05)] transition-all hover:shadow-[0_8px_24px_rgba(13,13,13,0.08)]">
+      <div className="text-xs font-bold uppercase tracking-widest text-[#5e3f3c]">
         {label}
       </div>
-      <div className="mt-2 text-3xl font-black text-[#002b5c]">{value}</div>
-      {hint ? <div className="mt-1 text-sm text-slate-500">{hint}</div> : null}
+      <div className="mt-2 text-3xl font-black text-[#1A1A1A]">{value}</div>
+      {hint ? <div className="mt-2 text-sm text-[#5e3f3c]">{hint}</div> : null}
     </div>
   );
 }
@@ -32,16 +32,16 @@ function Section({
   subtitle?: string;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
+    <section className="rounded-3xl border border-[#e5e2e1] bg-white p-6 shadow-[0_8px_32px_rgba(13,13,13,0.06)]">
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+          <h2 className="text-xl font-bold text-[#1A1A1A]">{title}</h2>
           {subtitle ? (
-            <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+            <p className="mt-1 text-sm text-[#5e3f3c]">{subtitle}</p>
           ) : null}
         </div>
       </div>
-      <div className="mt-4">{children}</div>
+      <div>{children}</div>
     </section>
   );
 }
@@ -71,30 +71,30 @@ export default function OperationsDashboardPage() {
     : "—";
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(0,43,92,0.08),_transparent_40%),linear-gradient(180deg,_#f8fafc_0%,_#eef2f7_100%)] text-slate-900">
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+    <div className="text-[#1A1A1A]">
+      <header className="bg-white border-b border-[#e5e2e1] sticky top-0 z-10">
+        <div className="flex items-center justify-between px-6 py-6 lg:px-8">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#c8102e]">
+            <div className="text-xs font-bold uppercase tracking-widest text-primary mb-1">
               Operations
             </div>
-            <h1 className="text-2xl font-black text-[#002b5c]">
-              Operational dashboards
+            <h1 className="text-3xl font-black text-[#1A1A1A]">
+              Operational Dashboards
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-[#5e3f3c] mt-2 max-w-2xl">
               Staff, flight operations, bookings, occupancy, revenue,
               assignments, and live operations feed.
             </p>
           </div>
-          <div className="text-right text-sm text-slate-500">
-            <div>Updated</div>
-            <div className="font-semibold text-slate-800">{generatedAt}</div>
+          <div className="text-right text-sm text-[#5e3f3c] bg-[#fcf9f8] p-3 rounded-xl border border-[#e5e2e1]">
+            <div className="uppercase text-[10px] tracking-wider font-bold mb-1">Updated</div>
+            <div className="font-bold text-[#1A1A1A]">{generatedAt}</div>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <main className="p-6 lg:p-8 space-y-8 max-w-[1600px]">
+        <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label="Staff active"
             value={data?.staff?.overview?.active ?? 0}
@@ -117,12 +117,12 @@ export default function OperationsDashboardPage() {
           />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-2">
+        <section className="grid gap-8 xl:grid-cols-2">
           <Section
-            title="Staff dashboard"
+            title="Staff Dashboard"
             subtitle="Active headcount, departmental mix, and upcoming staff schedules."
           >
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 mb-6">
               <MetricCard
                 label="On leave"
                 value={data?.staff?.overview?.onLeave ?? 0}
@@ -132,7 +132,7 @@ export default function OperationsDashboardPage() {
                 value={data?.staff?.overview?.suspended ?? 0}
               />
             </div>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-2 mb-6">
               <MiniList
                 title="By role"
                 items={(data?.staff?.byRole || []).map(
@@ -154,16 +154,16 @@ export default function OperationsDashboardPage() {
                 `${row.first_name} ${row.last_name}`,
                 row.schedule_date,
                 `${row.shift_start} - ${row.shift_end}`,
-                row.status,
+                <StatusBadge key="status" status={row.status} />,
               ]}
             />
           </Section>
 
           <Section
-            title="Flight operations dashboard"
+            title="Flight Operations"
             subtitle="Upcoming schedule states and live status changes."
           >
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-4 mb-6">
               {(data?.flights?.statusBreakdown || [])
                 .slice(0, 4)
                 .map((item: any) => (
@@ -185,20 +185,20 @@ export default function OperationsDashboardPage() {
                 "Status",
               ]}
               renderRow={(row) => [
-                row.flight_number || row.flight_id,
+                <span key="flight" className="font-bold">{row.flight_number || row.flight_id}</span>,
                 `${row.origin || "—"} → ${row.destination || "—"}`,
                 row.departure_time,
                 `${row.gate_code || "—"} / ${row.aircraft_registration || "—"}`,
-                row.status,
+                <StatusBadge key="status" status={row.status} />,
               ]}
             />
           </Section>
 
           <Section
-            title="Booking analytics dashboard"
+            title="Booking Analytics"
             subtitle="Bookings by state and recent booking activity."
           >
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-4 mb-6">
               <MetricCard
                 label="Total"
                 value={data?.bookings?.overview?.total ?? 0}
@@ -216,14 +216,14 @@ export default function OperationsDashboardPage() {
                 value={data?.bookings?.overview?.pending ?? 0}
               />
             </div>
-            <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-              <div className="text-sm font-semibold text-slate-700">
+            <div className="mb-6 rounded-2xl bg-[#fcf9f8] p-5 border border-[#e5e2e1] shadow-inner">
+              <div className="text-xs font-bold uppercase tracking-widest text-[#5e3f3c]">
                 Cancellation refunds
               </div>
-              <div className="mt-2 text-2xl font-black text-[#002b5c]">
+              <div className="mt-2 text-3xl font-black text-primary">
                 {formatMoney(data?.bookings?.cancellations?.refundTotal ?? 0)}
               </div>
-              <div className="text-sm text-slate-500">
+              <div className="mt-1 text-sm text-[#5e3f3c] font-medium">
                 {data?.bookings?.cancellations?.count ?? 0} cancellation records
               </div>
             </div>
@@ -239,21 +239,21 @@ export default function OperationsDashboardPage() {
                 "Created",
               ]}
               renderRow={(row) => [
-                row.booking_ref,
+                <span key="ref" className="font-mono text-sm font-semibold">{row.booking_ref}</span>,
                 row.flight_id,
                 row.seat_class,
                 row.seats,
-                row.status,
-                row.created_at,
+                <StatusBadge key="status" status={row.status} />,
+                new Date(row.created_at).toLocaleDateString(),
               ]}
             />
           </Section>
 
           <Section
-            title="Occupancy dashboard"
+            title="Occupancy"
             subtitle="Seat load and locks across the active fleet."
           >
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3 mb-6">
               <MetricCard
                 label="Locked seats"
                 value={data?.occupancy?.lockedSeats ?? 0}
@@ -272,9 +272,11 @@ export default function OperationsDashboardPage() {
               rows={data?.occupancy?.flights || []}
               columns={["Flight", "Route", "Occupancy", "Locked", "Available"]}
               renderRow={(row) => [
-                row.flight_number,
+                <span key="flight" className="font-bold">{row.flight_number}</span>,
                 `${row.origin} → ${row.destination}`,
-                `${row.occupancy.occupied}/${row.occupancy.total}`,
+                <span key="occ" className="inline-flex px-2 py-1 bg-[#fcf9f8] border border-[#e5e2e1] rounded-lg font-mono text-sm">
+                  {row.occupancy.occupied}/{row.occupancy.total}
+                </span>,
                 row.occupancy.locked,
                 row.occupancy.available,
               ]}
@@ -282,10 +284,10 @@ export default function OperationsDashboardPage() {
           </Section>
 
           <Section
-            title="Revenue dashboard"
+            title="Revenue"
             subtitle="Cash captured, pending, and refunded by provider."
           >
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-4 mb-6">
               <MetricCard
                 label="Captured"
                 value={formatMoney(data?.revenue?.overview?.captured ?? 0)}
@@ -303,35 +305,37 @@ export default function OperationsDashboardPage() {
                 value={data?.revenue?.overview?.total ?? 0}
               />
             </div>
-            <Table
-              title="By provider"
-              rows={data?.revenue?.byProvider || []}
-              columns={["Provider", "Payments", "Amount"]}
-              renderRow={(row) => [
-                row.provider,
-                row.count,
-                formatMoney(row.amount),
-              ]}
-            />
+            <div className="mb-6">
+              <Table
+                title="By provider"
+                rows={data?.revenue?.byProvider || []}
+                columns={["Provider", "Payments", "Amount"]}
+                renderRow={(row) => [
+                  <span key="prov" className="font-semibold">{row.provider}</span>,
+                  row.count,
+                  <span key="amt" className="font-mono">{formatMoney(row.amount)}</span>,
+                ]}
+              />
+            </div>
             <Table
               title="Recent payments"
               rows={data?.revenue?.recent || []}
               columns={["Payment", "Booking", "Amount", "Provider", "Status"]}
               renderRow={(row) => [
-                row.id,
+                <span key="id" className="text-xs font-mono text-[#5e3f3c]">{row.id?.substring(0, 8)}...</span>,
                 row.booking_id || "—",
-                formatMoney(row.amount),
+                <span key="amt" className="font-mono font-medium">{formatMoney(row.amount)}</span>,
                 row.provider,
-                row.status,
+                <StatusBadge key="status" status={row.status} />,
               ]}
             />
           </Section>
 
           <Section
-            title="Assignment dashboard"
+            title="Assignments"
             subtitle="Open requests, approvals, and crew allocation health."
           >
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-4 mb-6">
               <MetricCard
                 label="Total"
                 value={data?.assignments?.overview?.total ?? 0}
@@ -349,21 +353,23 @@ export default function OperationsDashboardPage() {
                 value={data?.assignments?.overview?.conflict ?? 0}
               />
             </div>
-            <Table
-              title="By role"
-              rows={data?.assignments?.byRole || []}
-              columns={["Role", "Count"]}
-              renderRow={(row) => [row.role, row.count]}
-            />
+            <div className="mb-6">
+              <Table
+                title="By role"
+                rows={data?.assignments?.byRole || []}
+                columns={["Role", "Count"]}
+                renderRow={(row) => [row.role, row.count]}
+              />
+            </div>
             <Table
               title="Open assignments"
               rows={data?.assignments?.open || []}
               columns={["Flight", "Employee", "Role", "Status"]}
               renderRow={(row) => [
-                row.flight_number || row.flight_id,
-                row.first_name ? `${row.first_name} ${row.last_name}` : "Open",
+                <span key="flight" className="font-bold">{row.flight_number || row.flight_id}</span>,
+                row.first_name ? `${row.first_name} ${row.last_name}` : <span key="open" className="text-[#5e3f3c] italic">Open</span>,
                 row.assignment_role,
-                row.status,
+                <StatusBadge key="status" status={row.status} />,
               ]}
             />
           </Section>
@@ -373,54 +379,67 @@ export default function OperationsDashboardPage() {
           title="Real-time operations feed"
           subtitle="Live operational events merged from flights, bookings, payments, and assignments."
         >
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <label className="text-sm font-medium text-slate-600">
-              Feed size
+          <div className="mb-6 flex flex-wrap items-center gap-3 bg-[#fcf9f8] p-4 rounded-2xl border border-[#e5e2e1]">
+            <label className="text-sm font-bold text-[#1A1A1A]">
+              Feed size:
             </label>
             <select
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              className="rounded-xl border border-[#e5e2e1] bg-white px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none"
               value={query.limit}
               onChange={(e) =>
                 setQuery({ limit: Number(e.target.value) || 12 })
               }
             >
-              <option value={8}>8</option>
-              <option value={12}>12</option>
-              <option value={20}>20</option>
-              <option value={30}>30</option>
+              <option value={8}>8 events</option>
+              <option value={12}>12 events</option>
+              <option value={20}>20 events</option>
+              <option value={30}>30 events</option>
             </select>
             <button
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+              className="ml-auto rounded-xl border border-[#e5e2e1] bg-white hover:bg-[#fcf9f8] transition-colors px-5 py-2 text-sm font-bold text-[#1A1A1A] flex items-center gap-2 shadow-sm"
               onClick={load}
             >
-              Refresh now
+              <span className="material-symbols-outlined text-[18px]">refresh</span>
+              Refresh Now
             </button>
           </div>
-          <div className="space-y-3">
+          
+          <div className="space-y-4">
             {loading && !data ? (
-              <div className="text-sm text-slate-500">Loading feed...</div>
+              <div className="flex items-center justify-center p-8">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
             ) : null}
-            {(data?.feed || []).length === 0 ? (
-              <div className="text-sm text-slate-500">
-                No recent operations yet.
+            {(data?.feed || []).length === 0 && !loading ? (
+              <div className="text-center py-12 bg-[#fcf9f8] rounded-2xl border border-dashed border-[#e5e2e1]">
+                <span className="material-symbols-outlined text-[#5e3f3c] text-4xl mb-2">inbox</span>
+                <div className="font-semibold text-[#1A1A1A]">No recent operations</div>
+                <div className="text-sm text-[#5e3f3c]">Check back later for new events.</div>
               </div>
             ) : (
               (data?.feed || []).map((item: any) => (
                 <div
                   key={`${item.type}-${item.at}-${item.title}`}
-                  className="flex flex-col gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-start sm:justify-between"
+                  className="flex flex-col gap-2 rounded-2xl border border-[#e5e2e1] bg-white p-5 sm:flex-row sm:items-start sm:justify-between shadow-sm hover:border-primary/30 transition-colors"
                 >
-                  <div>
-                    <div className="text-sm font-bold text-slate-900">
-                      {item.title}
+                  <div className="flex items-start gap-4">
+                    <div className="mt-1 bg-[#fcf9f8] p-2 rounded-lg border border-[#e5e2e1]">
+                      <span className="material-symbols-outlined text-primary text-[20px]">
+                        {item.type === 'flight' ? 'flight' : item.type === 'booking' ? 'book_online' : item.type === 'payment' ? 'payments' : 'assignment_ind'}
+                      </span>
                     </div>
-                    {item.detail ? (
-                      <div className="text-sm text-slate-600">
-                        {item.detail}
+                    <div>
+                      <div className="text-base font-bold text-[#1A1A1A]">
+                        {item.title}
                       </div>
-                    ) : null}
+                      {item.detail ? (
+                        <div className="text-sm text-[#5e3f3c] mt-1">
+                          {item.detail}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-[#5e3f3c] bg-[#fcf9f8] px-3 py-1.5 rounded-lg border border-[#e5e2e1]">
                     {new Date(item.at).toLocaleString()}
                   </div>
                 </div>
@@ -430,6 +449,28 @@ export default function OperationsDashboardPage() {
         </Section>
       </main>
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (!status) return null;
+  const s = status.toLowerCase();
+  
+  let colorClass = "bg-gray-100 text-gray-700 border-gray-200";
+  if (["confirmed", "active", "completed", "success", "approved"].includes(s)) {
+    colorClass = "bg-green-50 text-green-700 border-green-200";
+  } else if (["pending", "scheduled", "draft", "in_progress"].includes(s)) {
+    colorClass = "bg-amber-50 text-amber-700 border-amber-200";
+  } else if (["cancelled", "failed", "conflict", "suspended"].includes(s)) {
+    colorClass = "bg-red-50 text-[#c8102e] border-red-200";
+  } else if (["on leave", "archived", "refunded"].includes(s)) {
+    colorClass = "bg-slate-100 text-slate-600 border-slate-200";
+  }
+
+  return (
+    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${colorClass}`}>
+      {status}
+    </span>
   );
 }
 
@@ -446,32 +487,37 @@ function Table({
 }) {
   if (!rows || rows.length === 0) {
     return (
-      <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-        {title}: no records yet.
+      <div className="mt-4 rounded-2xl border border-dashed border-[#e5e2e1] bg-[#fcf9f8] p-8 text-center">
+        <span className="material-symbols-outlined text-[#5e3f3c] text-3xl mb-2">table_rows</span>
+        <div className="font-semibold text-[#1A1A1A]">{title}</div>
+        <div className="text-sm text-[#5e3f3c]">No records available.</div>
       </div>
     );
   }
 
   return (
-    <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
-      <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
-        {title}
+    <div className="overflow-x-auto rounded-2xl border border-[#e5e2e1] shadow-sm">
+      <div className="border-b border-[#e5e2e1] bg-[#fcf9f8] px-5 py-4 flex items-center justify-between">
+        <div className="font-bold text-[#1A1A1A]">{title}</div>
+        <div className="text-xs font-bold text-[#5e3f3c] bg-white px-2.5 py-1 rounded-md border border-[#e5e2e1]">
+          {rows.length} records
+        </div>
       </div>
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-white text-left text-xs uppercase tracking-[0.12em] text-slate-500">
+      <table className="min-w-full divide-y divide-[#e5e2e1] text-sm">
+        <thead className="bg-white">
           <tr>
             {columns.map((column) => (
-              <th key={column} className="px-4 py-3">
+              <th key={column} className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-widest text-[#5e3f3c]">
                 {column}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
-          {rows.slice(0, 8).map((row) => (
-            <tr key={row.id || JSON.stringify(row)}>
+        <tbody className="divide-y divide-[#e5e2e1] bg-white">
+          {rows.slice(0, 8).map((row, i) => (
+            <tr key={row.id || JSON.stringify(row) || i} className="hover:bg-[#fcf9f8] transition-colors">
               {renderRow(row).map((cell, index) => (
-                <td key={index} className="px-4 py-3 align-top text-slate-700">
+                <td key={index} className="px-5 py-4 align-middle text-[#1A1A1A]">
                   {cell}
                 </td>
               ))}
@@ -485,14 +531,15 @@ function Table({
 
 function MiniList({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <div className="text-sm font-semibold text-slate-700">{title}</div>
-      <div className="mt-3 space-y-2 text-sm text-slate-600">
+    <div className="rounded-2xl border border-[#e5e2e1] bg-[#fcf9f8] p-5">
+      <div className="text-sm font-bold text-[#1A1A1A]">{title}</div>
+      <div className="mt-4 space-y-3">
         {items.length === 0 ? (
-          <div>No data</div>
+          <div className="text-sm text-[#5e3f3c] italic">No data available</div>
         ) : (
           items.map((item) => (
-            <div key={item} className="rounded-xl bg-white px-3 py-2 shadow-sm">
+            <div key={item} className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-sm border border-[#e5e2e1]/50 text-sm font-medium text-[#1A1A1A]">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
               {item}
             </div>
           ))

@@ -206,19 +206,22 @@ export default function BookingPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Booking Creation</h1>
-        <p className="text-sm text-slate-500">
-          Skeleton booking flow with saved passenger selection.
-        </p>
+    <div className="min-h-screen bg-[#fcf9f8] text-[#1A1A1A]">
+      <div className="bg-[#410001] py-12 mb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Booking Creation</h1>
+          <p className="text-white/80">
+            Secure your flight and passenger details seamlessly.
+          </p>
+        </div>
       </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-12">
+      <div className="grid gap-6 md:grid-cols-2 bg-white p-6 sm:p-8 rounded-2xl shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1] mb-8">
         <label className="space-y-2">
-          <span className="block text-sm font-medium">Flight</span>
+          <span className="block text-sm font-semibold text-[#5e3f3c]">Flight</span>
           <select
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
             value={selectedFlightId}
             onChange={(e) => setSelectedFlightId(e.target.value)}
           >
@@ -231,9 +234,9 @@ export default function BookingPage() {
         </label>
 
         <label className="space-y-2">
-          <span className="block text-sm font-medium">Seat Class</span>
+          <span className="block text-sm font-semibold text-[#5e3f3c]">Seat Class</span>
           <select
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
             value={seatClass}
             onChange={(e) => setSeatClass(e.target.value as any)}
           >
@@ -245,9 +248,9 @@ export default function BookingPage() {
         </label>
 
         <label className="space-y-2">
-          <span className="block text-sm font-medium">Seat Count</span>
+          <span className="block text-sm font-semibold text-[#5e3f3c]">Seat Count</span>
           <input
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
             type="number"
             min={1}
             value={seatCount}
@@ -256,9 +259,9 @@ export default function BookingPage() {
         </label>
 
         <label className="space-y-2">
-          <span className="block text-sm font-medium">Promo Code</span>
+          <span className="block text-sm font-semibold text-[#5e3f3c]">Promo Code</span>
           <input
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
             value={promoCode}
             onChange={(e) => setPromoCode(e.target.value)}
             placeholder="Optional"
@@ -266,9 +269,9 @@ export default function BookingPage() {
         </label>
 
         <label className="space-y-2">
-          <span className="block text-sm font-medium">Contact Email</span>
+          <span className="block text-sm font-semibold text-[#5e3f3c]">Contact Email</span>
           <input
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
             value={contactEmail}
             onChange={(e) => setContactEmail(e.target.value)}
             placeholder="Optional"
@@ -276,9 +279,9 @@ export default function BookingPage() {
         </label>
 
         <label className="space-y-2">
-          <span className="block text-sm font-medium">Contact Phone</span>
+          <span className="block text-sm font-semibold text-[#5e3f3c]">Contact Phone</span>
           <input
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
             value={contactPhone}
             onChange={(e) => setContactPhone(e.target.value)}
             placeholder="Optional"
@@ -287,29 +290,34 @@ export default function BookingPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded border p-4">
-          <h2 className="font-medium mb-3">Saved Passengers</h2>
-          <div className="space-y-2 max-h-80 overflow-auto">
+        <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
+          <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Saved Passengers</h2>
+          <div className="space-y-3 max-h-96 overflow-auto pr-2">
             {profiles.length === 0 ? (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-[#5e3f3c]">
                 No saved passengers found.
               </p>
             ) : (
               profiles.map((profile) => (
                 <label
                   key={profile.id}
-                  className="flex items-start gap-3 rounded border p-2"
+                  className={`flex items-start gap-4 rounded-xl border p-4 cursor-pointer transition-all ${
+                    selectedProfileIds.includes(profile.id)
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-[#e5e2e1] hover:border-[#d7d3d2] hover:bg-[#fcf9f8]"
+                  }`}
                 >
                   <input
                     type="checkbox"
+                    className="mt-1 w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
                     checked={selectedProfileIds.includes(profile.id)}
                     onChange={() => toggleProfile(profile.id)}
                   />
                   <span>
-                    <span className="block font-medium">
+                    <span className="block font-bold text-[#1A1A1A]">
                       {profile.firstName} {profile.lastName}
                     </span>
-                    <span className="block text-xs text-slate-500">
+                    <span className="block text-sm text-[#5e3f3c] mt-1">
                       {profile.passportNo || "No passport"}
                       {profile.vipLabel ? ` • ${profile.vipLabel}` : ""}
                     </span>
@@ -318,8 +326,8 @@ export default function BookingPage() {
                         profile.travelPreferences?.accessibilityNeeds ||
                         null,
                     ) ? (
-                      <span className="block text-xs text-slate-500">
-                        Accessibility:{" "}
+                      <span className="block text-sm text-primary mt-1">
+                        <span className="font-semibold">Accessibility:</span>{" "}
                         {accessibilityNeedsSummary(
                           profile.accessibilityNeeds ||
                             profile.travelPreferences?.accessibilityNeeds ||
@@ -328,7 +336,7 @@ export default function BookingPage() {
                       </span>
                     ) : null}
                     {profile.tags?.length ? (
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-[#5e3f3c] mt-2 bg-[#f6f3f2] px-2 py-1 rounded w-fit">
                         Tags: {profile.tags.join(", ")}
                       </span>
                     ) : null}
@@ -339,11 +347,11 @@ export default function BookingPage() {
           </div>
         </section>
 
-        <section className="rounded border p-4">
-          <h2 className="font-medium mb-3">Add Passenger During Booking</h2>
-          <div className="grid gap-2 md:grid-cols-2">
+        <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
+          <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Add Draft Passenger</h2>
+          <div className="grid gap-4 md:grid-cols-2">
             <input
-              className="rounded border p-2"
+              className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
               placeholder="First name"
               value={draftPassenger.firstName}
               onChange={(e) =>
@@ -354,7 +362,7 @@ export default function BookingPage() {
               }
             />
             <input
-              className="rounded border p-2"
+              className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
               placeholder="Last name"
               value={draftPassenger.lastName}
               onChange={(e) =>
@@ -365,7 +373,7 @@ export default function BookingPage() {
               }
             />
             <input
-              className="rounded border p-2"
+              className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
               placeholder="Passport no."
               value={draftPassenger.passportNo}
               onChange={(e) =>
@@ -376,7 +384,7 @@ export default function BookingPage() {
               }
             />
             <input
-              className="rounded border p-2"
+              className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
               placeholder="Nationality"
               value={draftPassenger.nationality}
               onChange={(e) =>
@@ -387,12 +395,13 @@ export default function BookingPage() {
               }
             />
           </div>
-          <div className="mt-4 space-y-3 rounded border bg-slate-50 p-3">
-            <p className="text-sm font-medium">Accessibility & special needs</p>
-            <div className="grid gap-2 md:grid-cols-2">
-              <label className="flex items-center gap-2 text-sm">
+          <div className="mt-6 space-y-4 rounded-xl border border-[#e5e2e1] bg-[#fcf9f8] p-5">
+            <p className="text-sm font-bold text-[#1A1A1A]">Accessibility & Special Needs</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="flex items-center gap-2 text-sm text-[#5e3f3c] cursor-pointer">
                 <input
                   type="checkbox"
+                  className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
                   checked={
                     draftPassenger.accessibilityNeeds.wheelchairAssistance
                   }
@@ -404,9 +413,10 @@ export default function BookingPage() {
                 />
                 Wheelchair assistance
               </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm text-[#5e3f3c] cursor-pointer">
                 <input
                   type="checkbox"
+                  className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
                   checked={
                     draftPassenger.accessibilityNeeds.visualImpairmentAssistance
                   }
@@ -418,9 +428,10 @@ export default function BookingPage() {
                 />
                 Visual impairment assistance
               </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm text-[#5e3f3c] cursor-pointer">
                 <input
                   type="checkbox"
+                  className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
                   checked={
                     draftPassenger.accessibilityNeeds
                       .hearingImpairmentAssistance
@@ -433,9 +444,10 @@ export default function BookingPage() {
                 />
                 Hearing impairment assistance
               </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm text-[#5e3f3c] cursor-pointer">
                 <input
                   type="checkbox"
+                  className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
                   checked={draftPassenger.accessibilityNeeds.accessibleSeating}
                   onChange={(e) =>
                     updateDraftAccessibility({
@@ -446,9 +458,9 @@ export default function BookingPage() {
                 Accessible seating
               </label>
             </div>
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               <input
-                className="rounded border p-2"
+                className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
                 placeholder="Medical assistance request"
                 value={
                   draftPassenger.accessibilityNeeds.medicalAssistance || ""
@@ -460,7 +472,7 @@ export default function BookingPage() {
                 }
               />
               <input
-                className="rounded border p-2"
+                className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
                 placeholder="Special meal request"
                 value={
                   draftPassenger.accessibilityNeeds.specialMealRequest || ""
@@ -471,9 +483,10 @@ export default function BookingPage() {
                   })
                 }
               />
-              <label className="flex items-center gap-2 rounded border p-2 text-sm">
+              <label className="flex items-center gap-2 rounded-lg border border-[#e5e2e1] bg-white p-2 text-sm text-[#5e3f3c] cursor-pointer">
                 <input
                   type="checkbox"
+                  className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
                   checked={
                     draftPassenger.accessibilityNeeds.companionSupport
                       ?.required ?? false
@@ -487,7 +500,7 @@ export default function BookingPage() {
                 Companion support required
               </label>
               <input
-                className="rounded border p-2"
+                className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
                 type="number"
                 min={0}
                 placeholder="Companion count"
@@ -505,8 +518,8 @@ export default function BookingPage() {
               />
             </div>
             <textarea
-              className="w-full rounded border p-2"
-              rows={3}
+              className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
+              rows={2}
               placeholder="Accessibility notes"
               value={draftPassenger.accessibilityNeeds.notes || ""}
               onChange={(e) =>
@@ -514,7 +527,7 @@ export default function BookingPage() {
               }
             />
             <input
-              className="w-full rounded border p-2"
+              className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
               placeholder="Companion support notes"
               value={
                 draftPassenger.accessibilityNeeds.companionSupport?.notes || ""
@@ -528,71 +541,98 @@ export default function BookingPage() {
           </div>
           <button
             type="button"
-            className="mt-3 rounded bg-slate-900 px-3 py-2 text-white"
+            className="mt-6 w-full py-3 px-4 rounded-lg border border-primary text-primary font-semibold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2 cursor-pointer"
             onClick={addDraftPassenger}
           >
-            Add passenger
+            <span className="material-symbols-outlined text-[18px]">person_add</span>
+            Add Draft Passenger
           </button>
 
-          <div className="mt-4 space-y-2">
-            <h3 className="text-sm font-medium">Selected draft passengers</h3>
+          <div className="mt-6 space-y-3">
+            <h3 className="text-sm font-bold text-[#1A1A1A]">Draft Passengers Queue</h3>
             {draftPassengers.length === 0 ? (
-              <p className="text-sm text-slate-500">None added yet.</p>
+              <p className="text-sm text-[#5e3f3c]">None added yet.</p>
             ) : (
-              draftPassengers.map((passenger, index) => (
-                <div
-                  key={`${passenger.firstName}-${index}`}
-                  className="rounded border p-2 text-sm"
-                >
-                  {passenger.firstName} {passenger.lastName} •{" "}
-                  {passenger.passportNo || "No passport"}
-                  {accessibilityNeedsSummary(
-                    passenger.accessibilityNeeds || null,
-                  ) ? (
-                    <span className="block text-xs text-slate-500">
-                      {accessibilityNeedsSummary(passenger.accessibilityNeeds)}
-                    </span>
-                  ) : null}
-                </div>
-              ))
+              <div className="space-y-2">
+                {draftPassengers.map((passenger, index) => (
+                  <div
+                    key={`${passenger.firstName}-${index}`}
+                    className="rounded-xl border border-primary bg-primary/5 p-4 text-sm"
+                  >
+                    <span className="font-bold text-[#1A1A1A]">{passenger.firstName} {passenger.lastName}</span> •{" "}
+                    <span className="text-[#5e3f3c]">{passenger.passportNo || "No passport"}</span>
+                    {accessibilityNeedsSummary(
+                      passenger.accessibilityNeeds || null,
+                    ) ? (
+                      <span className="block text-xs font-semibold text-primary mt-1">
+                        Needs: {accessibilityNeedsSummary(passenger.accessibilityNeeds)}
+                      </span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </section>
       </div>
 
-      <section className="rounded border p-4">
-        <h2 className="font-medium mb-2">Booking Summary</h2>
-        <p className="text-sm">Flight: {selectedFlightId || "none selected"}</p>
-        <p className="text-sm">Seat class: {seatClass}</p>
-        <p className="text-sm">Seat count: {seatCount}</p>
-        <p className="text-sm">
-          Saved passengers selected: {selectedProfiles.length}
-        </p>
-        <p className="text-sm">
-          Draft passengers added: {draftPassengers.length}
-        </p>
-        <p className="text-sm">
-          Total passengers to book:{" "}
-          {selectedProfiles.length + draftPassengers.length || seatCount}
-        </p>
+      <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
+        <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Booking Summary</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+          <div>
+            <span className="block text-xs text-[#5e3f3c] uppercase tracking-wider mb-1">Flight</span>
+            <span className="font-semibold text-[#1A1A1A]">{selectedFlightId || "none selected"}</span>
+          </div>
+          <div>
+            <span className="block text-xs text-[#5e3f3c] uppercase tracking-wider mb-1">Seat Class</span>
+            <span className="font-semibold text-[#1A1A1A] capitalize">{seatClass.toLowerCase().replace('_', ' ')}</span>
+          </div>
+          <div>
+            <span className="block text-xs text-[#5e3f3c] uppercase tracking-wider mb-1">Seat Count</span>
+            <span className="font-semibold text-[#1A1A1A]">{seatCount}</span>
+          </div>
+          <div>
+            <span className="block text-xs text-[#5e3f3c] uppercase tracking-wider mb-1">Total Passengers</span>
+            <span className="font-semibold text-[#1A1A1A]">
+              {selectedProfiles.length + draftPassengers.length || seatCount}
+            </span>
+          </div>
+        </div>
+        
         <button
           type="button"
-          disabled={loading}
-          className="mt-3 rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-60"
+          disabled={loading || (!selectedFlightId)}
+          className="w-full sm:w-auto px-8 py-3 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer shadow-sm"
           onClick={createHold}
         >
-          {loading ? "Creating hold..." : "Create Booking Hold"}
+          {loading ? (
+            <>
+              <span className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              Create Booking Hold
+              <span className="material-symbols-outlined text-[18px]">airplane_ticket</span>
+            </>
+          )}
         </button>
-        {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="mt-4 text-sm font-semibold text-[#c8102e] bg-red-50 p-3 rounded-lg border border-red-100">{error}</p> : null}
         {hold ? (
-          <div className="mt-4 rounded border border-green-200 bg-green-50 p-3 text-sm">
-            <p className="font-medium">Hold created</p>
-            <p>Hold ID: {hold.holdId}</p>
-            <p>Expires: {new Date(hold.expiresAt).toLocaleString()}</p>
-            <p>Total: {hold.fare?.total ?? "n/a"}</p>
+          <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+              <p className="font-bold text-emerald-800 text-lg">Hold Successfully Created</p>
+            </div>
+            <div className="grid gap-2 text-sm text-emerald-700">
+              <p><span className="font-medium">Hold ID:</span> {hold.holdId}</p>
+              <p><span className="font-medium">Expires:</span> {new Date(hold.expiresAt).toLocaleString()}</p>
+              <p><span className="font-medium">Total:</span> {hold.fare?.total ?? "n/a"}</p>
+            </div>
           </div>
         ) : null}
       </section>
+      </div>
     </div>
   );
 }
