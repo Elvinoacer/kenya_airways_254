@@ -19,11 +19,28 @@ export default function Header() {
     <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md border-b border-outline-variant/30 shadow-sm transition-all duration-300 ease-in-out h-20">
       <div className="flex justify-between items-center px-5 md:px-20 py-4 w-full h-full max-w-7xl mx-auto">
         {/* Logo */}
-        <Link
-          href="/"
-          className="text-2xl font-bold tracking-tighter text-primary font-[Hanken_Grotesk]"
-        >
-          Kenya Airways
+        <Link href="/" className="inline-flex items-center">
+          <div className="relative inline-flex items-center bg-primary text-white px-3 py-2 rounded-tr-xl rounded-bl-xl">
+            <img
+              src="/images/image.png"
+              alt="Kenya Airways"
+              className="h-8 md:h-10 w-auto object-contain"
+            />
+            <span className="sr-only">Kenya Airways</span>
+            {/* Slanted accent on the right to match branding */}
+            <span className="absolute -right-3 top-0 bottom-0 flex items-center pointer-events-none">
+              <svg
+                width="36"
+                height="64"
+                viewBox="0 0 36 64"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-primary"
+              >
+                <polygon points="0,0 36,32 0,64" fill="currentColor" />
+              </svg>
+            </span>
+          </div>
         </Link>
 
         {/* Desktop Nav */}

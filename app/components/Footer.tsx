@@ -33,17 +33,27 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-12 lg:gap-8 mb-16">
           {/* Brand & Newsletter */}
           <div className="md:col-span-12 lg:col-span-4 flex flex-col gap-6">
-            <Link href="/" className="inline-block">
-              <span className="text-3xl font-black tracking-wider text-white">
-                KENYA <span className="text-[#c8102e]">AIRWAYS</span>
-              </span>
+            <Link href="/" className="inline-flex items-center gap-3">
+              <img
+                src="/images/image.png"
+                alt="Kenya Airways"
+                className="h-8 md:h-10 w-auto object-contain"
+              />
+              <span className="sr-only">Kenya Airways</span>
             </Link>
             <p className="text-white/60 text-sm leading-relaxed max-w-sm">
-              The Pride of Africa. Connecting Africa to the World and the World to Africa since 1977.
+              The Pride of Africa. Connecting Africa to the World and the World
+              to Africa since 1977.
             </p>
             <div className="mt-4">
-              <h4 className="text-white font-semibold mb-3">Subscribe to our newsletter</h4>
-              <form className="flex gap-2" action="/api/newsletter" method="POST">
+              <h4 className="text-white font-semibold mb-3">
+                Subscribe to our newsletter
+              </h4>
+              <form
+                className="flex gap-2"
+                action="/api/newsletter"
+                method="POST"
+              >
                 <input
                   type="email"
                   placeholder="Email address"
@@ -64,7 +74,13 @@ export default function Footer() {
             {footerLinks.map((group, i) => (
               <div key={i} className="flex flex-col gap-4">
                 <h4 className="text-white font-semibold mb-2">
-                  {i === 0 ? "Company" : i === 1 ? "Travel" : i === 2 ? "Support" : "Legal"}
+                  {i === 0
+                    ? "Company"
+                    : i === 1
+                      ? "Travel"
+                      : i === 2
+                        ? "Support"
+                        : "Legal"}
                 </h4>
                 {group.map(({ label, href }) => (
                   <Link
@@ -84,28 +100,40 @@ export default function Footer() {
           <p className="text-sm text-white/40">
             © {new Date().getFullYear()} Kenya Airways. All rights reserved.
           </p>
-          
+
           {/* Social Icons Placeholder */}
           <div className="flex items-center gap-4">
-            {["facebook", "twitter", "instagram", "youtube", "linkedin"].map((social) => (
-              <a
-                key={social}
-                href="#"
-                className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
-                aria-label={social}
-              >
-                <span className="text-white/60 text-xs">{social.substring(0, 2)}</span>
-              </a>
-            ))}
+            {["facebook", "twitter", "instagram", "youtube", "linkedin"].map(
+              (social) => (
+                <a
+                  key={social}
+                  href="#"
+                  className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+                  aria-label={social}
+                >
+                  <span className="text-white/60 text-xs">
+                    {social.substring(0, 2)}
+                  </span>
+                </a>
+              ),
+            )}
           </div>
 
           {/* Alliances/Partners */}
           <div className="flex items-center gap-6">
-            <span className="text-white/40 text-sm font-semibold tracking-wider">SKYTEAM</span>
+            <span className="text-white/40 text-sm font-semibold tracking-wider">
+              SKYTEAM
+            </span>
             <div className="flex gap-2">
-              <span className="px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-white/60">VISA</span>
-              <span className="px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-white/60">MC</span>
-              <span className="px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-white/60">M-PESA</span>
+              <span className="px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-white/60">
+                VISA
+              </span>
+              <span className="px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-white/60">
+                MC
+              </span>
+              <span className="px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-white/60">
+                M-PESA
+              </span>
             </div>
           </div>
         </div>

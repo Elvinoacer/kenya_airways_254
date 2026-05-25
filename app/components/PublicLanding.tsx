@@ -31,29 +31,59 @@ const offers = [
     city: "Kigali",
     dates: "03 Sept - 16 Sept 26",
     price: "USD 960",
-    img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/lux_items.png",
+    img: "/images/kigali.jpg",
   },
   {
     city: "Lagos",
     dates: "31 Aug - 15 Sept 26",
     price: "USD 966",
-    img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/beach_happy.png",
+    img: "/images/lagos.webp",
   },
   {
     city: "Entebbe",
     dates: "26 Aug - 10 Sept 26",
     price: "USD 989",
-    img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/man_in_vacation.png",
+    img: "/images/entebbe.jpeg",
   },
 ];
 
 const popularDestinations = [
-  { city: "Mombasa", country: "Kenya", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/desert_view.png", price: "USD 120" },
-  { city: "Zanzibar", country: "Tanzania", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/celebration_stad.png", price: "USD 240" },
-  { city: "Cape Town", country: "South Africa", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/happy_vacation_woman.png", price: "USD 450" },
-  { city: "Dubai", country: "UAE", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/gamers_park.png", price: "USD 380" },
-  { city: "London", country: "UK", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/travellers.png", price: "USD 620" },
-  { city: "Paris", country: "France", img: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/travellers_bags.png", price: "USD 590" },
+  {
+    city: "Mombasa",
+    country: "Kenya",
+    img: "/images/mombasa.webp",
+    price: "USD 120",
+  },
+  {
+    city: "Zanzibar",
+    country: "Tanzania",
+    img: "/images/aerial-view-of-zanzibar-island.jpg",
+    price: "USD 240",
+  },
+  {
+    city: "Cape Town",
+    country: "South Africa",
+    img: "/images/cape-town-1-1.jpg",
+    price: "USD 450",
+  },
+  {
+    city: "Dubai",
+    country: "UAE",
+    img: "/images/dubai_travel.jpeg",
+    price: "USD 380",
+  },
+  {
+    city: "London",
+    country: "UK",
+    img: "/images/london.jpeg",
+    price: "USD 620",
+  },
+  {
+    city: "Paris",
+    country: "France",
+    img: "/images/paris.webp",
+    price: "USD 590",
+  },
 ];
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -471,26 +501,30 @@ export default function KenyaAirwaysPage() {
               Popular Destinations
             </h2>
             <p className="text-[#5e3f3c] max-w-2xl mx-auto">
-              From the pristine beaches of the Indian Ocean to the bustling streets of global capitals, discover your next adventure with our expansive network.
+              From the pristine beaches of the Indian Ocean to the bustling
+              streets of global capitals, discover your next adventure with our
+              expansive network.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {popularDestinations.map((dest) => (
-              <Link 
+              <Link
                 key={dest.city}
                 href={`/search?destination=${encodeURIComponent(dest.city)}`}
                 className="group relative h-80 rounded-2xl overflow-hidden shadow-[0_12px_32px_rgba(13,13,13,0.08)] block"
               >
-                <img 
-                  src={dest.img} 
-                  alt={dest.city} 
+                <img
+                  src={dest.img}
+                  alt={dest.city}
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 w-full p-6 flex justify-between items-end">
                   <div>
-                    <h3 className="text-2xl font-semibold text-white mb-1">{dest.city}</h3>
+                    <h3 className="text-2xl font-semibold text-white mb-1">
+                      {dest.city}
+                    </h3>
                     <p className="text-white/80 text-sm">{dest.country}</p>
                   </div>
                   <div className="text-right">
@@ -502,12 +536,14 @@ export default function KenyaAirwaysPage() {
             ))}
           </div>
           <div className="mt-12 text-center">
-            <Link 
-              href="/search" 
+            <Link
+              href="/search"
               className="inline-flex items-center gap-2 bg-white border border-[#e5e2e1] text-[#1A1A1A] font-semibold px-8 py-3 rounded-lg hover:bg-[#f6f3f2] hover:border-[#d7d3d2] transition-colors shadow-sm"
             >
               View All Destinations
-              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              <span className="material-symbols-outlined text-[18px]">
+                arrow_forward
+              </span>
             </Link>
           </div>
         </section>
@@ -515,10 +551,15 @@ export default function KenyaAirwaysPage() {
         {/* ── Fleet Showcase ── */}
         <section className="w-full bg-[#1A1A1A] relative overflow-hidden">
           <div className="absolute inset-0 z-0 opacity-40 mix-blend-screen">
-             <img src="https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/flyover.png" alt="" className="w-full h-full object-cover" loading="lazy" />
+            <img
+              src="https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/flyover.png"
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
           </div>
           <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#1A1A1A] via-[#1A1A1A]/80 to-transparent" />
-          
+
           <div className="max-w-7xl mx-auto px-5 md:px-20 py-24 relative z-20">
             <div className="max-w-xl">
               <span className="text-sm font-medium tracking-widest uppercase text-white/60 mb-4 block">
@@ -528,34 +569,46 @@ export default function KenyaAirwaysPage() {
                 Experience the Boeing 787 Dreamliner
               </h2>
               <p className="text-lg text-white/80 mb-12">
-                Fly in unparalleled comfort. Featuring larger windows, cleaner air, and a quieter cabin, our flagship aircraft reduces jet lag and ensures you arrive refreshed.
+                Fly in unparalleled comfort. Featuring larger windows, cleaner
+                air, and a quieter cabin, our flagship aircraft reduces jet lag
+                and ensures you arrive refreshed.
               </p>
-              
+
               <div className="grid grid-cols-2 gap-8 mb-12">
                 <div>
                   <p className="text-4xl font-light text-primary mb-2">50+</p>
-                  <p className="text-sm text-white/60 font-medium">Global Destinations</p>
+                  <p className="text-sm text-white/60 font-medium">
+                    Global Destinations
+                  </p>
                 </div>
                 <div>
                   <p className="text-4xl font-light text-primary mb-2">4M+</p>
-                  <p className="text-sm text-white/60 font-medium">Passengers Annually</p>
+                  <p className="text-sm text-white/60 font-medium">
+                    Passengers Annually
+                  </p>
                 </div>
                 <div>
                   <p className="text-4xl font-light text-primary mb-2">60+</p>
-                  <p className="text-sm text-white/60 font-medium">Years of Excellence</p>
+                  <p className="text-sm text-white/60 font-medium">
+                    Years of Excellence
+                  </p>
                 </div>
                 <div>
                   <p className="text-4xl font-light text-primary mb-2">2x</p>
-                  <p className="text-sm text-white/60 font-medium">African Airline of the Year</p>
+                  <p className="text-sm text-white/60 font-medium">
+                    African Airline of the Year
+                  </p>
                 </div>
               </div>
-              
-              <Link 
-                href="/help" 
+
+              <Link
+                href="/help"
                 className="bg-primary text-white font-semibold px-8 py-3 rounded-lg hover:bg-[#e71520] transition-colors inline-flex items-center gap-2"
               >
                 Explore Our Fleet
-                <span className="material-symbols-outlined text-[18px]">flight_takeoff</span>
+                <span className="material-symbols-outlined text-[18px]">
+                  flight_takeoff
+                </span>
               </Link>
             </div>
           </div>
@@ -568,40 +621,70 @@ export default function KenyaAirwaysPage() {
               <h2 className="text-3xl md:text-4xl font-semibold text-[#1A1A1A] mb-4">
                 Why Fly With Kenya Airways
               </h2>
-              <p className="text-[#5e3f3c]">Award-winning service rooted in authentic African hospitality.</p>
+              <p className="text-[#5e3f3c]">
+                Award-winning service rooted in authentic African hospitality.
+              </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               <div className="text-center px-4">
                 <div className="w-16 h-16 rounded-2xl bg-[#fcf9f8] flex items-center justify-center mx-auto mb-6 text-primary border border-[#e5e2e1]">
-                  <span className="material-symbols-outlined text-3xl">verified_user</span>
+                  <span className="material-symbols-outlined text-3xl">
+                    verified_user
+                  </span>
                 </div>
-                <h3 className="text-xl font-semibold text-[#1A1A1A] mb-3">Safety First</h3>
-                <p className="text-sm text-[#5e3f3c]">IOSA registered and globally recognized for our impeccable safety record.</p>
+                <h3 className="text-xl font-semibold text-[#1A1A1A] mb-3">
+                  Safety First
+                </h3>
+                <p className="text-sm text-[#5e3f3c]">
+                  IOSA registered and globally recognized for our impeccable
+                  safety record.
+                </p>
               </div>
-              
+
               <div className="text-center px-4">
                 <div className="w-16 h-16 rounded-2xl bg-[#fcf9f8] flex items-center justify-center mx-auto mb-6 text-primary border border-[#e5e2e1]">
-                  <span className="material-symbols-outlined text-3xl">volunteer_activism</span>
+                  <span className="material-symbols-outlined text-3xl">
+                    volunteer_activism
+                  </span>
                 </div>
-                <h3 className="text-xl font-semibold text-[#1A1A1A] mb-3">African Hospitality</h3>
-                <p className="text-sm text-[#5e3f3c]">Experience the warmth and care that makes every journey feel like coming home.</p>
+                <h3 className="text-xl font-semibold text-[#1A1A1A] mb-3">
+                  African Hospitality
+                </h3>
+                <p className="text-sm text-[#5e3f3c]">
+                  Experience the warmth and care that makes every journey feel
+                  like coming home.
+                </p>
               </div>
-              
+
               <div className="text-center px-4">
                 <div className="w-16 h-16 rounded-2xl bg-[#fcf9f8] flex items-center justify-center mx-auto mb-6 text-primary border border-[#e5e2e1]">
-                  <span className="material-symbols-outlined text-3xl">public</span>
+                  <span className="material-symbols-outlined text-3xl">
+                    public
+                  </span>
                 </div>
-                <h3 className="text-xl font-semibold text-[#1A1A1A] mb-3">Global Network</h3>
-                <p className="text-sm text-[#5e3f3c]">Seamlessly connecting Africa to the rest of the world through our SkyTeam alliance.</p>
+                <h3 className="text-xl font-semibold text-[#1A1A1A] mb-3">
+                  Global Network
+                </h3>
+                <p className="text-sm text-[#5e3f3c]">
+                  Seamlessly connecting Africa to the rest of the world through
+                  our SkyTeam alliance.
+                </p>
               </div>
-              
+
               <div className="text-center px-4">
                 <div className="w-16 h-16 rounded-2xl bg-[#fcf9f8] flex items-center justify-center mx-auto mb-6 text-primary border border-[#e5e2e1]">
-                  <span className="material-symbols-outlined text-3xl">stars</span>
+                  <span className="material-symbols-outlined text-3xl">
+                    stars
+                  </span>
                 </div>
-                <h3 className="text-xl font-semibold text-[#1A1A1A] mb-3">Award Winning</h3>
-                <p className="text-sm text-[#5e3f3c]">Consistently voted as Africa's Leading Airline for both Business and Economy class.</p>
+                <h3 className="text-xl font-semibold text-[#1A1A1A] mb-3">
+                  Award Winning
+                </h3>
+                <p className="text-sm text-[#5e3f3c]">
+                  Consistently voted as Africa's Leading Airline for both
+                  Business and Economy class.
+                </p>
               </div>
             </div>
           </div>
@@ -613,23 +696,61 @@ export default function KenyaAirwaysPage() {
             <h2 className="text-3xl md:text-4xl font-semibold text-[#1A1A1A] mb-12 text-center">
               What Our Passengers Say
             </h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {[
-                { name: "Sarah Jenkins", role: "Frequent Flyer", text: "The hospitality on board was unmatched. The crew made sure I was comfortable throughout the entire 12-hour flight from New York to Nairobi.", avatar: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/happy_vacation_woman.png" },
-                { name: "David Ochieng", role: "Business Traveler", text: "I fly KQ monthly for business across the continent. Their punctuality and the seamless connections at JKIA make my work so much easier.", avatar: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/man_in_vacation.png" },
-                { name: "Elena Rossi", role: "Tourist", text: "Starting our safari vacation with Kenya Airways set the perfect tone. The Dreamliner experience was fantastic, and the food was surprisingly good!", avatar: "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/happy_booking.png" }
+                {
+                  name: "Sarah Jenkins",
+                  role: "Frequent Flyer",
+                  text: "The hospitality on board was unmatched. The crew made sure I was comfortable throughout the entire 12-hour flight from New York to Nairobi.",
+                  avatar:
+                    "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/happy_vacation_woman.png",
+                },
+                {
+                  name: "David Ochieng",
+                  role: "Business Traveler",
+                  text: "I fly KQ monthly for business across the continent. Their punctuality and the seamless connections at JKIA make my work so much easier.",
+                  avatar:
+                    "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/man_in_vacation.png",
+                },
+                {
+                  name: "Elena Rossi",
+                  role: "Tourist",
+                  text: "Starting our safari vacation with Kenya Airways set the perfect tone. The Dreamliner experience was fantastic, and the food was surprisingly good!",
+                  avatar:
+                    "https://justintime.sfo3.digitaloceanspaces.com/kenya_airways/happy_booking.png",
+                },
               ].map((testimonial, i) => (
-                <div key={i} className="bg-white p-8 rounded-2xl shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
+                <div
+                  key={i}
+                  className="bg-white p-8 rounded-2xl shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]"
+                >
                   <div className="flex text-[#ffb4ab] mb-6">
-                    {[...Array(5)].map((_, j) => <span key={j} className="material-symbols-outlined text-xl">star</span>)}
+                    {[...Array(5)].map((_, j) => (
+                      <span
+                        key={j}
+                        className="material-symbols-outlined text-xl"
+                      >
+                        star
+                      </span>
+                    ))}
                   </div>
-                  <p className="text-[#1A1A1A] font-medium leading-relaxed mb-8">"{testimonial.text}"</p>
+                  <p className="text-[#1A1A1A] font-medium leading-relaxed mb-8">
+                    "{testimonial.text}"
+                  </p>
                   <div className="flex items-center gap-4">
-                    <img src={testimonial.avatar} alt={testimonial.name} className="w-12 h-12 rounded-full bg-[#f6f3f2]" />
+                    <img
+                      src={testimonial.avatar}
+                      alt={testimonial.name}
+                      className="w-12 h-12 rounded-full bg-[#f6f3f2]"
+                    />
                     <div>
-                      <h4 className="font-semibold text-[#1A1A1A]">{testimonial.name}</h4>
-                      <p className="text-sm text-[#5e3f3c]">{testimonial.role}</p>
+                      <h4 className="font-semibold text-[#1A1A1A]">
+                        {testimonial.name}
+                      </h4>
+                      <p className="text-sm text-[#5e3f3c]">
+                        {testimonial.role}
+                      </p>
                     </div>
                   </div>
                 </div>
