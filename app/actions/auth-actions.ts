@@ -44,8 +44,25 @@ async function getActiveSession(): Promise<SessionPayload | null> {
   const cookieVal = cookieStore.get("kq_session")?.value;
   const payload = await verifySessionCookie(cookieVal);
   if (!payload) return null;
-  const active = await isSessionActiveInDb(payload.sessionId);
-  return active ? payload : null;
+  try {
+    const active = await isSessionActiveInDb(payload.sessionId);
+    return active ? payload : null;
+  } catch {
+    return null;
+  }
+}
+
+function authDatabaseErrorMessage(error: unknown) {
+  const err = error as { code?: string; message?: string; cause?: { code?: string; message?: string } };
+  const code = err.code || err.cause?.code || "";
+  const message = `${err.message || ""} ${err.cause?.message || ""}`;
+  if (
+    ["ETIMEDOUT", "ECONNRESET", "ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "P1001", "P1002"].includes(code) ||
+    /timeout|timed out|can't reach database|connection/i.test(message)
+  ) {
+    return "The database connection is temporarily unavailable. Please try again in a moment.";
+  }
+  return null;
 }
 
 // ─────────────────────────────────────────
@@ -114,7 +131,7 @@ export async function registerAction(email: string, password: string, name: stri
 
     return { success: true, message: "Registration successful! Please check your email for a verification link." };
   } catch (err: any) {
-    return { success: false, error: err.message || "An unexpected error occurred during registration." };
+    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An unexpected error occurred during registration." };
   }
 }
 
@@ -255,7 +272,7 @@ export async function loginAction(
       },
     };
   } catch (err: any) {
-    return { success: false, error: err.message || "An unexpected error occurred during login." };
+    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An unexpected error occurred during login." };
   }
 }
 
@@ -321,7 +338,7 @@ export async function verify2FALoginAction(
       },
     };
   } catch (err: any) {
-    return { success: false, error: err.message || "An error occurred during 2FA verification." };
+    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An error occurred during 2FA verification." };
   }
 }
 
@@ -400,7 +417,7 @@ export async function forgotPasswordAction(email: string) {
 
     return { success: true, message: "If this email is registered, you will receive a password reset link shortly." };
   } catch (err: any) {
-    return { success: false, error: err.message || "An unexpected error occurred." };
+    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An unexpected error occurred." };
   }
 }
 
@@ -435,7 +452,7 @@ export async function resetPasswordAction(token: string, passwordStr: string) {
 
     return { success: true, message: "Password has been reset successfully! You can now log in." };
   } catch (err: any) {
-    return { success: false, error: err.message || "An error occurred during password reset." };
+    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An error occurred during password reset." };
   }
 }
 
@@ -452,7 +469,7 @@ export async function verifyEmailAction(token: string) {
 
     return { success: true, message: "Email has been verified successfully! You can now log in." };
   } catch (err: any) {
-    return { success: false, error: err.message || "An error occurred during email verification." };
+    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An error occurred during email verification." };
   }
 }
 
@@ -557,6 +574,24 @@ export async function getProfileInfo() {
       orderBy: { createdAt: "desc" },
     });
 
+    // Normalize passenger shape for UI and convert DOB to YYYY-MM-DD for date inputs
+    const passenger = user.passengerProfile
+      ? {
+          id: user.passengerProfile.id,
+          firstName: user.passengerProfile.firstName,
+          lastName: user.passengerProfile.lastName,
+          phone: user.passengerProfile.phone || null,
+          passportNumber: user.passengerProfile.passportNumber || null,
+          nationality: user.passengerProfile.nationality || null,
+          dateOfBirth: user.passengerProfile.dateOfBirth
+            ? user.passengerProfile.dateOfBirth.toISOString().split("T")[0]
+            : null,
+          frequentFlyerNo: user.passengerProfile.frequentFlyerNo || null,
+          createdAt: user.passengerProfile.createdAt.toISOString(),
+          updatedAt: user.passengerProfile.updatedAt.toISOString(),
+        }
+      : null;
+
     return {
       user: {
         id: user.id,
@@ -566,7 +601,7 @@ export async function getProfileInfo() {
         twoFactorEnabled: user.twoFactorEnabled,
         avatarUrl: user.avatarUrl,
       },
-      passenger: user.passengerProfile,
+      passenger,
       activeSessions: activeSessions.map(
         (s: { id: string; ipAddress: string | null; userAgent: string | null; createdAt: Date }) => ({
           id: s.id,

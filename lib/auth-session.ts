@@ -42,8 +42,9 @@ export async function createDbSession(
   const expiresAt = new Date(Date.now() + duration);
 
   // Check onboarding status
-  const passenger = await prisma.passenger.findUnique({
-    where: { userId },
+  const passenger = await prisma.passenger.findUnique({ where: { userId } }).catch((error) => {
+    console.warn("Could not check passenger onboarding during session creation", String(error));
+    return null;
   });
 
   // Passenger role requires onboarding, STAFF/ADMIN bypass onboarding
@@ -77,18 +78,26 @@ export async function createDbSession(
 
 // Revoke a single session
 export async function revokeSession(sessionId: string): Promise<void> {
-  await prisma.session.update({
-    where: { id: sessionId },
-    data: { isValid: false },
-  });
+  await prisma.session
+    .update({
+      where: { id: sessionId },
+      data: { isValid: false },
+    })
+    .catch((error) => {
+      console.warn("Could not revoke session", String(error));
+    });
 }
 
 // Revoke all user sessions (Logout from all devices)
 export async function revokeAllUserSessions(userId: string): Promise<void> {
-  await prisma.session.updateMany({
-    where: { userId },
-    data: { isValid: false },
-  });
+  await prisma.session
+    .updateMany({
+      where: { userId },
+      data: { isValid: false },
+    })
+    .catch((error) => {
+      console.warn("Could not revoke user sessions", String(error));
+    });
 }
 
 // Statefully verify session against database
@@ -97,14 +106,19 @@ export async function isSessionActiveInDb(sessionId: string): Promise<boolean> {
     return false;
   }
 
-  const session = await prisma.session.findUnique({
-    where: { id: sessionId },
-    select: { isValid: true, expiresAt: true },
-  });
-  if (!session) return false;
-  if (!session.isValid) return false;
+  try {
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { isValid: true, expiresAt: true },
+    });
+    if (!session) return false;
+    if (!session.isValid) return false;
 
-  return session.expiresAt.getTime() > Date.now();
+    return session.expiresAt.getTime() > Date.now();
+  } catch (error) {
+    console.warn("Session database check skipped", String(error));
+    return false;
+  }
 }
 
 // ─────────────────────────────────────────
@@ -113,21 +127,30 @@ export async function isSessionActiveInDb(sessionId: string): Promise<boolean> {
 
 // Record login attempt (failed or successful)
 export async function recordLoginAttempt(email: string, ipAddress: string): Promise<void> {
-  await prisma.loginAttempt.create({
-    data: { email, ipAddress },
-  });
+  await prisma.loginAttempt
+    .create({
+      data: { email, ipAddress },
+    })
+    .catch((error) => {
+      console.warn("Login attempt logging skipped", String(error));
+    });
 }
 
 // Throttle check: Maximum 10 login attempts in last 5 minutes per IP or email
 export async function isLoginThrottled(email: string, ipAddress: string): Promise<boolean> {
-  const windowStart = new Date(Date.now() - 5 * 60 * 1000);
-  const attempts = await prisma.loginAttempt.count({
-    where: {
-      createdAt: { gt: windowStart },
-      OR: [{ email }, { ipAddress }],
-    },
-  });
-  return attempts >= 10;
+  try {
+    const windowStart = new Date(Date.now() - 5 * 60 * 1000);
+    const attempts = await prisma.loginAttempt.count({
+      where: {
+        createdAt: { gt: windowStart },
+        OR: [{ email }, { ipAddress }],
+      },
+    });
+    return attempts >= 10;
+  } catch (error) {
+    console.warn("Login throttling skipped", String(error));
+    return false;
+  }
 }
 
 // Increments failed attempts and locks account if it reaches 5 failures
@@ -170,12 +193,17 @@ export async function checkSuspiciousLogin(
 ): Promise<boolean> {
   if (!ipAddress || !userAgent) return false;
 
-  const previousSessions = await prisma.session.findMany({
-    where: { userId, isValid: true },
-    orderBy: { createdAt: "desc" },
-    take: 5,
-    select: { ipAddress: true, userAgent: true },
-  });
+  const previousSessions = await prisma.session
+    .findMany({
+      where: { userId, isValid: true },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: { ipAddress: true, userAgent: true },
+    })
+    .catch((error) => {
+      console.warn("Suspicious login check skipped", String(error));
+      return [];
+    });
 
   if (previousSessions.length === 0) return false;
 
@@ -187,9 +215,13 @@ export async function checkSuspiciousLogin(
   );
 
   if (!ipMatched && !uaMatched) {
-    await prisma.suspiciousAlert.create({
-      data: { userId, ipAddress, userAgent },
-    });
+    await prisma.suspiciousAlert
+      .create({
+        data: { userId, ipAddress, userAgent },
+      })
+      .catch((error) => {
+        console.warn("Suspicious login alert skipped", String(error));
+      });
     return true;
   }
 

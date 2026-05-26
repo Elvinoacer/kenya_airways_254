@@ -17,61 +17,16 @@ function normalizePostgresUrl(connectionString: string) {
     url.searchParams.set("uselibpqcompat", "true");
   }
 
-  return url.toString();
-}
-
-function isTransientDatabaseError(error: unknown) {
-  const anyError = error as {
-    code?: string;
-    message?: string;
-    cause?: { code?: string; message?: string };
-  };
-  const code = anyError.code || anyError.cause?.code || "";
-  const message = `${anyError.message || ""} ${anyError.cause?.message || ""}`;
-  return (
-    ["ETIMEDOUT", "ECONNRESET", "ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "P1001", "P1002"].includes(code) ||
-    /timeout|timed out|connection terminated|connection.*closed|can't reach database/i.test(message)
-  );
-}
-
-function isReadOperation(operation: string) {
-  return [
-    "findUnique",
-    "findUniqueOrThrow",
-    "findFirst",
-    "findFirstOrThrow",
-    "findMany",
-    "count",
-    "aggregate",
-    "groupBy",
-  ].includes(operation);
-}
-
-async function withTransientReadRetry<T>(operation: string, run: () => Promise<T>) {
-  const maxAttempts = isReadOperation(operation) ? 3 : 1;
-  let lastError: unknown;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      return await run();
-    } catch (error) {
-      lastError = error;
-      if (attempt >= maxAttempts || !isTransientDatabaseError(error)) {
-        throw error;
-      }
-
-      const delayMs = 200 * attempt;
-      console.warn("Transient database error, retrying read query", {
-        operation,
-        attempt,
-        delayMs,
-        error: String(error),
-      });
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
+  if (
+    process.env.DATABASE_DISABLE_NEON_POOLER !== "true" &&
+    url.hostname.endsWith(".neon.tech") &&
+    !url.hostname.includes("-pooler.")
+  ) {
+    const [endpoint, ...rest] = url.hostname.split(".");
+    url.hostname = [`${endpoint}-pooler`, ...rest].join(".");
   }
 
-  throw lastError;
+  return url.toString();
 }
 
 const connectionString = normalizePostgresUrl(rawConnectionString);
@@ -105,16 +60,8 @@ if (globalForPrisma.prisma) {
 
   prismaInstance = new PrismaClient({
     adapter,
-    log: ["error", "warn"],
-  }).$extends({
-    query: {
-      $allModels: {
-        async $allOperations({ operation, args, query }) {
-          return withTransientReadRetry(operation, () => query(args));
-        },
-      },
-    },
-  }) as unknown as PrismaClient;
+    log: process.env.PRISMA_LOG_QUERIES === "true" ? ["query", "warn", "error"] : ["warn"],
+  });
 
   if (process.env.NODE_ENV !== "production") {
     globalForPrisma.prisma = prismaInstance;
