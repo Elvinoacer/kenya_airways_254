@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import messaging from "./messaging";
+import { sendEmail } from "./notifications";
 
 type UserExportRow = Awaited<ReturnType<typeof prisma.user.findMany>>[number];
 
@@ -22,19 +23,48 @@ export async function getUser(id: string) {
 }
 
 export async function setUserRole(id: string, role: string) {
-  await prisma.user.update({
+  const normalizedRole = role.toUpperCase();
+  if (!["PASSENGER", "STAFF", "ADMIN"].includes(normalizedRole)) {
+    throw new Error("Invalid role");
+  }
+
+  const updated = await prisma.user.update({
     where: { id },
-    data: { role: role as any },
+    data: { role: normalizedRole as any },
   });
   await prisma.auditLog.create({
     data: {
       action: "set_role",
       targetType: "user",
       targetId: id,
-      detailsJson: JSON.stringify({ role }),
+      detailsJson: JSON.stringify({ role: normalizedRole }),
     },
   });
-  return getUser(id);
+
+  if (updated.email && normalizedRole !== "PASSENGER") {
+    await sendEmail(
+      updated.email,
+      `Your Kenya Airways ${normalizedRole === "ADMIN" ? "admin" : "staff"} access is ready`,
+      [
+        `Hello ${updated.name || "there"},`,
+        "",
+        `Your account has been approved for ${normalizedRole.toLowerCase()} access by an administrator.`,
+        "Sign in with your existing email and password to continue.",
+        "",
+        "If you were not expecting this access, contact the administrator immediately.",
+      ].join("\n"),
+      {
+        eyebrow: normalizedRole === "ADMIN" ? "Admin access" : "Staff access",
+        preheader: "Your Kenya Airways team access has been approved.",
+        cta: {
+          label: "Sign in to your account",
+          url: `${process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000"}/login`,
+        },
+      },
+    );
+  }
+
+  return updated;
 }
 
 export async function getSetting(key: string) {

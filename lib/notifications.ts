@@ -79,79 +79,146 @@ export async function sendWebPushToSubscription(sub: any, payload: any) {
   }
 }
 
-export async function sendEmail(to: string, subject: string, body: string) {
-  try {
-    const resendApiKey = process.env.RESEND_API_KEY;
-    const resendFrom = process.env.RESEND_FROM || process.env.EMAIL_FROM || "Kenya Airways <no-reply@kenyaairways.com>";
+type EmailOptions = {
+  html?: string;
+  preheader?: string;
+  eyebrow?: string;
+  cta?: {
+    label: string;
+    url: string;
+  };
+  code?: string;
+};
 
-    if (resendApiKey) {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: resendFrom,
-          to: [to],
-          subject,
-          text: body,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        throw new Error(`Resend API error: ${response.status} ${errorText}`);
-      }
-
-      return { ok: true };
-    }
-
-    const smtpHost = process.env.SMTP_HOST;
-    if (smtpHost) {
-      const mod = eval("require")("nodemailer");
-      const nodemailer = (mod && mod.default) || mod;
-      if (!nodemailer) throw new Error("nodemailer not installed");
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: Number(process.env.SMTP_PORT || 587),
-        secure: (process.env.SMTP_SECURE || "false") === "true",
-        auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
-      });
-      await transporter.sendMail({
-        from: process.env.EMAIL_FROM || "no-reply@example.com",
-        to,
-        subject,
-        text: body,
-      });
-      return { ok: true };
-    }
-
-    throw new Error("No email provider configured. Set RESEND_API_KEY or SMTP_HOST.");
-  } catch (err) {
-    console.warn("sendEmail failed", String(err));
-    return { ok: false, error: String(err) };
-  }
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
-export async function sendSms(to: string, message: string) {
+function textToParagraphs(text: string) {
+  return text
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => {
+      const escaped = escapeHtml(block).replace(/\n/g, "<br />");
+      return `<p style="margin:0 0 16px;color:#4b3330;font-size:15px;line-height:1.65;">${escaped}</p>`;
+    })
+    .join("");
+}
+
+export function buildPremiumEmailHtml(subject: string, body: string, options: EmailOptions = {}) {
+  const preheader = options.preheader || "An update from Kenya Airways.";
+  const eyebrow = options.eyebrow || "Kenya Airways";
+  const cta = options.cta
+    ? `<tr>
+        <td style="padding:10px 32px 26px;">
+          <a href="${escapeHtml(options.cta.url)}" style="display:inline-block;background:#bb0013;color:#ffffff;text-decoration:none;font-weight:800;font-size:15px;letter-spacing:.01em;padding:14px 22px;border-radius:10px;box-shadow:0 12px 24px rgba(187,0,19,.22);">${escapeHtml(options.cta.label)}</a>
+        </td>
+      </tr>`
+    : "";
+  const code = options.code
+    ? `<tr>
+        <td style="padding:4px 32px 24px;">
+          <div style="display:inline-block;background:#fcf9f8;border:1px solid #e5e2e1;border-radius:14px;padding:16px 22px;color:#410001;font-size:30px;line-height:1;font-weight:900;letter-spacing:8px;">${escapeHtml(options.code)}</div>
+        </td>
+      </tr>`
+    : "";
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f6f3f2;font-family:Arial,Helvetica,sans-serif;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader)}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f3f2;padding:32px 14px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e8d8d5;box-shadow:0 20px 48px rgba(65,0,1,.12);">
+            <tr>
+              <td style="background:#410001;padding:28px 32px;color:#ffffff;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td>
+                      <div style="font-weight:900;font-size:20px;letter-spacing:.08em;text-transform:uppercase;">Kenya <span style="color:#ffb4aa;">Airways</span></div>
+                      <div style="margin-top:8px;color:#ffddd8;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;">${escapeHtml(eyebrow)}</div>
+                    </td>
+                    <td align="right" style="color:#ffb4aa;font-size:13px;font-weight:700;">The Pride of Africa</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:34px 32px 12px;">
+                <h1 style="margin:0;color:#1A1A1A;font-size:30px;line-height:1.18;letter-spacing:0;font-weight:900;">${escapeHtml(subject)}</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 4px;">
+                ${textToParagraphs(body)}
+              </td>
+            </tr>
+            ${code}
+            ${cta}
+            <tr>
+              <td style="padding:0 32px 32px;">
+                <div style="border-top:1px solid #eee5e3;padding-top:18px;color:#7a5b57;font-size:12px;line-height:1.6;">
+                  This message was sent by Kenya Airways. For your security, never share passwords or verification codes with anyone.
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#1A1A1A;padding:18px 32px;color:#ffffff99;font-size:12px;line-height:1.6;">
+                Kenya Airways &bull; Connecting Africa to the world
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+export async function sendEmail(to: string, subject: string, body: string, options: EmailOptions = {}) {
   try {
-    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM) {
-      const mod = eval("require")("twilio");
-      const Twilio = (mod && mod.default) || mod;
-      if (!Twilio) throw new Error("twilio not installed");
-      const client = Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-      await client.messages.create({
-        body: message,
-        to,
-        from: process.env.TWILIO_FROM,
-      });
-      return { ok: true };
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const resendFrom = process.env.RESEND_FROM || "Kenya Airways <no-reply@kenyaairways.com>";
+
+    if (!resendApiKey) {
+      throw new Error("RESEND_API_KEY is not configured.");
     }
-    console.log(`[sms] to=${to} message=${message}`);
+
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: resendFrom,
+        to: [to],
+        subject,
+        text: body,
+        html: options.html || buildPremiumEmailHtml(subject, body, options),
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new Error(`Resend API error: ${response.status} ${errorText}`);
+    }
+
     return { ok: true };
   } catch (err) {
-    console.warn("sendSms failed", String(err));
+    console.warn("sendEmail failed", String(err));
     return { ok: false, error: String(err) };
   }
 }
@@ -194,9 +261,6 @@ export async function notifyPassengersForFlight(
         `Your flight ${flightId} status: ${update.status}. ${update.note || ""}`,
       );
     }
-    if (b.contactPhone) {
-      await sendSms(b.contactPhone, `Flight ${flightId} update: ${update.status}. ${update.note || ""}`);
-    }
     notified += 1;
   }
   return notified;
@@ -234,9 +298,6 @@ export async function processDueReminders() {
       if (user?.email) {
         await sendEmail(user.email, `Reminder: ${r.type}`, params.message || "Reminder from airline");
       }
-      if (user?.phone) {
-        await sendSms(user.phone, params.message || "Reminder from airline");
-      }
       if (r.userId) {
         await createInAppNotification(r.userId, r.type, params.title || "Reminder", params.message || "Reminder");
       }
@@ -260,7 +321,6 @@ export default {
   savePushSubscription,
   sendWebPushToSubscription,
   sendEmail,
-  sendSms,
   notifyPassengersForFlight,
   scheduleReminder,
   processDueReminders,

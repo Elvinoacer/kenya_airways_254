@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 import { getPayment, updatePaymentStatus } from "./payments";
-import { sendEmail, sendSms } from "./notifications";
+import { sendEmail } from "./notifications";
 import { RefundStatus } from "@prisma/client";
 
 export type RefundInput = {
@@ -52,34 +52,20 @@ async function refreshPaymentRefundStatus(paymentId: string) {
   const payment = await getPayment(paymentId);
   if (!payment) return;
   const refunds = await getRefundsForPayment(paymentId);
-  const refundedAmount = refunds.reduce(
-    (sum, refund) => sum + Number(refund.amount || 0),
-    0,
-  );
+  const refundedAmount = refunds.reduce((sum, refund) => sum + Number(refund.amount || 0), 0);
   const paymentAmount = Number(payment.amount || 0);
   if (paymentAmount > 0 && refundedAmount >= paymentAmount - 0.01) {
-    await updatePaymentStatus(
-      paymentId,
-      "REFUNDED",
-      payment.providerPaymentId || undefined,
-    );
+    await updatePaymentStatus(paymentId, "REFUNDED", payment.providerPaymentId || undefined);
   }
 }
 
 function notifyRefundStatus(refund: any, message: string) {
   const email = refund.contactEmail;
-  const phone = refund.contactPhone;
   if (email) {
     void sendEmail(
       email,
       `Refund ${refund.refundRef} ${refund.status.toLowerCase()}`,
       `${message}\nAmount: ${refund.amount} ${refund.currency}`,
-    );
-  }
-  if (phone) {
-    void sendSms(
-      phone,
-      `Refund ${refund.refundRef} ${refund.status.toLowerCase()}: ${message}`,
     );
   }
 }
@@ -89,10 +75,8 @@ async function completeRefund(refundId: string, actor?: string) {
   if (!refund) throw new Error("Refund not found");
   if (refund.status === "COMPLETED") return refund;
 
-  const providerRefundId =
-    refund.providerRefundId ||
-    `${refund.provider || "manual"}-refund-${Date.now()}`;
-  
+  const providerRefundId = refund.providerRefundId || `${refund.provider || "manual"}-refund-${Date.now()}`;
+
   const updated = await prisma.refund.update({
     where: { id: refundId },
     data: {
@@ -101,7 +85,7 @@ async function completeRefund(refundId: string, actor?: string) {
       completedAt: new Date(),
     },
   });
-  
+
   await recordRefundEvent(refundId, "COMPLETED", "Refund completed", actor, {
     providerRefundId,
   });
@@ -126,9 +110,7 @@ export async function createRefundRequest(input: RefundInput) {
   const payment = input.paymentId ? await getPayment(input.paymentId) : null;
   const refundRef = `RFD-${Date.now()}`;
   const currency = input.currency || payment?.currency || "KES";
-  const status: RefundStatus = input.approvalRequired
-    ? "PENDING_APPROVAL"
-    : "REQUESTED";
+  const status: RefundStatus = input.approvalRequired ? "PENDING_APPROVAL" : "REQUESTED";
   const provider = input.provider || payment?.provider || null;
 
   const refund = await prisma.refund.create({
@@ -156,13 +138,7 @@ export async function createRefundRequest(input: RefundInput) {
     },
   });
 
-  await recordRefundEvent(
-    refund.id,
-    refund.status,
-    "Refund requested",
-    input.requestedBy,
-    input.metadata,
-  );
+  await recordRefundEvent(refund.id, refund.status, "Refund requested", input.requestedBy, input.metadata);
 
   if (refund.status === "PENDING_APPROVAL") {
     notifyRefundStatus(refund, "Your refund is waiting for manual approval.");
@@ -176,7 +152,7 @@ export async function approveRefund(refundId: string, actor?: string) {
   const refund = await getRefund(refundId);
   if (!refund) throw new Error("Refund not found");
   if (refund.status === "REJECTED") throw new Error("Refund was rejected");
-  
+
   await prisma.refund.update({
     where: { id: refundId },
     data: {
@@ -185,19 +161,15 @@ export async function approveRefund(refundId: string, actor?: string) {
       approvedAt: new Date(),
     },
   });
-  
+
   await recordRefundEvent(refundId, "APPROVED", "Refund approved", actor);
   return processRefund(refundId, actor);
 }
 
-export async function rejectRefund(
-  refundId: string,
-  actor?: string,
-  reason?: string,
-) {
+export async function rejectRefund(refundId: string, actor?: string, reason?: string) {
   const refund = await getRefund(refundId);
   if (!refund) throw new Error("Refund not found");
-  
+
   const updated = await prisma.refund.update({
     where: { id: refundId },
     data: {
@@ -207,13 +179,8 @@ export async function rejectRefund(
       failureReason: reason || "Rejected by reviewer",
     },
   });
-  
-  await recordRefundEvent(
-    refundId,
-    "REJECTED",
-    reason || "Rejected by reviewer",
-    actor,
-  );
+
+  await recordRefundEvent(refundId, "REJECTED", reason || "Rejected by reviewer", actor);
   notifyRefundStatus(updated, reason || "Your refund was rejected.");
   return updated;
 }
@@ -239,15 +206,15 @@ export async function processRefund(refundId: string, actor?: string) {
       completedAt: new Date(),
     },
   });
-  
+
   await recordRefundEvent(refundId, "COMPLETED", "Refund completed", actor, {
     providerRefundId,
   });
-  
+
   if (updated.paymentId) {
     await refreshPaymentRefundStatus(updated.paymentId);
   }
-  
+
   notifyRefundStatus(updated, "Your refund has been completed.");
   return updated;
 }
@@ -278,8 +245,7 @@ export async function createRefundForCancellation(input: {
     currency: input.currency || payment?.currency || "KES",
     reason: input.reason,
     partial: input.partial,
-    approvalRequired:
-      input.requestedByRole === "STAFF" || input.requestedByRole === "ADMIN",
+    approvalRequired: input.requestedByRole === "STAFF" || input.requestedByRole === "ADMIN",
     requestedByRole: input.requestedByRole,
     requestedBy: input.actor,
     provider: payment?.provider,
@@ -297,26 +263,22 @@ export async function createRefundForCancellation(input: {
 
 export async function getRefundReport() {
   const refunds = await listRefunds();
-  const byStatus = refunds.reduce<
-    Record<string, { count: number; amount: number }>
-  >((acc, refund) => {
+  const byStatus = refunds.reduce<Record<string, { count: number; amount: number }>>((acc, refund) => {
     const status = refund.status;
     if (!acc[status]) acc[status] = { count: 0, amount: 0 };
     acc[status].count += 1;
     acc[status].amount += Number(refund.amount || 0);
     return acc;
   }, {});
-  
+
   const totals = refunds.reduce(
     (acc, refund) => {
       acc.count += 1;
       acc.amount += Number(refund.amount || 0);
       if (refund.partial) acc.partialCount += 1;
       if (refund.approvalRequired) acc.manualApprovalCount += 1;
-      if (refund.status === "COMPLETED")
-        acc.completedAmount += Number(refund.amount || 0);
-      if (refund.status === "FAILED")
-        acc.failedAmount += Number(refund.amount || 0);
+      if (refund.status === "COMPLETED") acc.completedAmount += Number(refund.amount || 0);
+      if (refund.status === "FAILED") acc.failedAmount += Number(refund.amount || 0);
       return acc;
     },
     {
@@ -328,7 +290,7 @@ export async function getRefundReport() {
       manualApprovalCount: 0,
     },
   );
-  
+
   return {
     totals,
     byStatus,

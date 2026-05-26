@@ -3,7 +3,7 @@ import admin from "@/lib/admin";
 
 export async function GET(req: Request) {
   try {
-    const users = admin.listUsers(500);
+    const users = await admin.listUsers(500);
     return NextResponse.json({ data: users });
   } catch (e: any) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -19,7 +19,7 @@ export async function PATCH(req: Request) {
         { error: "id and role required" },
         { status: 400 },
       );
-    const updated = admin.setUserRole(id, role);
+    const updated = await admin.setUserRole(id, role);
     return NextResponse.json({ data: updated });
   } catch (e: any) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

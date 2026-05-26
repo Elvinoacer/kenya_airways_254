@@ -39,12 +39,7 @@ async function getActiveSession(): Promise<SessionPayload | null> {
 // 1. User Registration
 // ─────────────────────────────────────────
 
-export async function registerAction(
-  email: string,
-  password: string,
-  name: string,
-  role: "PASSENGER" | "STAFF" | "ADMIN" = "PASSENGER",
-) {
+export async function registerAction(email: string, password: string, name: string) {
   try {
     if (!email || !password || password.length < 8) {
       return { success: false, error: "Email is required and password must be at least 8 characters long." };
@@ -58,8 +53,6 @@ export async function registerAction(
       return { success: false, error: "A user with this email address already exists." };
     }
 
-    const userCount = await prisma.user.count();
-    const effectiveRole = userCount === 0 ? role : "PASSENGER";
     const passwordHash = hashPassword(password);
 
     // Save user
@@ -68,7 +61,7 @@ export async function registerAction(
         email,
         name: name || null,
         passwordHash,
-        role: effectiveRole as any,
+        role: "PASSENGER",
         emailVerified: false,
         failedAttempts: 0,
       },
@@ -84,11 +77,16 @@ export async function registerAction(
       [
         `Hello ${name || "there"},`,
         "",
-        "Please verify your email address to activate your account:",
+        "Welcome to Kenya Airways. Verify your email address to activate your passenger account:",
         verificationUrl,
         "",
         "If you did not request this, you can ignore this message.",
       ].join("\n"),
+      {
+        eyebrow: "Account verification",
+        preheader: "Confirm your email address and finish setting up your Kenya Airways account.",
+        cta: { label: "Verify email address", url: verificationUrl },
+      },
     );
 
     if (!emailResult.ok) {
@@ -171,7 +169,7 @@ export async function loginAction(
       return {
         success: false,
         error:
-          "Please verify your email address before signing in. Check your inbox or the development server logs for the verification link.",
+          "Please verify your email address before signing in. Check your inbox for the verification link.",
       };
     }
 
@@ -191,6 +189,11 @@ export async function loginAction(
           "This code expires in 5 minutes.",
           "If you did not try to sign in, please ignore this email.",
         ].join("\n"),
+        {
+          eyebrow: "Secure sign in",
+          preheader: "Use this one-time code to complete your Kenya Airways sign in.",
+          code,
+        },
       );
 
       if (!emailResult.ok) {
@@ -365,6 +368,11 @@ export async function forgotPasswordAction(email: string) {
           "",
           "If you did not request this, you can ignore this email.",
         ].join("\n"),
+        {
+          eyebrow: "Password reset",
+          preheader: "Reset your Kenya Airways password securely.",
+          cta: { label: "Reset password", url: resetUrl },
+        },
       );
 
       if (!emailResult.ok) {
