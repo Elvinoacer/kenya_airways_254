@@ -75,6 +75,9 @@ export default function FlightCard({
   const originCity = flight.originCity || originAirport?.city || flight.origin;
   const destinationCity =
     flight.destinationCity || destinationAirport?.city || flight.destination;
+    
+  const routeTitle = flight.routeTitle || `${originCity} to ${destinationCity}`;
+  const routeImage = flight.routeImage || "/images/hero_banner.png";
 
   return (
     <article className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md">
@@ -94,7 +97,7 @@ export default function FlightCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600">
           <span className="rounded-md bg-white px-2.5 py-1 shadow-sm border border-gray-100">
             {flight.aircraft}
           </span>
@@ -103,21 +106,39 @@ export default function FlightCard({
           </span>
           {totalSeats < 10 && (
             <span className="rounded-md bg-red-50 text-red-600 px-2.5 py-1 font-semibold border border-red-100">
-              Only {totalSeats} seats left
+              Only {totalSeats} left
             </span>
           )}
         </div>
       </header>
 
-      {/* Main Body: Times, Route, and Price */}
-      <div className="flex flex-col lg:flex-row">
+      {/* Main Body */}
+      <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-center">
         
+        {/* Re-introduced Image: Now a sleek, controlled thumbnail */}
+        <div className="group relative h-48 w-full shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-36 lg:h-32 lg:w-48 shadow-sm">
+          <img
+            src={routeImage}
+            alt={routeTitle}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+          <div className="absolute bottom-3 left-3 right-3">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-white/80 drop-shadow-md">
+              Destination
+            </p>
+            <h4 className="truncate text-sm font-bold text-white drop-shadow-md">
+              {destinationCity}
+            </h4>
+          </div>
+        </div>
+
         {/* Flight Route Details */}
-        <div className="flex flex-1 items-center justify-between p-5 sm:p-6">
+        <div className="flex flex-1 items-center justify-between">
           
           {/* Origin */}
-          <div className="w-[100px] sm:w-[140px]">
-            <time className="block text-2xl sm:text-3xl font-bold text-gray-900">
+          <div className="w-[80px] sm:w-[120px]">
+            <time className="block text-2xl sm:text-3xl font-black text-gray-900">
               {formatTime(flight.departAt)}
             </time>
             <p className="mt-1 text-xs sm:text-sm font-medium text-gray-500">
@@ -130,8 +151,8 @@ export default function FlightCard({
           </div>
 
           {/* Timeline & Duration */}
-          <div className="flex flex-1 flex-col items-center px-4 sm:px-8">
-            <span className="mb-2 text-xs font-semibold text-gray-500">
+          <div className="flex flex-1 flex-col items-center px-2 sm:px-6">
+            <span className="mb-2 whitespace-nowrap text-xs font-semibold text-gray-500">
               {durationHours}h {durationMins}m
             </span>
             <div className="flex w-full items-center">
@@ -141,14 +162,14 @@ export default function FlightCard({
               </span>
               <div className="h-[2px] flex-1 rounded-full bg-gray-200" />
             </div>
-            <span className={`mt-2 rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider ${flight.stops === 0 ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"}`}>
+            <span className={`mt-2 whitespace-nowrap rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider ${flight.stops === 0 ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"}`}>
               {stopsText}
             </span>
           </div>
 
           {/* Destination */}
-          <div className="w-[100px] text-right sm:w-[140px]">
-            <time className="block text-2xl sm:text-3xl font-bold text-gray-900">
+          <div className="w-[80px] text-right sm:w-[120px]">
+            <time className="block text-2xl sm:text-3xl font-black text-gray-900">
               {formatTime(flight.arriveAt)}
             </time>
             <p className="mt-1 text-xs sm:text-sm font-medium text-gray-500">
@@ -162,9 +183,9 @@ export default function FlightCard({
         </div>
 
         {/* Pricing & CTA */}
-        <div className="flex items-center justify-between border-t border-gray-100 p-5 sm:p-6 lg:min-w-[220px] lg:flex-col lg:justify-center lg:border-l lg:border-t-0 lg:bg-gray-50/30">
-          <div className="text-left lg:text-center">
-            <span className="text-xs font-medium uppercase tracking-wider text-gray-500">Price from</span>
+        <div className="flex items-center justify-between border-t border-gray-100 pt-5 lg:min-w-[180px] lg:flex-col lg:items-end lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+          <div className="text-left lg:text-right">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Price from</span>
             <div className="mt-1 text-2xl sm:text-3xl font-black text-[#e71520]">
               {formatCurrency(price, currency === "KES" ? "KES" : "USD")}
             </div>
@@ -172,9 +193,9 @@ export default function FlightCard({
           
           <Link
             href={`/bookings?flightId=${encodeURIComponent(flight.id)}`}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#e71520] px-6 py-3 text-sm font-bold text-white transition-all hover:bg-[#c9121a] focus:outline-none focus:ring-4 focus:ring-[#e71520]/20 lg:mt-4 lg:w-full"
+            className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-xl bg-[#e71520] px-5 py-3 text-sm font-bold text-white transition-all hover:bg-[#c9121a] focus:outline-none focus:ring-4 focus:ring-[#e71520]/20 lg:mt-4 lg:w-full"
           >
-            Select Flight
+            Select
             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
               arrow_forward
             </span>
@@ -190,7 +211,7 @@ export default function FlightCard({
             return (
               <div key={entry.code} className="flex items-center gap-2 text-sm">
                 <span className="font-medium text-gray-600">{entry.label}:</span>
-                <span className={`font-semibold ${isAvailable ? "text-emerald-600" : "text-gray-400"}`}>
+                <span className={`font-semibold ${isAvailable ? "text-emerald-700" : "text-gray-400"}`}>
                   {isAvailable ? `${entry.available} left` : "Sold out"}
                 </span>
               </div>
