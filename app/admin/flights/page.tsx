@@ -345,7 +345,10 @@ export default function FlightsAdminPage() {
                 type="number"
                 value={form.price_economy ?? ""}
                 onChange={(e) =>
-                  setForm({ ...form, price_economy: parseOptionalNumber(e.target.value) })
+                  setForm({
+                    ...form,
+                    price_economy: parseOptionalNumber(e.target.value),
+                  })
                 }
                 placeholder="Amount in USD"
                 className="w-full bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm"
@@ -359,7 +362,10 @@ export default function FlightsAdminPage() {
                 type="number"
                 value={form.price_business ?? ""}
                 onChange={(e) =>
-                  setForm({ ...form, price_business: parseOptionalNumber(e.target.value) })
+                  setForm({
+                    ...form,
+                    price_business: parseOptionalNumber(e.target.value),
+                  })
                 }
                 placeholder="Amount in USD"
                 className="w-full bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm"
@@ -373,7 +379,10 @@ export default function FlightsAdminPage() {
                 type="number"
                 value={form.price_first ?? ""}
                 onChange={(e) =>
-                  setForm({ ...form, price_first: parseOptionalNumber(e.target.value) })
+                  setForm({
+                    ...form,
+                    price_first: parseOptionalNumber(e.target.value),
+                  })
                 }
                 placeholder="Amount in USD"
                 className="w-full bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm"
@@ -533,7 +542,9 @@ export default function FlightsAdminPage() {
                       </td>
                       <td className="px-6 py-4 font-mono text-xs text-[#5e3f3c] space-y-1">
                         <div>
-                          <span className="font-bold text-[#1A1A1A]">Base:</span>{" "}
+                          <span className="font-bold text-[#1A1A1A]">
+                            Base:
+                          </span>{" "}
                           {getFlightDisplayPrice(f, f.priceKES)}
                         </div>
                         <div>
@@ -573,7 +584,9 @@ export default function FlightsAdminPage() {
                             onClick={() => editFlight(f)}
                             title="Edit"
                           >
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                            <span className="material-symbols-outlined text-[18px]">
+                              edit
+                            </span>
                           </button>
                           <button
                             className="bg-white border border-[#e5e2e1] hover:bg-[#fcf9f8] text-[#1A1A1A] rounded-lg px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer"
