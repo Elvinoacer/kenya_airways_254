@@ -1,4 +1,5 @@
 "use client";
+
 import React, { Suspense, useEffect, useState } from "react";
 import FlightCard from "./components/FlightCard";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -24,13 +25,22 @@ type SearchParams = {
 };
 
 function SearchContent() {
-  const [params, setParams] = useState<SearchParams>({ currency: "USD" });
+  const [params, setParams] = useState<SearchParams>({ currency: "USD", tripType: "return", passengers: "1" });
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
   const searchParamsHook = useSearchParams();
+
+  // Helper to swap origin and destination
+  const handleSwapRoute = () => {
+    setParams((prev) => ({
+      ...prev,
+      origin: prev.destination,
+      destination: prev.origin,
+    }));
+  };
 
   useEffect(() => {
     async function doSearch() {
@@ -41,12 +51,14 @@ function SearchContent() {
       Object.entries(params).forEach(([k, v]) => {
         if (v) qs.set(k, String(v));
       });
+
       // Keep URL in sync with params
       try {
         router.replace(`/search?${qs.toString()}`, { scroll: false });
       } catch (e) {
         /* ignore in environments without router support */
       }
+
       try {
         const res = await fetch(`/api/flights?${qs.toString()}`);
         const data = await res.json();
@@ -54,7 +66,7 @@ function SearchContent() {
         setResults(data.results || []);
       } catch (err: any) {
         setResults([]);
-        setError(err.message || "We couldn't load flights right now.");
+        setError(err.message || "We couldn't load flights right now. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -63,10 +75,9 @@ function SearchContent() {
   }, [params, initialized, router]);
 
   useEffect(() => {
-    // initialize from URL search params on mount
     try {
       const sp = Object.fromEntries(searchParamsHook?.entries() || []);
-      setParams({ currency: "USD", passengers: "1", ...sp } as any);
+      setParams({ currency: "USD", passengers: "1", tripType: "return", ...sp } as any);
       setInitialized(true);
     } catch (e) {
       setInitialized(true);
@@ -74,256 +85,463 @@ function SearchContent() {
   }, [searchParamsHook]);
 
   return (
-    <div className="min-h-screen bg-[#fcf9f8]">
-      {/* Premium Header */}
-      <div className="bg-[#410001] relative py-16 md:py-24">
-        <div className="absolute inset-0 overflow-hidden">
-          <img src="/images/dest_nairobi.svg" alt="Search flights" className="w-full h-full object-cover opacity-30 mix-blend-overlay" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#410001] to-transparent"></div>
+    <div className="min-h-screen bg-[#fcf9f8] font-sans selection:bg-[#e71520] selection:text-white">
+      {/* Premium Hero Header */}
+      <header className="bg-[#410001] relative py-20 md:py-28 overflow-hidden">
+        <div className="absolute inset-0">
+          <img
+            src="/images/dest_nairobi.svg"
+            alt="Search flights background"
+            className="w-full h-full object-cover opacity-20 mix-blend-overlay"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#410001] via-[#410001]/80 to-transparent"></div>
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Where to next?</h1>
-          <p className="text-xl text-white/80 max-w-2xl mx-auto">Find and book your perfect flight with Kenya Airways.</p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-4 tracking-tight">
+            Where to next?
+          </h1>
+          <p className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto font-medium">
+            Find and book your perfect flight with Kenya Airways.
+          </p>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 -mt-12 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          
-          {/* Sidebar / Form */}
-          <div className="lg:col-span-1">
-            <div className="bg-white p-6 rounded-2xl shadow-lg border border-[#e5e2e1]">
-              <h2 className="text-xl font-bold text-[#1A1A1A] mb-6 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">search</span>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 -mt-16 relative z-10">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+          {/* Form Sidebar (Takes 4 columns on large screens) */}
+          <div className="xl:col-span-4">
+            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#e5e2e1]">
+              <h2 className="text-2xl font-bold text-[#1A1A1A] mb-6 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#e71520]" aria-hidden="true">
+                  travel_explore
+                </span>
                 Find Flights
               </h2>
+
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   const form = new FormData(e.currentTarget as HTMLFormElement);
                   const next: any = {
-                    origin: String(form.get("origin") || ""),
-                    destination: String(form.get("destination") || ""),
+                    ...params, // Preserve existing params like tripType, origin, destination
                     departDate: String(form.get("departDate") || ""),
                     returnDate: String(form.get("returnDate") || ""),
-                    tripType: String(form.get("tripType") || "return"),
                     cabin: String(form.get("cabin") || ""),
                     passengers: String(form.get("passengers") || "1"),
-                    sort: String(form.get("sort") || "depart"),
                     currency: String(form.get("currency") || "USD") as "USD" | "KES",
                   };
+
+                  // Text input filters
                   const priceMin = form.get("priceMin");
                   const priceMax = form.get("priceMax");
                   const durationMax = form.get("durationMax");
-                  const departAfter = form.get("departAfter");
-                  const departBefore = form.get("departBefore");
-                  const directOnly = form.get("directOnly");
-                  const maxStops = form.get("maxStops");
-                  const aircraft = form.get("aircraft");
                   const seatsMin = form.get("seatsMin");
+
+                  // Checkbox filters
+                  const directOnly = form.get("directOnly");
                   const refundable = form.get("refundable");
                   const baggageIncluded = form.get("baggageIncluded");
-                  const mealIncluded = form.get("mealIncluded");
-                  const wifiAvailable = form.get("wifiAvailable");
 
                   if (priceMin) next.priceMin = String(priceMin);
                   if (priceMax) next.priceMax = String(priceMax);
                   if (durationMax) next.durationMax = String(durationMax);
-                  if (departAfter) next.departAfter = String(departAfter);
-                  if (departBefore) next.departBefore = String(departBefore);
-                  if (directOnly) next.directOnly = "true";
-                  if (maxStops) next.maxStops = String(maxStops);
-                  if (aircraft) next.aircraft = String(aircraft);
                   if (seatsMin) next.seatsMin = String(seatsMin);
+
+                  if (directOnly) next.directOnly = "true";
+                  else delete next.directOnly;
                   if (refundable) next.refundable = "true";
+                  else delete next.refundable;
                   if (baggageIncluded) next.baggageIncluded = "true";
+                  else delete next.baggageIncluded;
 
                   setParams(next);
                 }}
-                className="space-y-4"
+                className="space-y-6"
               >
-                <div>
-                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Trip</label>
-                  <select
-                    name="tripType"
-                    value={params.tripType || "return"}
-                    onChange={(event) =>
-                      setParams((current) => ({ ...current, tripType: event.target.value }))
-                    }
-                    className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
+                {/* 1. Trip Type Segmented Control */}
+                <div className="bg-[#fcf9f8] p-1.5 rounded-xl flex items-center border border-[#e5e2e1]">
+                  <button
+                    type="button"
+                    onClick={() => setParams((prev) => ({ ...prev, tripType: "return" }))}
+                    className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                      params.tripType === "return"
+                        ? "bg-white text-[#1A1A1A] shadow-sm ring-1 ring-black/5"
+                        : "text-[#5e3f3c] hover:text-[#1A1A1A]"
+                    }`}
                   >
-                    <option value="return">Return</option>
-                    <option value="oneway">One-way</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">From</label>
-                  <select
-                    name="origin"
-                    value={params.origin || ""}
-                    onChange={(event) =>
-                      setParams((current) => ({ ...current, origin: event.target.value }))
-                    }
-                    className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
+                    Return
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setParams((prev) => ({ ...prev, tripType: "oneway", returnDate: "" }))}
+                    className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                      params.tripType === "oneway"
+                        ? "bg-white text-[#1A1A1A] shadow-sm ring-1 ring-black/5"
+                        : "text-[#5e3f3c] hover:text-[#1A1A1A]"
+                    }`}
                   >
-                    <option value="">Any origin</option>
-                    {AIRPORTS.map((airport) => (
-                      <option key={airport.iata} value={airport.iata}>
-                        {airport.city} ({airport.iata})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">To</label>
-                  <select
-                    name="destination"
-                    value={params.destination || ""}
-                    onChange={(event) =>
-                      setParams((current) => ({ ...current, destination: event.target.value }))
-                    }
-                    className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
-                  >
-                    <option value="">Any destination</option>
-                    {AIRPORTS.map((airport) => (
-                      <option key={airport.iata} value={airport.iata}>
-                        {airport.city} ({airport.iata})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Depart</label>
-                  <input name="departDate" value={params.departDate || ""} onChange={(event) => setParams((current) => ({ ...current, departDate: event.target.value }))} type="date" className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]" />
-                </div>
-                {params.tripType !== "oneway" && (
-                  <div>
-                    <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Return</label>
-                    <input name="returnDate" value={params.returnDate || ""} onChange={(event) => setParams((current) => ({ ...current, returnDate: event.target.value }))} type="date" className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]" />
-                  </div>
-                )}
-                <div>
-                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Cabin</label>
-                  <select name="cabin" value={params.cabin || ""} onChange={(event) => setParams((current) => ({ ...current, cabin: event.target.value }))} className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white">
-                    <option value="">Any cabin</option>
-                    <option value="CLASS_A">Class A: Executive</option>
-                    <option value="CLASS_B">Class B: Middle class</option>
-                    <option value="CLASS_C">Class C: Low class</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Passengers</label>
-                  <input name="passengers" value={params.passengers || "1"} onChange={(event) => setParams((current) => ({ ...current, passengers: event.target.value }))} min="1" max="9" type="number" className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Currency</label>
-                  <select
-                    name="currency"
-                    value={params.currency || "USD"}
-                    onChange={(event) =>
-                      setParams((current) => ({ ...current, currency: event.target.value as "USD" | "KES" }))
-                    }
-                    className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
-                  >
-                    <option value="USD">USD</option>
-                    <option value="KES">KES</option>
-                  </select>
+                    One-way
+                  </button>
                 </div>
 
-                <div className="pt-4 border-t border-[#e5e2e1]">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-[#1A1A1A]">Filters</h3>
-                    <select name="sort" value={params.sort || "depart"} onChange={(event) => setParams((current) => ({ ...current, sort: event.target.value }))} className="text-sm rounded-lg border border-[#e5e2e1] bg-white px-2 py-1 text-[#1A1A1A]">
-                      <option value="depart">Earliest</option>
-                      <option value="price">Lowest price</option>
-                      <option value="duration">Shortest</option>
+                {/* 2. Route Settings */}
+                <div className="space-y-4 relative">
+                  <div>
+                    <label htmlFor="origin" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">
+                      From
+                    </label>
+                    <div className="relative">
+                      <span
+                        className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none"
+                        aria-hidden="true"
+                      >
+                        flight_takeoff
+                      </span>
+                      <select
+                        id="origin"
+                        name="origin"
+                        value={params.origin || ""}
+                        onChange={(e) => setParams((current) => ({ ...current, origin: e.target.value }))}
+                        className="w-full pl-11 pr-4 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow appearance-none"
+                      >
+                        <option value="">Any origin</option>
+                        {AIRPORTS.map((airport) => (
+                          <option key={airport.iata} value={airport.iata}>
+                            {airport.city} ({airport.iata})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Swap Button */}
+                  <div className="absolute right-4 top-[45%] -translate-y-1/2 z-10 hidden sm:block xl:hidden 2xl:block">
+                    <button
+                      type="button"
+                      onClick={handleSwapRoute}
+                      aria-label="Swap origin and destination"
+                      className="bg-white border border-[#e5e2e1] p-2 rounded-full shadow-sm text-[#5e3f3c] hover:text-[#e71520] hover:border-[#e71520] transition-colors focus:outline-none focus:ring-2 focus:ring-[#e71520]"
+                    >
+                      <span className="material-symbols-outlined text-sm" aria-hidden="true">
+                        swap_vert
+                      </span>
+                    </button>
+                  </div>
+
+                  <div>
+                    <label htmlFor="destination" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">
+                      To
+                    </label>
+                    <div className="relative">
+                      <span
+                        className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none"
+                        aria-hidden="true"
+                      >
+                        flight_land
+                      </span>
+                      <select
+                        id="destination"
+                        name="destination"
+                        value={params.destination || ""}
+                        onChange={(e) => setParams((current) => ({ ...current, destination: e.target.value }))}
+                        className="w-full pl-11 pr-4 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow appearance-none"
+                      >
+                        <option value="">Any destination</option>
+                        {AIRPORTS.map((airport) => (
+                          <option key={airport.iata} value={airport.iata}>
+                            {airport.city} ({airport.iata})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Dates */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="departDate" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">
+                      Depart
+                    </label>
+                    <div className="relative">
+                      <span
+                        className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none text-[20px]"
+                        aria-hidden="true"
+                      >
+                        calendar_month
+                      </span>
+                      <input
+                        id="departDate"
+                        name="departDate"
+                        defaultValue={params.departDate || ""}
+                        type="date"
+                        className="w-full pl-10 pr-3 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow"
+                      />
+                    </div>
+                  </div>
+                  <div className={`${params.tripType === "oneway" ? "opacity-50 pointer-events-none" : ""}`}>
+                    <label htmlFor="returnDate" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">
+                      Return
+                    </label>
+                    <div className="relative">
+                      <span
+                        className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none text-[20px]"
+                        aria-hidden="true"
+                      >
+                        calendar_month
+                      </span>
+                      <input
+                        id="returnDate"
+                        name="returnDate"
+                        defaultValue={params.returnDate || ""}
+                        type="date"
+                        disabled={params.tripType === "oneway"}
+                        className="w-full pl-10 pr-3 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Passengers & Cabin */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="passengers" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">
+                      Passengers
+                    </label>
+                    <div className="relative">
+                      <span
+                        className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none text-[20px]"
+                        aria-hidden="true"
+                      >
+                        person
+                      </span>
+                      <input
+                        id="passengers"
+                        name="passengers"
+                        defaultValue={params.passengers || "1"}
+                        min="1"
+                        max="9"
+                        type="number"
+                        className="w-full pl-10 pr-3 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="cabin" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">
+                      Cabin
+                    </label>
+                    <div className="relative">
+                      <span
+                        className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none text-[20px]"
+                        aria-hidden="true"
+                      >
+                        airline_seat_recline_extra
+                      </span>
+                      <select
+                        id="cabin"
+                        name="cabin"
+                        defaultValue={params.cabin || ""}
+                        className="w-full pl-10 pr-3 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow appearance-none"
+                      >
+                        <option value="">Any cabin</option>
+                        <option value="CLASS_A">Executive</option>
+                        <option value="CLASS_B">Middle class</option>
+                        <option value="CLASS_C">Low class</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Separator */}
+                <hr className="border-[#e5e2e1]" />
+
+                {/* 5. Filters & Preferences */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-[#1A1A1A] text-lg">Filters</h3>
+                    <select
+                      aria-label="Currency Selection"
+                      name="currency"
+                      defaultValue={params.currency || "USD"}
+                      className="text-sm font-medium rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-1.5 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520]"
+                    >
+                      <option value="USD">USD ($)</option>
+                      <option value="KES">KES (KSh)</option>
                     </select>
                   </div>
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input name="directOnly" type="checkbox" className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded" />
-                      <span className="text-sm text-[#5e3f3c]">Direct flights only</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input name="refundable" type="checkbox" className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded" />
-                      <span className="text-sm text-[#5e3f3c]">Refundable</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input name="baggageIncluded" type="checkbox" className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded" />
-                      <span className="text-sm text-[#5e3f3c]">Baggage Included</span>
-                    </label>
+
+                  <div className="space-y-3 mb-5">
+                    {[
+                      { id: "directOnly", label: "Direct flights only" },
+                      { id: "refundable", label: "Fully Refundable" },
+                      { id: "baggageIncluded", label: "Baggage Included" },
+                    ].map((checkbox) => (
+                      <label
+                        key={checkbox.id}
+                        htmlFor={checkbox.id}
+                        className="flex items-center gap-3 cursor-pointer group"
+                      >
+                        <input
+                          id={checkbox.id}
+                          name={checkbox.id}
+                          type="checkbox"
+                          defaultChecked={params[checkbox.id as keyof SearchParams] === "true"}
+                          className="w-5 h-5 text-[#e71520] bg-white border-[#e5e2e1] rounded focus:ring-[#e71520] focus:ring-offset-1 transition-all"
+                        />
+                        <span className="text-sm font-medium text-[#5e3f3c] group-hover:text-[#1A1A1A] transition-colors">
+                          {checkbox.label}
+                        </span>
+                      </label>
+                    ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-3 mt-4">
-                    <input name="priceMin" placeholder="Min price" className="w-full px-3 py-2 rounded-lg border border-[#e5e2e1] text-sm text-[#1A1A1A]" />
-                    <input name="priceMax" placeholder="Max price" className="w-full px-3 py-2 rounded-lg border border-[#e5e2e1] text-sm text-[#1A1A1A]" />
-                    <input name="durationMax" placeholder="Max mins" className="w-full px-3 py-2 rounded-lg border border-[#e5e2e1] text-sm text-[#1A1A1A]" />
-                    <input name="seatsMin" placeholder="Seats min" className="w-full px-3 py-2 rounded-lg border border-[#e5e2e1] text-sm text-[#1A1A1A]" />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      name="priceMin"
+                      aria-label="Minimum Price"
+                      defaultValue={params.priceMin || ""}
+                      placeholder="Min price"
+                      type="number"
+                      className="w-full px-4 py-2.5 rounded-xl border border-[#e5e2e1] text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] placeholder-[#5e3f3c]/50"
+                    />
+                    <input
+                      name="priceMax"
+                      aria-label="Maximum Price"
+                      defaultValue={params.priceMax || ""}
+                      placeholder="Max price"
+                      type="number"
+                      className="w-full px-4 py-2.5 rounded-xl border border-[#e5e2e1] text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] placeholder-[#5e3f3c]/50"
+                    />
+                    <input
+                      name="durationMax"
+                      aria-label="Maximum Duration (Minutes)"
+                      defaultValue={params.durationMax || ""}
+                      placeholder="Max duration (min)"
+                      type="number"
+                      className="w-full px-4 py-2.5 rounded-xl border border-[#e5e2e1] text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] placeholder-[#5e3f3c]/50"
+                    />
+                    <input
+                      name="seatsMin"
+                      aria-label="Minimum Seats Required"
+                      defaultValue={params.seatsMin || ""}
+                      placeholder="Min seats"
+                      type="number"
+                      className="w-full px-4 py-2.5 rounded-xl border border-[#e5e2e1] text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] placeholder-[#5e3f3c]/50"
+                    />
                   </div>
                 </div>
 
-                <div className="pt-4">
+                {/* Submit Button */}
+                <div className="pt-2">
                   <button
                     type="submit"
-                    className="w-full py-3 px-4 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] transition-colors shadow-sm flex justify-center items-center gap-2"
+                    className="w-full py-4 px-6 rounded-xl bg-[#e71520] text-white font-bold text-lg hover:bg-[#c9121a] shadow-lg shadow-[#e71520]/25 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-4 focus:ring-[#e71520]/30 flex justify-center items-center gap-2"
                   >
                     Search Flights
-                    <span className="material-symbols-outlined text-sm">search</span>
+                    <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
+                      arrow_forward
+                    </span>
                   </button>
                 </div>
               </form>
             </div>
           </div>
 
-          {/* Results Area */}
-          <div className="lg:col-span-3">
-            <div className="mb-6 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-[#1A1A1A]">Search Results</h2>
-              <div className="text-sm text-[#5e3f3c] bg-white px-4 py-2 rounded-lg border border-[#e5e2e1] shadow-sm">
-                Showing {results.length} flights
+          {/* Results Area (Takes 8 columns on large screens) */}
+          <div className="xl:col-span-8">
+            {/* Premium Header for Results */}
+            <div className="mb-6 bg-white p-4 rounded-2xl shadow-sm border border-[#e5e2e1] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-[#1A1A1A]">Available Flights</h2>
+                <p className="text-sm text-[#5e3f3c] mt-0.5">
+                  {!loading && (results.length > 0 ? `Showing ${results.length} results` : "No results yet")}
+                </p>
+              </div>
+
+              {/* Sort Dropdown Moved Here for Better UX */}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="material-symbols-outlined text-[#5e3f3c] text-sm" aria-hidden="true">
+                  sort
+                </span>
+                <select
+                  id="sortResults"
+                  name="sort"
+                  value={params.sort || "depart"}
+                  onChange={(e) => setParams((current) => ({ ...current, sort: e.target.value }))}
+                  className="w-full sm:w-auto text-sm font-medium rounded-xl border border-[#e5e2e1] bg-[#fcf9f8] px-4 py-2.5 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] appearance-none cursor-pointer"
+                >
+                  <option value="depart">Sort by: Earliest Depart</option>
+                  <option value="price">Sort by: Lowest Price</option>
+                  <option value="duration">Sort by: Shortest Flight</option>
+                </select>
               </div>
             </div>
 
+            {/* States: Loading, Error, Empty, Results */}
             {loading && (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-[#e5e2e1] shadow-sm">
-                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-[#5e3f3c] font-medium">Searching for the best flights...</p>
+              <div className="flex flex-col items-center justify-center py-32 bg-white rounded-3xl border border-[#e5e2e1] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <div className="w-14 h-14 border-4 border-[#fcf9f8] border-t-[#e71520] rounded-full animate-spin mb-6" />
+                <h3 className="text-xl font-bold text-[#1A1A1A] mb-2">Finding best routes...</h3>
+                <p className="text-[#5e3f3c] font-medium">Searching hundreds of flights for you.</p>
               </div>
             )}
 
             {!loading && error && (
-              <div className="mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                {error}
-              </div>
-            )}
-            
-            {!loading && results.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-[#e5e2e1] shadow-sm text-center px-4">
-                <div className="w-16 h-16 bg-[#fcf9f8] rounded-full flex items-center justify-center mb-4">
-                  <span className="material-symbols-outlined text-4xl text-[#5e3f3c]">flight_off</span>
+              <div className="mb-4 rounded-2xl border-l-4 border-[#e71520] bg-[#fff5f5] p-6 shadow-sm flex items-start gap-4">
+                <span className="material-symbols-outlined text-[#e71520] text-2xl" aria-hidden="true">
+                  error
+                </span>
+                <div>
+                  <h3 className="font-bold text-[#e71520] mb-1">We hit a snag</h3>
+                  <p className="text-sm font-medium text-[#5e3f3c]">{error}</p>
                 </div>
-                <h3 className="text-lg font-bold text-[#1A1A1A] mb-2">No flights found</h3>
-                <p className="text-[#5e3f3c]">Try broadening your search dates or looking for nearby airports.</p>
               </div>
             )}
-            
+
+            {!loading && !error && results.length === 0 && initialized && (
+              <div className="flex flex-col items-center justify-center py-28 bg-white rounded-3xl border border-[#e5e2e1] shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-center px-6">
+                <div className="w-20 h-20 bg-[#fcf9f8] rounded-full flex items-center justify-center mb-6">
+                  <span className="material-symbols-outlined text-4xl text-[#5e3f3c]" aria-hidden="true">
+                    flight_off
+                  </span>
+                </div>
+                <h3 className="text-2xl font-bold text-[#1A1A1A] mb-3">No flights found</h3>
+                <p className="text-[#5e3f3c] max-w-md mx-auto text-lg">
+                  We couldn't find any flights matching your exact criteria. Try adjusting your dates, filters, or
+                  trying a different route.
+                </p>
+                <button
+                  onClick={() => setParams({ currency: "USD", tripType: "return", passengers: "1" })}
+                  className="mt-8 px-6 py-2.5 rounded-lg border-2 border-[#e5e2e1] text-[#1A1A1A] font-semibold hover:border-[#1A1A1A] transition-colors"
+                >
+                  Clear all filters
+                </button>
+              </div>
+            )}
+
             {!loading && results.length > 0 && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {results.map((f: any) => (
                   <FlightCard key={f.id} flight={f} currency={params.currency} />
                 ))}
               </div>
             )}
           </div>
-
         </div>
-      </div>
+      </main>
     </div>
   );
 }
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="p-6">Loading search...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#fcf9f8]">
+          <div className="w-12 h-12 border-4 border-gray-200 border-t-[#e71520] rounded-full animate-spin" />
+        </div>
+      }
+    >
       <SearchContent />
     </Suspense>
   );

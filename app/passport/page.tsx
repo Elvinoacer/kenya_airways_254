@@ -683,321 +683,319 @@ export default function PassportGenerator() {
 
   return (
     <WorkflowShell>
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#fcf9f8",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "40px 20px",
-        fontFamily: "Hanken Grotesk, Arial, sans-serif",
-        color: "#1A1A1A",
-      }}
-    >
-      {/* ── Header ── */}
-      <div style={{ textAlign: "center", marginBottom: "40px" }}>
-        <div style={{ fontSize: "10px", letterSpacing: "5px", color: "#bb0013", opacity: 0.7 }}>KENYA AIRWAYS</div>
-        <h1
-          style={{
-            margin: "8px 0 4px",
-            fontSize: "clamp(24px, 4vw, 36px)",
-            letterSpacing: "0",
-            color: "#1A1A1A",
-            fontWeight: "800",
-            textTransform: "uppercase",
-          }}
-        >
-          Passport Details
-        </h1>
-        <p style={{ margin: 0, fontSize: "14px", opacity: 0.8, color: "#5e3f3c" }}>
-          Generate Kenyan-format mock passport details for the booking flow.
-        </p>
-        {loadedFromProfile && (
-          <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#1f6d3f" }}>
-            Saved passport details loaded from your profile.
-          </p>
-        )}
-        {profilePrefillError && (
-          <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#bb0013" }}>
-            {profilePrefillError}
-          </p>
-        )}
-      </div>
-
       <div
         style={{
+          minHeight: "100vh",
+          background: "#fcf9f8",
           display: "flex",
-          gap: "40px",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          width: "100%",
-          maxWidth: "1100px",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "40px 20px",
+          fontFamily: "Hanken Grotesk, Arial, sans-serif",
+          color: "#1A1A1A",
         }}
       >
-        {/* ─── FORM ─── */}
-        <div
-          style={{
-            width: "340px",
-            flexShrink: 0,
-            background: "#ffffff",
-            border: "1px solid #e5e2e1",
-            borderRadius: "8px",
-            padding: "24px",
-            boxShadow: "0 12px 32px rgba(13, 13, 13, 0.08)",
-          }}
-        >
-          <h2
+        {/* ── Header ── */}
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <div style={{ fontSize: "10px", letterSpacing: "5px", color: "#bb0013", opacity: 0.7 }}>KENYA AIRWAYS</div>
+          <h1
             style={{
-              margin: "0 0 20px",
-              fontSize: "12px",
+              margin: "8px 0 4px",
+              fontSize: "clamp(24px, 4vw, 36px)",
               letterSpacing: "0",
               color: "#1A1A1A",
               fontWeight: "800",
               textTransform: "uppercase",
-              fontFamily: "system-ui",
             }}
           >
-            Personal Information
-          </h2>
-
-          {/* Country */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
-            <div>
-              <span style={label}>Country (short)</span>
-              <input style={inp} value={form.country} onChange={set("country")} placeholder="REPUBLIC OF" />
-            </div>
-            <div>
-              <span style={label}>Country Name</span>
-              <input style={inp} value={form.countryFull} onChange={set("countryFull")} placeholder="KENYA" />
-            </div>
-          </div>
-
-          <div style={group}>
-            <span style={label}>Nationality (3-letter code)</span>
-            <input
-              style={inp}
-              value={form.nationality}
-              onChange={set("nationality")}
-              placeholder="KEN"
-              maxLength={15}
-            />
-          </div>
-
-          <div style={group}>
-            <span style={label}>Surname / Family Name</span>
-            <input style={inp} value={form.surname} onChange={set("surname")} placeholder="MWANGI" />
-          </div>
-
-          <div style={group}>
-            <span style={label}>Given Names</span>
-            <input style={inp} value={form.givenNames} onChange={set("givenNames")} placeholder="AMINA WANJIKU" />
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
-            <div>
-              <span style={label}>Sex</span>
-              <select style={inp} value={form.sex} onChange={set("sex")}>
-                <option value="M">M — Male</option>
-                <option value="F">F — Female</option>
-                <option value="X">X — Unspecified</option>
-              </select>
-            </div>
-            <div>
-              <span style={label}>Date of Birth</span>
-              <input style={inp} type="date" value={form.dateOfBirth} onChange={set("dateOfBirth")} />
-            </div>
-          </div>
-
-          <div style={group}>
-            <span style={label}>Place of Birth</span>
-            <input style={inp} value={form.placeOfBirth} onChange={set("placeOfBirth")} placeholder="NAIROBI" />
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
-            <div>
-              <span style={label}>Date of Issue</span>
-              <input style={inp} type="date" value={form.dateOfIssue} onChange={set("dateOfIssue")} />
-            </div>
-            <div>
-              <span style={label}>Date of Expiry</span>
-              <input style={inp} type="date" value={form.dateOfExpiry} onChange={set("dateOfExpiry")} />
-            </div>
-          </div>
-
-          <div style={group}>
-            <span style={label}>Passport Number</span>
-            <div style={{ display: "flex", gap: "6px" }}>
-              <input
-                style={{ ...inp, flex: 1 }}
-                value={form.passportNumber}
-                onChange={set("passportNumber")}
-                maxLength={9}
-              />
-              <button
-                onClick={() => setForm((p) => ({ ...p, passportNumber: genPN() }))}
-                style={{
-                  padding: "8px 10px",
-                  background: "#ffffff",
-                  border: "1px solid #bb0013",
-                  borderRadius: "8px",
-                  color: "#bb0013",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  whiteSpace: "nowrap",
-                }}
-                title="Regenerate"
-              >
-                ↺
-              </button>
-            </div>
-          </div>
-
-          <div style={group}>
-            <span style={label}>Photo (optional)</span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handlePhoto}
-              style={{ ...inp, padding: "6px 10px", cursor: "pointer", fontSize: "11px" }}
-            />
-          </div>
-
-          {/* Export button */}
-          <button
-            onClick={exportPDF}
-            disabled={exporting}
-            style={{
-              width: "100%",
-              padding: "13px",
-              background: exporting ? "#f6f3f2" : "#bb0013",
-              border: "none",
-              borderRadius: "5px",
-              color: exporting ? "#5e3f3c" : "#ffffff",
-              fontSize: "12px",
-              letterSpacing: "0",
-              textTransform: "uppercase",
-              fontFamily: "system-ui, sans-serif",
-              fontWeight: "700",
-              cursor: exporting ? "not-allowed" : "pointer",
-              marginTop: "6px",
-              transition: "opacity 0.2s",
-            }}
-          >
-            {exporting ? "⏳ Generating PDF…" : "⬇ Export as PDF"}
-          </button>
-
-          <p
-            style={{
-              margin: "10px 0 0",
-              fontSize: "9px",
-              color: "#8a7a55",
-              lineHeight: "1.5",
-              textAlign: "center",
-              fontFamily: "sans-serif",
-            }}
-          >
-            The generated details are for this application demo and are not a real travel document.
+            Passport Details
+          </h1>
+          <p style={{ margin: 0, fontSize: "14px", opacity: 0.8, color: "#5e3f3c" }}>
+            Generate Kenyan-format mock passport details for the booking flow.
           </p>
+          {loadedFromProfile && (
+            <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#1f6d3f" }}>
+              Saved passport details loaded from your profile.
+            </p>
+          )}
+          {profilePrefillError && (
+            <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#bb0013" }}>{profilePrefillError}</p>
+          )}
         </div>
 
-        {/* ─── PREVIEW ─── */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "40px",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            width: "100%",
+            maxWidth: "1100px",
+          }}
+        >
+          {/* ─── FORM ─── */}
           <div
             style={{
-              fontSize: "9px",
-              letterSpacing: "3px",
-              color: "#5e3f3c",
-              textTransform: "uppercase",
-              fontFamily: "sans-serif",
-            }}
-          >
-            Live Preview
-          </div>
-
-          {/* Tab switcher (mobile) */}
-          <div
-            style={{
-              display: "none", // hidden on desktop; visible via media query would need CSS-in-JS lib
-              gap: "8px",
-              marginBottom: "4px",
-            }}
-          >
-            {["cover", "data"].map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                style={{
-                  padding: "6px 16px",
-                  background: tab === t ? "rgba(212,175,55,0.15)" : "transparent",
-                  border: `1px solid ${tab === t ? "rgba(212,175,55,0.5)" : "rgba(212,175,55,0.1)"}`,
-                  borderRadius: "4px",
-                  color: "#d4af37",
-                  cursor: "pointer",
-                  fontSize: "10px",
-                  letterSpacing: "2px",
-                  textTransform: "uppercase",
-                  fontFamily: "sans-serif",
-                }}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-
-          {/* Passport spread (book layout) */}
-          <div
-            style={{
-              display: "flex",
-              boxShadow: "0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(212,175,55,0.08)",
+              width: "340px",
+              flexShrink: 0,
+              background: "#ffffff",
+              border: "1px solid #e5e2e1",
               borderRadius: "8px",
+              padding: "24px",
+              boxShadow: "0 12px 32px rgba(13, 13, 13, 0.08)",
             }}
           >
-            {/* Hidden off-screen clone for PDF capture */}
-            <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
-              <div ref={coverRef}>
+            <h2
+              style={{
+                margin: "0 0 20px",
+                fontSize: "12px",
+                letterSpacing: "0",
+                color: "#1A1A1A",
+                fontWeight: "800",
+                textTransform: "uppercase",
+                fontFamily: "system-ui",
+              }}
+            >
+              Personal Information
+            </h2>
+
+            {/* Country */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
+              <div>
+                <span style={label}>Country (short)</span>
+                <input style={inp} value={form.country} onChange={set("country")} placeholder="REPUBLIC OF" />
+              </div>
+              <div>
+                <span style={label}>Country Name</span>
+                <input style={inp} value={form.countryFull} onChange={set("countryFull")} placeholder="KENYA" />
+              </div>
+            </div>
+
+            <div style={group}>
+              <span style={label}>Nationality (3-letter code)</span>
+              <input
+                style={inp}
+                value={form.nationality}
+                onChange={set("nationality")}
+                placeholder="KEN"
+                maxLength={15}
+              />
+            </div>
+
+            <div style={group}>
+              <span style={label}>Surname / Family Name</span>
+              <input style={inp} value={form.surname} onChange={set("surname")} placeholder="MWANGI" />
+            </div>
+
+            <div style={group}>
+              <span style={label}>Given Names</span>
+              <input style={inp} value={form.givenNames} onChange={set("givenNames")} placeholder="AMINA WANJIKU" />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
+              <div>
+                <span style={label}>Sex</span>
+                <select style={inp} value={form.sex} onChange={set("sex")}>
+                  <option value="M">M — Male</option>
+                  <option value="F">F — Female</option>
+                  <option value="X">X — Unspecified</option>
+                </select>
+              </div>
+              <div>
+                <span style={label}>Date of Birth</span>
+                <input style={inp} type="date" value={form.dateOfBirth} onChange={set("dateOfBirth")} />
+              </div>
+            </div>
+
+            <div style={group}>
+              <span style={label}>Place of Birth</span>
+              <input style={inp} value={form.placeOfBirth} onChange={set("placeOfBirth")} placeholder="NAIROBI" />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
+              <div>
+                <span style={label}>Date of Issue</span>
+                <input style={inp} type="date" value={form.dateOfIssue} onChange={set("dateOfIssue")} />
+              </div>
+              <div>
+                <span style={label}>Date of Expiry</span>
+                <input style={inp} type="date" value={form.dateOfExpiry} onChange={set("dateOfExpiry")} />
+              </div>
+            </div>
+
+            <div style={group}>
+              <span style={label}>Passport Number</span>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <input
+                  style={{ ...inp, flex: 1 }}
+                  value={form.passportNumber}
+                  onChange={set("passportNumber")}
+                  maxLength={9}
+                />
+                <button
+                  onClick={() => setForm((p) => ({ ...p, passportNumber: genPN() }))}
+                  style={{
+                    padding: "8px 10px",
+                    background: "#ffffff",
+                    border: "1px solid #bb0013",
+                    borderRadius: "8px",
+                    color: "#bb0013",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    whiteSpace: "nowrap",
+                  }}
+                  title="Regenerate"
+                >
+                  ↺
+                </button>
+              </div>
+            </div>
+
+            <div style={group}>
+              <span style={label}>Photo (optional)</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhoto}
+                style={{ ...inp, padding: "6px 10px", cursor: "pointer", fontSize: "11px" }}
+              />
+            </div>
+
+            {/* Export button */}
+            <button
+              onClick={exportPDF}
+              disabled={exporting}
+              style={{
+                width: "100%",
+                padding: "13px",
+                background: exporting ? "#f6f3f2" : "#bb0013",
+                border: "none",
+                borderRadius: "5px",
+                color: exporting ? "#5e3f3c" : "#ffffff",
+                fontSize: "12px",
+                letterSpacing: "0",
+                textTransform: "uppercase",
+                fontFamily: "system-ui, sans-serif",
+                fontWeight: "700",
+                cursor: exporting ? "not-allowed" : "pointer",
+                marginTop: "6px",
+                transition: "opacity 0.2s",
+              }}
+            >
+              {exporting ? "⏳ Generating PDF…" : "⬇ Export as PDF"}
+            </button>
+
+            <p
+              style={{
+                margin: "10px 0 0",
+                fontSize: "9px",
+                color: "#8a7a55",
+                lineHeight: "1.5",
+                textAlign: "center",
+                fontFamily: "sans-serif",
+              }}
+            >
+              The generated details are for this application demo and are not a real travel document.
+            </p>
+          </div>
+
+          {/* ─── PREVIEW ─── */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+            <div
+              style={{
+                fontSize: "9px",
+                letterSpacing: "3px",
+                color: "#5e3f3c",
+                textTransform: "uppercase",
+                fontFamily: "sans-serif",
+              }}
+            >
+              Live Preview
+            </div>
+
+            {/* Tab switcher (mobile) */}
+            <div
+              style={{
+                display: "none", // hidden on desktop; visible via media query would need CSS-in-JS lib
+                gap: "8px",
+                marginBottom: "4px",
+              }}
+            >
+              {["cover", "data"].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  style={{
+                    padding: "6px 16px",
+                    background: tab === t ? "rgba(212,175,55,0.15)" : "transparent",
+                    border: `1px solid ${tab === t ? "rgba(212,175,55,0.5)" : "rgba(212,175,55,0.1)"}`,
+                    borderRadius: "4px",
+                    color: "#d4af37",
+                    cursor: "pointer",
+                    fontSize: "10px",
+                    letterSpacing: "2px",
+                    textTransform: "uppercase",
+                    fontFamily: "sans-serif",
+                  }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {/* Passport spread (book layout) */}
+            <div
+              style={{
+                display: "flex",
+                boxShadow: "0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(212,175,55,0.08)",
+                borderRadius: "8px",
+              }}
+            >
+              {/* Hidden off-screen clone for PDF capture */}
+              <div style={{ position: "absolute", left: "-9999px", top: 0, pointerEvents: "none" }}>
+                <div ref={coverRef}>
+                  <PassportCover data={form} />
+                </div>
+                <div ref={dataRef}>
+                  <PassportDataPage data={form} photo={photo} />
+                </div>
+              </div>
+
+              {/* Visible preview */}
+              <div style={{ filter: "drop-shadow(-4px 0 12px rgba(0,0,0,0.4))" }}>
                 <PassportCover data={form} />
               </div>
-              <div ref={dataRef}>
+              {/* Spine */}
+              <div
+                style={{
+                  width: "10px",
+                  background: "linear-gradient(180deg, #0c1e3d 0%, #1a3a70 50%, #0c1e3d 100%)",
+                  boxShadow: "inset -2px 0 4px rgba(0,0,0,0.4), inset 2px 0 4px rgba(212,175,55,0.05)",
+                }}
+              />
+              <div style={{ filter: "drop-shadow(4px 0 12px rgba(0,0,0,0.4))" }}>
                 <PassportDataPage data={form} photo={photo} />
               </div>
             </div>
 
-            {/* Visible preview */}
-            <div style={{ filter: "drop-shadow(-4px 0 12px rgba(0,0,0,0.4))" }}>
-              <PassportCover data={form} />
-            </div>
-            {/* Spine */}
-            <div
+            <p
               style={{
-                width: "10px",
-                background: "linear-gradient(180deg, #0c1e3d 0%, #1a3a70 50%, #0c1e3d 100%)",
-                boxShadow: "inset -2px 0 4px rgba(0,0,0,0.4), inset 2px 0 4px rgba(212,175,55,0.05)",
+                margin: 0,
+                fontSize: "8.5px",
+                color: "#5e3f3c",
+                letterSpacing: "1.5px",
+                textAlign: "center",
+                maxWidth: "400px",
+                lineHeight: "1.6",
+                fontFamily: "sans-serif",
               }}
-            />
-            <div style={{ filter: "drop-shadow(4px 0 12px rgba(0,0,0,0.4))" }}>
-              <PassportDataPage data={form} photo={photo} />
-            </div>
+            >
+              EDUCATIONAL SIMULATION — NOT A REAL OR VALID TRAVEL DOCUMENT
+            </p>
           </div>
-
-          <p
-            style={{
-              margin: 0,
-              fontSize: "8.5px",
-              color: "#5e3f3c",
-              letterSpacing: "1.5px",
-              textAlign: "center",
-              maxWidth: "400px",
-              lineHeight: "1.6",
-              fontFamily: "sans-serif",
-            }}
-          >
-            EDUCATIONAL SIMULATION — NOT A REAL OR VALID TRAVEL DOCUMENT
-          </p>
         </div>
       </div>
-    </div>
     </WorkflowShell>
   );
 }
