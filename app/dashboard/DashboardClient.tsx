@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   logoutAction,
@@ -10,6 +11,13 @@ import {
   changePasswordAction,
   revokeActiveSessionAction,
 } from "../actions/auth-actions";
+import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
+
+const MAX_DATE_OF_BIRTH = new Date(
+  new Date().setFullYear(new Date().getFullYear() - 18),
+)
+  .toISOString()
+  .split("T")[0];
 
 interface DashboardClientProps {
   initialData: {
@@ -46,6 +54,52 @@ interface DashboardClientProps {
 export default function DashboardClient({ initialData }: DashboardClientProps) {
   const router = useRouter();
   const { user, passenger, activeSessions } = initialData;
+  const overviewActions = [
+    {
+      label: "Find Flights",
+      href: "/search",
+      icon: "search",
+      description: "Search routes and choose a flight before booking.",
+    },
+    {
+      label: "Book a Flight",
+      href: "/bookings",
+      icon: "airplane_ticket",
+      description: "Create holds, add passengers, and confirm tickets.",
+    },
+    {
+      label: "Passenger Records",
+      href: "/passengers",
+      icon: "groups",
+      description: "Manage saved passengers and travel readiness.",
+    },
+    {
+      label: "Passport Details",
+      href: "/passport",
+      icon: "badge",
+      description: "Generate Kenyan-format mock document details.",
+    },
+    ...(user.role === "STAFF" || user.role === "ADMIN"
+      ? [
+          {
+            label: "Staff Workspace",
+            href: "/staff",
+            icon: "support_agent",
+            description: "Open passenger service tools for staff workflows.",
+          },
+        ]
+      : []),
+    ...(user.role === "ADMIN"
+      ? [
+          {
+            label: "Admin Portal",
+            href: "/admin",
+            icon: "admin_panel_settings",
+            description: "Monitor operations, flights, revenue, and staff.",
+          },
+        ]
+      : []),
+  ];
 
   const [activeTab, setActiveTab] = useState<"overview" | "profile" | "security">("overview");
   const [loading, setLoading] = useState(false);
@@ -61,7 +115,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
   const [lastName, setLastName] = useState(passenger?.lastName || "");
   const [phone, setPhone] = useState(passenger?.phone || "");
   const [passportNo, setPassportNo] = useState(passenger?.passportNumber || "");
-  const [nationality, setNationality] = useState(passenger?.nationality || "");
+  const [nationality, setNationality] = useState(passenger?.nationality || "Kenyan");
   const [dateOfBirth, setDateOfBirth] = useState(passenger?.dateOfBirth || "");
 
   // Password change states
@@ -287,6 +341,37 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
             <hr className="border-[#e5e2e1] my-4" />
 
+            <div className="space-y-2 rounded-xl border border-[#e5e2e1] bg-white p-3">
+              <p className="px-1 text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
+                Travel tools
+              </p>
+              {[
+                { label: "Find Flights", href: "/search", icon: "search" },
+                { label: "Book a Flight", href: "/bookings", icon: "airplane_ticket" },
+                { label: "Passengers", href: "/passengers", icon: "groups" },
+                { label: "Passport", href: "/passport", icon: "badge" },
+                ...(user.role === "STAFF" || user.role === "ADMIN"
+                  ? [{ label: "Staff Workspace", href: "/staff", icon: "support_agent" }]
+                  : []),
+                ...(user.role === "ADMIN"
+                  ? [{ label: "Admin Portal", href: "/admin", icon: "admin_panel_settings" }]
+                  : []),
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[#5e3f3c] transition-colors hover:bg-[#f6f3f2] hover:text-primary"
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    {item.icon}
+                  </span>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+
+            <hr className="border-[#e5e2e1] my-4" />
+
             <button
               onClick={handleLogoutAllDevices}
               disabled={loading}
@@ -326,6 +411,28 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                     <h3 className="font-bold text-lg text-[#1A1A1A]">{user.name || "Not set"}</h3>
                     <p className="text-[#5e3f3c] text-sm">{user.email}</p>
                   </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {overviewActions.map((action) => (
+                    <Link
+                      key={action.href}
+                      href={action.href}
+                      className="rounded-xl border border-[#e5e2e1] bg-white p-4 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    >
+                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <span className="material-symbols-outlined text-[21px]">
+                          {action.icon}
+                        </span>
+                      </span>
+                      <span className="mt-3 block text-sm font-black text-[#1A1A1A]">
+                        {action.label}
+                      </span>
+                      <span className="mt-1 block text-sm leading-5 text-[#5e3f3c]">
+                        {action.description}
+                      </span>
+                    </Link>
+                  ))}
                 </div>
 
                 {passenger ? (
@@ -455,48 +562,20 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                       />
                     </div>
 
-                    <div>
-                      <label htmlFor="pass-input" className="block text-sm font-medium text-[#5e3f3c] mb-1">
-                        Passport Number
-                      </label>
-                      <input
-                        type="text"
-                        id="pass-input"
-                        required
-                        value={passportNo}
-                        onChange={(e) => setPassportNo(e.target.value.toUpperCase())}
-                        className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="nat-input" className="block text-sm font-medium text-[#5e3f3c] mb-1">
-                        Nationality
-                      </label>
-                      <input
-                        type="text"
-                        id="nat-input"
-                        required
-                        value={nationality}
-                        onChange={(e) => setNationality(e.target.value)}
-                        className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="dob-input" className="block text-sm font-medium text-[#5e3f3c] mb-1">
-                        Date of Birth
-                      </label>
-                      <input
-                        type="date"
-                        id="dob-input"
-                        required
-                        max={
-                          new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split("T")[0]
-                        }
-                        value={dateOfBirth}
-                        onChange={(e) => setDateOfBirth(e.target.value)}
-                        className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
+                    <div className="sm:col-span-2">
+                      <PassportRequirementPanel
+                        firstName={firstName}
+                        lastName={lastName}
+                        passportNo={passportNo}
+                        nationality={nationality}
+                        dateOfBirth={dateOfBirth}
+                        dateRequired
+                        maxDateOfBirth={MAX_DATE_OF_BIRTH}
+                        onChange={(patch) => {
+                          if (patch.passportNo !== undefined) setPassportNo(patch.passportNo);
+                          if (patch.nationality !== undefined) setNationality(patch.nationality);
+                          if (patch.dateOfBirth !== undefined) setDateOfBirth(patch.dateOfBirth);
+                        }}
                       />
                     </div>
                   </div>

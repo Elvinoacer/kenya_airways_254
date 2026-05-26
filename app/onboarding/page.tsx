@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { onboardPassengerAction, logoutAction } from "../actions/auth-actions";
+import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
 
 const MAX_DATE_OF_BIRTH = new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split("T")[0];
 
@@ -12,7 +13,7 @@ export default function OnboardingPage() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [passportNo, setPassportNo] = useState("");
-  const [nationality, setNationality] = useState("Kenya");
+  const [nationality, setNationality] = useState("Kenyan");
   const [dateOfBirth, setDateOfBirth] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -73,7 +74,7 @@ export default function OnboardingPage() {
 
       {/* Right side - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-16">
-        <div className="w-full max-w-md space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
+        <div className="w-full max-w-xl space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
           <div>
             <div className="flex justify-center lg:hidden mb-8">
               <span className="text-2xl font-black tracking-wider text-[#1A1A1A]">
@@ -143,52 +144,20 @@ export default function OnboardingPage() {
               />
             </div>
 
-            <div>
-              <label htmlFor="passportNo" className="block text-sm font-medium text-[#1A1A1A] mb-1">
-                Passport Number
-              </label>
-              <input
-                type="text"
-                id="passportNo"
-                required
-                value={passportNo}
-                onChange={(e) => setPassportNo(e.target.value.toUpperCase())}
-                className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-[#1A1A1A] bg-[#fcf9f8]"
-                placeholder="AK0000000"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="nationality" className="block text-sm font-medium text-[#1A1A1A] mb-1">
-                  Nationality
-                </label>
-                <input
-                  type="text"
-                  id="nationality"
-                  required
-                  value={nationality}
-                  onChange={(e) => setNationality(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-[#1A1A1A] bg-[#fcf9f8]"
-                  placeholder="Kenya"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="dob" className="block text-sm font-medium text-[#1A1A1A] mb-1">
-                  Date of Birth
-                </label>
-                <input
-                  type="date"
-                  id="dob"
-                  required
-                  max={MAX_DATE_OF_BIRTH}
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-[#1A1A1A] bg-[#fcf9f8]"
-                />
-              </div>
-            </div>
+            <PassportRequirementPanel
+              firstName={firstName}
+              lastName={lastName}
+              passportNo={passportNo}
+              nationality={nationality}
+              dateOfBirth={dateOfBirth}
+              dateRequired
+              maxDateOfBirth={MAX_DATE_OF_BIRTH}
+              onChange={(patch) => {
+                if (patch.passportNo !== undefined) setPassportNo(patch.passportNo);
+                if (patch.nationality !== undefined) setNationality(patch.nationality);
+                if (patch.dateOfBirth !== undefined) setDateOfBirth(patch.dateOfBirth);
+              }}
+            />
 
             <div className="pt-4 space-y-3">
               <button

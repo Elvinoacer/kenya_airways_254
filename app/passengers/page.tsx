@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import WorkflowShell from "../components/WorkflowShell";
+import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
+import { hasRequiredPassportDetails } from "../../lib/passport";
 
 export default function PassengersPage() {
   const [passengers, setPassengers] = useState<any[]>([]);
@@ -9,7 +12,7 @@ export default function PassengersPage() {
     firstName: "",
     lastName: "",
     passportNo: "",
-    nationality: "",
+    nationality: "Kenyan",
     phone: "",
   });
   const [message, setMessage] = useState("");
@@ -37,7 +40,7 @@ export default function PassengersPage() {
       setMessage(data.error || "Could not add passenger");
       return;
     }
-    setForm({ firstName: "", lastName: "", passportNo: "", nationality: "", phone: "" });
+    setForm({ firstName: "", lastName: "", passportNo: "", nationality: "Kenyan", phone: "" });
     setMessage("Passenger added successfully.");
     await load();
   }
@@ -54,6 +57,7 @@ export default function PassengersPage() {
   }
 
   return (
+    <WorkflowShell>
     <main className="min-h-screen bg-[#fcf9f8] text-[#1A1A1A]">
       <header className="bg-[#410001] py-12">
         <div className="max-w-6xl mx-auto px-4">
@@ -65,12 +69,10 @@ export default function PassengersPage() {
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         <section className="bg-white rounded-2xl border border-[#e5e2e1] p-6 shadow-sm">
           <h2 className="text-xl font-bold mb-4">Add Passenger</h2>
-          <div className="grid gap-4 md:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-3">
             {[
               ["firstName", "First name"],
               ["lastName", "Last name"],
-              ["passportNo", "Passport no."],
-              ["nationality", "Nationality"],
               ["phone", "Phone"],
             ].map(([key, label]) => (
               <input
@@ -82,10 +84,33 @@ export default function PassengersPage() {
               />
             ))}
           </div>
+          <div className="mt-4">
+            <PassportRequirementPanel
+              compact
+              firstName={form.firstName}
+              lastName={form.lastName}
+              passportNo={form.passportNo}
+              nationality={form.nationality}
+              onChange={(patch) =>
+                setForm((current) => ({
+                  ...current,
+                  passportNo: patch.passportNo ?? current.passportNo,
+                  nationality: patch.nationality ?? current.nationality,
+                }))
+              }
+            />
+          </div>
           <button
-            className="mt-4 px-6 py-3 rounded-lg bg-primary text-white font-bold"
+            className="mt-4 px-6 py-3 rounded-lg bg-primary text-white font-bold disabled:cursor-not-allowed disabled:opacity-50"
             onClick={addPassenger}
-            disabled={!form.firstName || !form.lastName}
+            disabled={
+              !form.firstName ||
+              !form.lastName ||
+              !hasRequiredPassportDetails({
+                passportNo: form.passportNo,
+                nationality: form.nationality,
+              })
+            }
           >
             Add passenger
           </button>
@@ -110,7 +135,28 @@ export default function PassengersPage() {
                 {passengers.map((passenger) => (
                   <tr key={passenger.id} className="border-t border-[#e5e2e1]">
                     <td className="p-4 font-bold">{passenger.firstName} {passenger.lastName}</td>
-                    <td className="p-4">{passenger.passportNo || "N/A"}</td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{passenger.passportNo || "N/A"}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                            hasRequiredPassportDetails({
+                              passportNo: passenger.passportNo,
+                              nationality: passenger.nationality,
+                            })
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-red-50 text-[#c8102e]"
+                          }`}
+                        >
+                          {hasRequiredPassportDetails({
+                            passportNo: passenger.passportNo,
+                            nationality: passenger.nationality,
+                          })
+                            ? "Ready"
+                            : "Required"}
+                        </span>
+                      </div>
+                    </td>
                     <td className="p-4">{passenger.nationality || "N/A"}</td>
                     <td className="p-4">
                       <div className="flex gap-2">
@@ -138,5 +184,6 @@ export default function PassengersPage() {
         </section>
       </div>
     </main>
+    </WorkflowShell>
   );
 }

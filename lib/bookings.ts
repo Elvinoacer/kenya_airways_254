@@ -4,6 +4,7 @@ import { getFlightById } from "./flights";
 import { prisma } from "./prisma";
 import realtime from "./realtime";
 import { getClassAvailability, summarizeRequiredClassFromSeatClass } from "./seats";
+import { hasRequiredPassportDetails } from "./passport";
 import { normalizeTravelClass } from "./travel-classes";
 import type { Passenger } from "../types/booking";
 
@@ -122,6 +123,21 @@ export async function createHold(input: CreateHoldInput) {
   const travelClass = normalizeTravelClass(input.travelClass || input.seatClass);
   const passengers = await resolvePassengers(input);
   const seats = Math.max(1, passengers.length || Number(input.seats || 1));
+  if (!passengers.length) {
+    throw new Error("At least one passenger is required before booking.");
+  }
+  const missingPassportPassenger = passengers.find(
+    (passenger: any) =>
+      !hasRequiredPassportDetails({
+        passportNo: passenger.passportNo,
+        nationality: passenger.nationality,
+      }),
+  );
+  if (missingPassportPassenger) {
+    throw new Error(
+      `Passport details are required for ${missingPassportPassenger.firstName || "each"} ${missingPassportPassenger.lastName || "passenger"}.`,
+    );
+  }
   const availability = await getClassAvailability(input.flightId, travelClass.code);
 
   if (availability.selected.available < seats) {
@@ -174,6 +190,36 @@ export async function confirmBooking(holdId: string, paymentInfo?: any) {
 
   const reference = bookingReference();
   const booking = await prisma.$transaction(async (tx: PrismaTx) => {
+    const bookingPassengers = [];
+    for (const passenger of hold.passengers) {
+      let passengerId = passenger.profileId || null;
+      if (!passengerId && passenger.passportNo) {
+        const existingPassenger = await tx.passenger.findUnique({
+          where: { passportNumber: passenger.passportNo },
+        });
+        if (existingPassenger) {
+          passengerId = existingPassenger.id;
+        } else {
+          const createdPassenger = await tx.passenger.create({
+            data: {
+              firstName: passenger.firstName,
+              lastName: passenger.lastName,
+              passportNumber: passenger.passportNo,
+              nationality: passenger.nationality || null,
+              dateOfBirth: passenger.dob ? new Date(passenger.dob) : null,
+              phone: passenger.phone || null,
+            },
+          });
+          passengerId = createdPassenger.id;
+        }
+      }
+      bookingPassengers.push({
+        firstName: passenger.firstName,
+        lastName: passenger.lastName,
+        passengerId,
+      });
+    }
+
     const created = await tx.booking.create({
       data: {
         bookingReference: reference,
@@ -185,11 +231,7 @@ export async function confirmBooking(holdId: string, paymentInfo?: any) {
         contactPhone: hold.contactPhone || null,
         status: "CONFIRMED",
         passengers: {
-          create: hold.passengers.map((p: any) => ({
-            firstName: p.firstName,
-            lastName: p.lastName,
-            passengerId: p.profileId || null,
-          })),
+          create: bookingPassengers,
         },
         payments: {
           create: {

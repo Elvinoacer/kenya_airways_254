@@ -6,6 +6,9 @@ import {
   accessibilityNeedsSummary,
   type AccessibilityNeeds,
 } from "../../../lib/accessibility";
+import WorkflowShell from "../../components/WorkflowShell";
+import PassportRequirementPanel from "../../components/passport/PassportRequirementPanel";
+import { hasRequiredPassportDetails } from "../../../lib/passport";
 
 type Passenger = {
   id: string;
@@ -64,6 +67,13 @@ export default function PassengerEditPage({
     </div>
   );
 
+  const passengerReady =
+    Boolean(passenger.firstName && passenger.lastName) &&
+    hasRequiredPassportDetails({
+      passportNo: passenger.passportNo,
+      nationality: passenger.nationality,
+    });
+
   function updateAccessibility(
     patch: Partial<AccessibilityNeeds> & {
       companionSupport?: Partial<
@@ -85,6 +95,10 @@ export default function PassengerEditPage({
   }
 
   async function save() {
+    if (!passengerReady) {
+      setError("First name, last name, passport number, and nationality are required.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -108,6 +122,7 @@ export default function PassengerEditPage({
   }
 
   return (
+    <WorkflowShell>
     <div className="min-h-screen bg-[#fcf9f8] text-[#1A1A1A]">
       <div className="bg-[#410001] py-12 mb-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -151,26 +166,21 @@ export default function PassengerEditPage({
                 }
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Passport Number</label>
-              <input
-                className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-                value={passenger.passportNo || ""}
-                onChange={(e) =>
-                  setPassenger({ ...passenger, passportNo: e.target.value || null })
+            <div className="md:col-span-2">
+              <PassportRequirementPanel
+                compact
+                firstName={passenger.firstName}
+                lastName={passenger.lastName}
+                passportNo={passenger.passportNo || ""}
+                nationality={passenger.nationality || "Kenyan"}
+                onChange={(patch) =>
+                  setPassenger({
+                    ...passenger,
+                    passportNo: patch.passportNo ?? passenger.passportNo ?? null,
+                    nationality:
+                      patch.nationality ?? passenger.nationality ?? "Kenyan",
+                  })
                 }
-                placeholder="Passport no."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Nationality</label>
-              <input
-                className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-                value={passenger.nationality || ""}
-                onChange={(e) =>
-                  setPassenger({ ...passenger, nationality: e.target.value || null })
-                }
-                placeholder="Nationality"
               />
             </div>
             <div>
@@ -347,7 +357,7 @@ export default function PassengerEditPage({
           <button
             className="w-full sm:w-auto px-8 py-3 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             onClick={save}
-            disabled={saving}
+            disabled={saving || !passengerReady}
           >
             {saving ? (
               <>
@@ -371,5 +381,6 @@ export default function PassengerEditPage({
         </div>
       </div>
     </div>
+    </WorkflowShell>
   );
 }

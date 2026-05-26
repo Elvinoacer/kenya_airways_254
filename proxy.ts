@@ -90,6 +90,9 @@ export async function proxy(
 
     const isProtectedPage =
       pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/bookings") ||
+      pathname.startsWith("/passengers") ||
+      pathname.startsWith("/passport") ||
       pathname.startsWith("/staff") ||
       pathname.startsWith("/reports") ||
       pathname.startsWith("/admin");
@@ -184,7 +187,10 @@ export const config = {
   matcher: [
     "/api/:path*",
     "/admin/:path*",
+    "/bookings/:path*",
     "/dashboard/:path*",
+    "/passengers/:path*",
+    "/passport",
     "/staff/:path*",
     "/reports/:path*",
     "/onboarding",

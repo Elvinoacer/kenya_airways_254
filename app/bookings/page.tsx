@@ -1,10 +1,17 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
+import WorkflowShell from "../components/WorkflowShell";
 import {
   accessibilityNeedsSummary,
   type AccessibilityNeeds,
 } from "../../lib/accessibility";
+import {
+  createKenyanPassportDetails,
+  hasRequiredPassportDetails,
+  type PassportDetails,
+} from "../../lib/passport";
 
 type PassengerProfile = {
   id: string;
@@ -12,6 +19,7 @@ type PassengerProfile = {
   lastName: string;
   passportNo?: string | null;
   nationality?: string | null;
+  dateOfBirth?: string | null;
   vipLabel?: string | null;
   tags?: string[];
   travelPreferences?: Record<string, any>;
@@ -23,6 +31,8 @@ type DraftPassenger = {
   lastName: string;
   passportNo: string;
   nationality: string;
+  dateOfBirth: string;
+  passportDetails?: PassportDetails;
   travelPreferences: Record<string, any>;
   accessibilityNeeds: AccessibilityNeeds;
 };
@@ -56,7 +66,8 @@ export default function BookingPage() {
     firstName: "",
     lastName: "",
     passportNo: "",
-    nationality: "",
+    nationality: "Kenyan",
+    dateOfBirth: "",
     travelPreferences: {},
     accessibilityNeeds: {
       wheelchairAssistance: false,
@@ -126,6 +137,35 @@ export default function BookingPage() {
     [profiles, selectedProfileIds],
   );
 
+  const selectedProfilesMissingPassports = useMemo(
+    () =>
+      selectedProfiles.filter(
+        (profile) =>
+          !hasRequiredPassportDetails({
+            passportNo: profile.passportNo,
+            nationality: profile.nationality,
+          }),
+      ),
+    [selectedProfiles],
+  );
+
+  const draftPassengersMissingPassports = useMemo(
+    () =>
+      draftPassengers.filter(
+        (passenger) =>
+          !hasRequiredPassportDetails({
+            passportNo: passenger.passportNo,
+            nationality: passenger.nationality,
+          }),
+      ),
+    [draftPassengers],
+  );
+
+  const passportRequirementSatisfied =
+    selectedProfilesMissingPassports.length === 0 &&
+    draftPassengersMissingPassports.length === 0 &&
+    selectedProfiles.length + draftPassengers.length > 0;
+
   function toggleProfile(profileId: string) {
     setSelectedProfileIds((current) =>
       current.includes(profileId)
@@ -156,6 +196,16 @@ export default function BookingPage() {
 
   function addDraftPassenger() {
     if (!draftPassenger.firstName || !draftPassenger.lastName) return;
+    if (
+      !hasRequiredPassportDetails({
+        passportNo: draftPassenger.passportNo,
+        nationality: draftPassenger.nationality,
+      })
+    ) {
+      setError("Add passport details before adding this passenger.");
+      return;
+    }
+    setError("");
     setDraftPassengers((current) => [
       ...current,
       {
@@ -170,7 +220,8 @@ export default function BookingPage() {
       firstName: "",
       lastName: "",
       passportNo: "",
-      nationality: "",
+      nationality: "Kenyan",
+      dateOfBirth: "",
       travelPreferences: {},
       accessibilityNeeds: {
         wheelchairAssistance: false,
@@ -189,12 +240,54 @@ export default function BookingPage() {
     });
   }
 
+  async function generatePassportForProfile(profile: PassengerProfile) {
+    setError("");
+    const details = createKenyanPassportDetails({
+      nationality: profile.nationality || "Kenyan",
+    });
+    const res = await fetch(`/api/passengers/${profile.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        phone: (profile as any).phone || undefined,
+        passportNo: details.passportNo,
+        nationality: details.nationality,
+        dateOfBirth: profile.dateOfBirth || undefined,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error || "Could not update passenger passport details.");
+      return;
+    }
+    setProfiles((current) =>
+      current.map((item) =>
+        item.id === profile.id
+          ? {
+              ...item,
+              passportNo: data.profile?.passportNo || details.passportNo,
+              nationality: data.profile?.nationality || details.nationality,
+              dateOfBirth: data.profile?.dateOfBirth || item.dateOfBirth,
+            }
+          : item,
+      ),
+    );
+  }
+
   async function createHold() {
     setLoading(true);
     setError("");
     setHold(null);
     try {
       const passengerCount = selectedProfileIds.length + draftPassengers.length;
+      if (passengerCount === 0) {
+        throw new Error("Add or select at least one passenger before creating a booking hold.");
+      }
+      if (!passportRequirementSatisfied) {
+        throw new Error("Every passenger needs passport details before booking.");
+      }
       const payload = {
         flightId: selectedFlightId,
         travelClass: seatClass,
@@ -206,6 +299,7 @@ export default function BookingPage() {
           lastName: passenger.lastName,
           passportNo: passenger.passportNo,
           nationality: passenger.nationality,
+          dob: passenger.dateOfBirth || undefined,
           type: "ADULT",
           travelPreferences: passenger.travelPreferences,
           accessibilityNeeds: passenger.accessibilityNeeds,
@@ -316,6 +410,7 @@ export default function BookingPage() {
   }
 
   return (
+    <WorkflowShell>
     <div className="min-h-screen bg-[#fcf9f8] text-[#1A1A1A]">
       <div className="bg-[#410001] py-12 mb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -435,51 +530,80 @@ export default function BookingPage() {
                 No saved passengers found.
               </p>
             ) : (
-              profiles.map((profile) => (
-                <label
-                  key={profile.id}
-                  className={`flex items-start gap-4 rounded-xl border p-4 cursor-pointer transition-all ${
-                    selectedProfileIds.includes(profile.id)
-                      ? "border-primary bg-primary/5 shadow-sm"
-                      : "border-[#e5e2e1] hover:border-[#d7d3d2] hover:bg-[#fcf9f8]"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-1 w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
-                    checked={selectedProfileIds.includes(profile.id)}
-                    onChange={() => toggleProfile(profile.id)}
-                  />
-                  <span>
-                    <span className="block font-bold text-[#1A1A1A]">
-                      {profile.firstName} {profile.lastName}
-                    </span>
-                    <span className="block text-sm text-[#5e3f3c] mt-1">
-                      {profile.passportNo || "No passport"}
-                      {profile.vipLabel ? ` • ${profile.vipLabel}` : ""}
-                    </span>
-                    {accessibilityNeedsSummary(
-                      profile.accessibilityNeeds ||
-                        profile.travelPreferences?.accessibilityNeeds ||
-                        null,
-                    ) ? (
-                      <span className="block text-sm text-primary mt-1">
-                        <span className="font-semibold">Accessibility:</span>{" "}
-                        {accessibilityNeedsSummary(
-                          profile.accessibilityNeeds ||
-                            profile.travelPreferences?.accessibilityNeeds ||
-                            null,
-                        )}
+              profiles.map((profile) => {
+                const passportReady = hasRequiredPassportDetails({
+                  passportNo: profile.passportNo,
+                  nationality: profile.nationality,
+                });
+
+                return (
+                  <div
+                    key={profile.id}
+                    className={`flex items-start gap-4 rounded-xl border p-4 cursor-pointer transition-all ${
+                      selectedProfileIds.includes(profile.id)
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-[#e5e2e1] hover:border-[#d7d3d2] hover:bg-[#fcf9f8]"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-1 w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
+                      checked={selectedProfileIds.includes(profile.id)}
+                      onChange={() => toggleProfile(profile.id)}
+                      aria-label={`Select ${profile.firstName} ${profile.lastName}`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <span className="block font-bold text-[#1A1A1A]">
+                        {profile.firstName} {profile.lastName}
                       </span>
-                    ) : null}
-                    {profile.tags?.length ? (
-                      <span className="block text-xs text-[#5e3f3c] mt-2 bg-[#f6f3f2] px-2 py-1 rounded w-fit">
-                        Tags: {profile.tags.join(", ")}
+                      <span className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[#5e3f3c]">
+                        <span>{profile.passportNo || "No passport"}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                            passportReady
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-red-50 text-[#c8102e]"
+                          }`}
+                        >
+                          {passportReady ? "Ready" : "Required"}
+                        </span>
+                        {profile.vipLabel ? ` • ${profile.vipLabel}` : ""}
                       </span>
-                    ) : null}
-                  </span>
-                </label>
-              ))
+                      {!passportReady ? (
+                        <button
+                          type="button"
+                          className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary bg-white px-3 py-2 text-xs font-bold text-primary hover:bg-primary/5"
+                          onClick={() => generatePassportForProfile(profile)}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">
+                            auto_awesome
+                          </span>
+                          Generate passport details
+                        </button>
+                      ) : null}
+                      {accessibilityNeedsSummary(
+                        profile.accessibilityNeeds ||
+                          profile.travelPreferences?.accessibilityNeeds ||
+                          null,
+                      ) ? (
+                        <span className="block text-sm text-primary mt-1">
+                          <span className="font-semibold">Accessibility:</span>{" "}
+                          {accessibilityNeedsSummary(
+                            profile.accessibilityNeeds ||
+                              profile.travelPreferences?.accessibilityNeeds ||
+                              null,
+                          )}
+                        </span>
+                      ) : null}
+                      {profile.tags?.length ? (
+                        <span className="block text-xs text-[#5e3f3c] mt-2 bg-[#f6f3f2] px-2 py-1 rounded w-fit">
+                          Tags: {profile.tags.join(", ")}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </section>
@@ -509,26 +633,22 @@ export default function BookingPage() {
                 })
               }
             />
-            <input
-              className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-              placeholder="Passport no."
-              value={draftPassenger.passportNo}
-              onChange={(e) =>
-                setDraftPassenger({
-                  ...draftPassenger,
-                  passportNo: e.target.value,
-                })
-              }
-            />
-            <input
-              className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-              placeholder="Nationality"
-              value={draftPassenger.nationality}
-              onChange={(e) =>
-                setDraftPassenger({
-                  ...draftPassenger,
-                  nationality: e.target.value,
-                })
+          </div>
+          <div className="mt-4">
+            <PassportRequirementPanel
+              compact
+              firstName={draftPassenger.firstName}
+              lastName={draftPassenger.lastName}
+              passportNo={draftPassenger.passportNo}
+              nationality={draftPassenger.nationality}
+              dateOfBirth={draftPassenger.dateOfBirth}
+              onChange={(patch) =>
+                setDraftPassenger((current) => ({
+                  ...current,
+                  ...patch,
+                  passportDetails:
+                    patch.passportDetails || current.passportDetails,
+                }))
               }
             />
           </div>
@@ -678,8 +798,16 @@ export default function BookingPage() {
           </div>
           <button
             type="button"
-            className="mt-6 w-full py-3 px-4 rounded-lg border border-primary text-primary font-semibold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-primary px-4 py-3 font-semibold text-primary transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={addDraftPassenger}
+            disabled={
+              !draftPassenger.firstName ||
+              !draftPassenger.lastName ||
+              !hasRequiredPassportDetails({
+                passportNo: draftPassenger.passportNo,
+                nationality: draftPassenger.nationality,
+              })
+            }
           >
             <span className="material-symbols-outlined text-[18px]">person_add</span>
             Add Draft Passenger
@@ -697,7 +825,9 @@ export default function BookingPage() {
                     className="rounded-xl border border-primary bg-primary/5 p-4 text-sm"
                   >
                     <span className="font-bold text-[#1A1A1A]">{passenger.firstName} {passenger.lastName}</span> •{" "}
-                    <span className="text-[#5e3f3c]">{passenger.passportNo || "No passport"}</span>
+                    <span className="text-[#5e3f3c]">
+                      {passenger.passportNo || "No passport"} · {passenger.nationality || "No nationality"}
+                    </span>
                     {accessibilityNeedsSummary(
                       passenger.accessibilityNeeds || null,
                     ) ? (
@@ -737,10 +867,21 @@ export default function BookingPage() {
             </span>
           </div>
         </div>
+        <div
+          className={`mb-6 rounded-xl border p-4 text-sm font-semibold ${
+            passportRequirementSatisfied
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-red-100 bg-red-50 text-[#c8102e]"
+          }`}
+        >
+          {passportRequirementSatisfied
+            ? "Passport check complete for every passenger."
+            : "Select or add passengers, then complete passport details before creating the booking hold."}
+        </div>
         
         <button
           type="button"
-          disabled={loading || (!selectedFlightId) || availability?.selected?.isFull}
+          disabled={loading || (!selectedFlightId) || availability?.selected?.isFull || !passportRequirementSatisfied}
           className="w-full sm:w-auto px-8 py-3 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer shadow-sm"
           onClick={createHold}
         >
@@ -834,5 +975,6 @@ export default function BookingPage() {
       </section>
       </div>
     </div>
+    </WorkflowShell>
   );
 }

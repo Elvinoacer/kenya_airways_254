@@ -4,18 +4,38 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navigation = [
-  { name: "Operations Dashboard", href: "/admin/operations", icon: "dashboard" },
-  { name: "Flights", href: "/admin/flights", icon: "flight" },
-  { name: "Assignments", href: "/admin/assignments", icon: "assignment_ind" },
-  { name: "Analytics", href: "/admin/analytics", icon: "analytics" },
-  { name: "Reports", href: "/admin/reports", icon: "lab_profile" },
-  { name: "Payments", href: "/admin/payments", icon: "payments" },
-  { name: "Employees", href: "/admin/employees", icon: "badge" },
-  { name: "Support", href: "/admin/support", icon: "support_agent" },
-  { name: "Metrics", href: "/admin/metrics", icon: "monitoring" },
-  { name: "Schedules", href: "/admin/schedules", icon: "calendar_month" },
-  { name: "Refunds", href: "/admin/refunds", icon: "currency_exchange" },
+const navigationGroups = [
+  {
+    label: "Command",
+    items: [
+      { name: "Operations", href: "/admin/operations", icon: "dashboard" },
+      { name: "Metrics", href: "/admin/metrics", icon: "monitoring" },
+    ],
+  },
+  {
+    label: "Flights",
+    items: [
+      { name: "Flights", href: "/admin/flights", icon: "flight" },
+      { name: "Schedules", href: "/admin/schedules", icon: "calendar_month" },
+      { name: "Assignments", href: "/admin/assignments", icon: "assignment_ind" },
+    ],
+  },
+  {
+    label: "Commercial",
+    items: [
+      { name: "Payments", href: "/admin/payments", icon: "payments" },
+      { name: "Refunds", href: "/admin/refunds", icon: "currency_exchange" },
+      { name: "Support", href: "/admin/support", icon: "support_agent" },
+    ],
+  },
+  {
+    label: "People & Insights",
+    items: [
+      { name: "Employees", href: "/admin/employees", icon: "badge" },
+      { name: "Analytics", href: "/admin/analytics", icon: "analytics" },
+      { name: "Reports", href: "/admin/reports", icon: "lab_profile" },
+    ],
+  },
 ];
 
 export default function AdminLayout({
@@ -62,39 +82,53 @@ export default function AdminLayout({
           </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1 overflow-y-auto max-h-[calc(100vh-100px)] custom-scrollbar">
-          {navigation.map((item) => {
-            const isActive = pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
-                  isActive
-                    ? "bg-[#e71520] text-white shadow-[0_4px_12px_rgba(231,21,32,0.3)]"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <span
-                  className={`material-symbols-outlined transition-colors ${
-                    isActive ? "text-white" : "text-white/50 group-hover:text-white"
-                  }`}
-                >
-                  {item.icon}
-                </span>
-                <span className="font-semibold text-sm">{item.name}</span>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-4 pb-28 space-y-5 overflow-y-auto max-h-[calc(100vh-100px)] custom-scrollbar">
+          {navigationGroups.map((group) => (
+            <section key={group.label} className="space-y-1">
+              <p className="px-3 text-[11px] font-black uppercase tracking-wide text-white/35">
+                {group.label}
+              </p>
+              {group.items.map((item) => {
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
+                      isActive
+                        ? "bg-[#e71520] text-white shadow-[0_4px_12px_rgba(231,21,32,0.3)]"
+                        : "text-white/70 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <span
+                      className={`material-symbols-outlined transition-colors ${
+                        isActive ? "text-white" : "text-white/50 group-hover:text-white"
+                      }`}
+                    >
+                      {item.icon}
+                    </span>
+                    <span className="font-semibold text-sm">{item.name}</span>
+                  </Link>
+                );
+              })}
+            </section>
+          ))}
         </nav>
         
-        <div className="absolute bottom-0 w-full p-4 border-t border-white/10 bg-[#1A1A1A]">
+        <div className="absolute bottom-0 w-full space-y-2 p-4 border-t border-white/10 bg-[#1A1A1A]">
+          <Link
+            href="/staff"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-white/70 hover:bg-white/10 hover:text-white"
+          >
+            <span className="material-symbols-outlined text-white/50 group-hover:text-white">support_agent</span>
+            <span className="font-semibold text-sm">Staff Workspace</span>
+          </Link>
           <Link
             href="/dashboard"
-            className="flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-white/70 hover:bg-white/10 hover:text-white"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-white/70 hover:bg-white/10 hover:text-white"
           >
-            <span className="material-symbols-outlined text-white/50 group-hover:text-white">logout</span>
+            <span className="material-symbols-outlined text-white/50 group-hover:text-white">account_circle</span>
             <span className="font-semibold text-sm">Exit Admin</span>
           </Link>
         </div>

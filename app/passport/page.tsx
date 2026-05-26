@@ -15,6 +15,8 @@
  */
 
 import { useState, useRef, useCallback } from "react";
+import WorkflowShell from "../components/WorkflowShell";
+import { generateKenyanPassportNumber } from "@/lib/passport";
 
 // ─── MRZ Utilities ───────────────────────────────────────────────────────────
 const MRZ_ALPHA = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -74,8 +76,7 @@ function fmtDate(ds) {
 }
 
 function genPN() {
-  const L = "ABCDEFGHJKLMNPRSTUVWXYZ";
-  return L[Math.floor(Math.random() * L.length)] + Math.floor(10000000 + Math.random() * 89999999);
+  return generateKenyanPassportNumber();
 }
 
 // ─── SVG Emblem ──────────────────────────────────────────────────────────────
@@ -532,13 +533,13 @@ export default function PassportGenerator() {
 
   const [form, setForm] = useState({
     country: "REPUBLIC OF",
-    countryFull: "ARCADIA",
-    nationality: "ARCADIAN",
-    surname: "",
-    givenNames: "",
+    countryFull: "KENYA",
+    nationality: "KEN",
+    surname: "MWANGI",
+    givenNames: "AMINA WANJIKU",
     sex: "M",
     dateOfBirth: "",
-    placeOfBirth: "",
+    placeOfBirth: "NAIROBI",
     dateOfIssue: fmt(today),
     dateOfExpiry: fmt(expiry),
     passportNumber: genPN(),
@@ -624,10 +625,10 @@ export default function PassportGenerator() {
     width: "100%",
     boxSizing: "border-box",
     padding: "8px 10px",
-    background: "#0e1d35",
-    border: "1px solid rgba(212,175,55,0.2)",
-    borderRadius: "4px",
-    color: "#e8e0cc",
+    background: "#fcf9f8",
+    border: "1px solid #e5e2e1",
+    borderRadius: "8px",
+    color: "#1A1A1A",
     fontSize: "13px",
     fontFamily: "'Palatino Linotype', Palatino, Georgia, serif",
     outline: "none",
@@ -637,7 +638,7 @@ export default function PassportGenerator() {
     fontSize: "9px",
     letterSpacing: "1.5px",
     textTransform: "uppercase",
-    color: "#d4af37",
+    color: "#5e3f3c",
     fontFamily: "system-ui, sans-serif",
     fontWeight: "700",
     marginBottom: "5px",
@@ -645,35 +646,36 @@ export default function PassportGenerator() {
   const group = { marginBottom: "14px" };
 
   return (
+    <WorkflowShell>
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(160deg, #040d1a 0%, #0a1628 50%, #06111f 100%)",
+        background: "#fcf9f8",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         padding: "40px 20px",
-        fontFamily: "'Palatino Linotype', Palatino, Georgia, serif",
-        color: "#e8e0cc",
+        fontFamily: "Hanken Grotesk, Arial, sans-serif",
+        color: "#1A1A1A",
       }}
     >
       {/* ── Header ── */}
       <div style={{ textAlign: "center", marginBottom: "40px" }}>
-        <div style={{ fontSize: "10px", letterSpacing: "5px", color: "#d4af37", opacity: 0.7 }}>✦ ✦ ✦</div>
+        <div style={{ fontSize: "10px", letterSpacing: "5px", color: "#bb0013", opacity: 0.7 }}>KENYA AIRWAYS</div>
         <h1
           style={{
             margin: "8px 0 4px",
             fontSize: "clamp(24px, 4vw, 36px)",
-            letterSpacing: "6px",
-            color: "#d4af37",
-            fontWeight: "normal",
+            letterSpacing: "0",
+            color: "#1A1A1A",
+            fontWeight: "800",
             textTransform: "uppercase",
           }}
         >
-          Passport Generator
+          Passport Details
         </h1>
-        <p style={{ margin: 0, fontSize: "11px", letterSpacing: "2px", opacity: 0.5, color: "#c8b87a" }}>
-          EDUCATIONAL SIMULATION — FOR SCHOOL PROJECTS ONLY
+        <p style={{ margin: 0, fontSize: "14px", opacity: 0.8, color: "#5e3f3c" }}>
+          Generate Kenyan-format mock passport details for the booking flow.
         </p>
       </div>
 
@@ -693,19 +695,20 @@ export default function PassportGenerator() {
           style={{
             width: "340px",
             flexShrink: 0,
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(212,175,55,0.15)",
+            background: "#ffffff",
+            border: "1px solid #e5e2e1",
             borderRadius: "8px",
             padding: "24px",
+            boxShadow: "0 12px 32px rgba(13, 13, 13, 0.08)",
           }}
         >
           <h2
             style={{
               margin: "0 0 20px",
               fontSize: "12px",
-              letterSpacing: "3px",
-              color: "#d4af37",
-              fontWeight: "normal",
+              letterSpacing: "0",
+              color: "#1A1A1A",
+              fontWeight: "800",
               textTransform: "uppercase",
               fontFamily: "system-ui",
             }}
@@ -721,7 +724,7 @@ export default function PassportGenerator() {
             </div>
             <div>
               <span style={label}>Country Name</span>
-              <input style={inp} value={form.countryFull} onChange={set("countryFull")} placeholder="ARCADIA" />
+              <input style={inp} value={form.countryFull} onChange={set("countryFull")} placeholder="KENYA" />
             </div>
           </div>
 
@@ -731,19 +734,19 @@ export default function PassportGenerator() {
               style={inp}
               value={form.nationality}
               onChange={set("nationality")}
-              placeholder="ARCADIAN"
+              placeholder="KEN"
               maxLength={15}
             />
           </div>
 
           <div style={group}>
             <span style={label}>Surname / Family Name</span>
-            <input style={inp} value={form.surname} onChange={set("surname")} placeholder="SMITH" />
+            <input style={inp} value={form.surname} onChange={set("surname")} placeholder="MWANGI" />
           </div>
 
           <div style={group}>
             <span style={label}>Given Names</span>
-            <input style={inp} value={form.givenNames} onChange={set("givenNames")} placeholder="JOHN WILLIAM" />
+            <input style={inp} value={form.givenNames} onChange={set("givenNames")} placeholder="AMINA WANJIKU" />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
@@ -790,10 +793,10 @@ export default function PassportGenerator() {
                 onClick={() => setForm((p) => ({ ...p, passportNumber: genPN() }))}
                 style={{
                   padding: "8px 10px",
-                  background: "rgba(212,175,55,0.1)",
-                  border: "1px solid rgba(212,175,55,0.3)",
-                  borderRadius: "4px",
-                  color: "#d4af37",
+                  background: "#ffffff",
+                  border: "1px solid #bb0013",
+                  borderRadius: "8px",
+                  color: "#bb0013",
                   cursor: "pointer",
                   fontSize: "12px",
                   whiteSpace: "nowrap",
@@ -822,14 +825,12 @@ export default function PassportGenerator() {
             style={{
               width: "100%",
               padding: "13px",
-              background: exporting
-                ? "rgba(212,175,55,0.1)"
-                : "linear-gradient(135deg, #c9a227 0%, #d4af37 50%, #b8921e 100%)",
+              background: exporting ? "#f6f3f2" : "#bb0013",
               border: "none",
               borderRadius: "5px",
-              color: exporting ? "#d4af37" : "#06101e",
+              color: exporting ? "#5e3f3c" : "#ffffff",
               fontSize: "12px",
-              letterSpacing: "3px",
+              letterSpacing: "0",
               textTransform: "uppercase",
               fontFamily: "system-ui, sans-serif",
               fontWeight: "700",
@@ -851,7 +852,7 @@ export default function PassportGenerator() {
               fontFamily: "sans-serif",
             }}
           >
-            Requires: <code>npm install html2canvas jspdf</code>
+            The generated details are for this application demo and are not a real travel document.
           </p>
         </div>
 
@@ -861,7 +862,7 @@ export default function PassportGenerator() {
             style={{
               fontSize: "9px",
               letterSpacing: "3px",
-              color: "#8a7a55",
+              color: "#5e3f3c",
               textTransform: "uppercase",
               fontFamily: "sans-serif",
             }}
@@ -938,7 +939,7 @@ export default function PassportGenerator() {
             style={{
               margin: 0,
               fontSize: "8.5px",
-              color: "#6a5f42",
+              color: "#5e3f3c",
               letterSpacing: "1.5px",
               textAlign: "center",
               maxWidth: "400px",
@@ -951,5 +952,6 @@ export default function PassportGenerator() {
         </div>
       </div>
     </div>
+    </WorkflowShell>
   );
 }

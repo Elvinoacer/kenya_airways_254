@@ -10,7 +10,14 @@ type PublicShellProps = {
 
 export default function PublicShell({ children }: PublicShellProps) {
   const pathname = usePathname();
-  const isInternalArea = pathname?.startsWith("/admin") || pathname?.startsWith("/dashboard");
+  const isInternalArea =
+    pathname?.startsWith("/admin") ||
+    pathname?.startsWith("/bookings") ||
+    pathname?.startsWith("/dashboard") ||
+    pathname?.startsWith("/passengers") ||
+    pathname?.startsWith("/passport") ||
+    pathname?.startsWith("/staff") ||
+    pathname?.startsWith("/reports");
 
   if (isInternalArea) {
     return <>{children}</>;

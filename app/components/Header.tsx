@@ -8,6 +8,7 @@ const navLinks = [
   { label: "Plan", href: "#plan" },
   { label: "Book & Manage", href: "/bookings" },
   { label: "Passengers", href: "/passengers" },
+  { label: "Passport", href: "/passport" },
   { label: "Experience", href: "#experience" },
   { label: "Asante Rewards", href: "#rewards" },
   { label: "Help", href: "/help" },
