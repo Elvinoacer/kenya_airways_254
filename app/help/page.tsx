@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Header from "@/app/components/Header";
-import Footer from "@/app/components/Footer";
 import { listHelpArticles } from "@/lib/help";
 import { useMemo, useState } from "react";
 import { useToast } from "../ClientProviders";
@@ -64,8 +62,7 @@ export default function HelpPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#fcf9f8] text-[#1A1A1A] pt-20">
-      <Header />
+    <div className="min-h-screen bg-[#fcf9f8] text-[#1A1A1A]">
       <main>
         <section className="relative overflow-hidden bg-[#410001]">
           <img
@@ -83,7 +80,8 @@ export default function HelpPage() {
                 Help that keeps your journey moving
               </h1>
               <p className="mt-5 max-w-2xl text-lg text-white/80">
-                Search booking guides, travel requirements, check-in help, refunds, and passenger support from one place.
+                Search booking guides, travel requirements, check-in help, refunds, and passenger support from one
+                place.
               </p>
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
                 {quickLinks.map((link) => (
@@ -104,11 +102,34 @@ export default function HelpPage() {
             <form onSubmit={submitContact} className="rounded-xl border border-white/15 bg-white p-6 shadow-lift">
               <h2 className="text-xl font-bold">Contact Support</h2>
               <div className="mt-4 space-y-3">
-                <input name="name" placeholder="Your name" className="w-full rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-2 text-sm focus:border-primary focus:outline-none" />
-                <input name="email" type="email" required placeholder="Your email" className="w-full rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-2 text-sm focus:border-primary focus:outline-none" />
-                <input name="subject" placeholder="Subject" className="w-full rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-2 text-sm focus:border-primary focus:outline-none" />
-                <textarea name="message" required placeholder="How can we help?" rows={5} className="w-full rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-2 text-sm focus:border-primary focus:outline-none" />
-                <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e71520]">
+                <input
+                  name="name"
+                  placeholder="Your name"
+                  className="w-full rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="Your email"
+                  className="w-full rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+                <input
+                  name="subject"
+                  placeholder="Subject"
+                  className="w-full rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+                <textarea
+                  name="message"
+                  required
+                  placeholder="How can we help?"
+                  rows={5}
+                  className="w-full rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e71520]"
+                >
                   Send Request
                   <span className="material-symbols-outlined text-[18px]">send</span>
                 </button>
@@ -120,9 +141,7 @@ export default function HelpPage() {
         <section className="mx-auto max-w-7xl px-5 py-14 md:px-20">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <span className="text-sm font-semibold uppercase tracking-widest text-primary">
-                Help Center
-              </span>
+              <span className="text-sm font-semibold uppercase tracking-widest text-primary">Help Center</span>
               <h2 className="mt-2 text-3xl font-semibold md:text-4xl">Guides and answers</h2>
             </div>
             <div className="relative w-full md:w-[380px]">
@@ -148,9 +167,7 @@ export default function HelpPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-widest text-primary">
-                      {article.category}
-                    </p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-primary">{article.category}</p>
                     <h3 className="mt-2 text-xl font-bold">{article.title}</h3>
                   </div>
                   <span className="material-symbols-outlined text-primary transition-transform group-hover:translate-x-1">
@@ -171,7 +188,6 @@ export default function HelpPage() {
           )}
         </section>
       </main>
-      <Footer />
     </div>
   );
 }

@@ -1,7 +1,5 @@
 "use client";
 
-import Header from "@/app/components/Header";
-import Footer from "@/app/components/Footer";
 import ProgressiveStepper from "@/app/ui/ProgressiveStepper";
 import { useToast } from "@/app/ClientProviders";
 import { registerSearchItem } from "@/lib/searchRegistry";
@@ -21,8 +19,7 @@ export default function BookingTutorial() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#fcf9f8] pt-20 text-[#1A1A1A]">
-      <Header />
+    <div className="min-h-screen bg-[#fcf9f8] text-[#1A1A1A]">
       <main>
         <section className="relative overflow-hidden bg-[#410001]">
           <img
@@ -32,13 +29,14 @@ export default function BookingTutorial() {
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[#410001] via-[#410001]/95 to-[#410001]/70" />
           <div className="relative mx-auto max-w-5xl px-5 py-16 md:px-20">
-            <Link href="/help" className="inline-flex items-center gap-2 text-sm font-semibold text-white/75 hover:text-white">
+            <Link
+              href="/help"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-white/75 hover:text-white"
+            >
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
               Help Center
             </Link>
-            <p className="mt-8 text-sm font-bold uppercase tracking-widest text-[#ffb4aa]">
-              Booking Tutorial
-            </p>
+            <p className="mt-8 text-sm font-bold uppercase tracking-widest text-[#ffb4aa]">Booking Tutorial</p>
             <h1 className="mt-3 max-w-3xl text-4xl font-bold leading-tight text-white md:text-5xl">
               Book confidently from search to payment
             </h1>
@@ -57,7 +55,8 @@ export default function BookingTutorial() {
                   title: "Search",
                   content: (
                     <div className="leading-7 text-[#5e3f3c]">
-                      Choose your origin, destination, trip type, dates, passengers, and cabin. The search page keeps the URL updated so you can share or return to the same results.
+                      Choose your origin, destination, trip type, dates, passengers, and cabin. The search page keeps
+                      the URL updated so you can share or return to the same results.
                     </div>
                   ),
                 },
@@ -66,7 +65,8 @@ export default function BookingTutorial() {
                   title: "Select",
                   content: (
                     <div className="leading-7 text-[#5e3f3c]">
-                      Compare price, duration, available seats, and included services. Pick a flight to continue into booking.
+                      Compare price, duration, available seats, and included services. Pick a flight to continue into
+                      booking.
                     </div>
                   ),
                 },
@@ -75,7 +75,8 @@ export default function BookingTutorial() {
                   title: "Details",
                   content: (
                     <div className="leading-7 text-[#5e3f3c]">
-                      Add passenger records carefully. Names, nationality, and passport numbers should match the travel documents.
+                      Add passenger records carefully. Names, nationality, and passport numbers should match the travel
+                      documents.
                     </div>
                   ),
                 },
@@ -84,14 +85,13 @@ export default function BookingTutorial() {
                   title: "Payment",
                   content: (
                     <div className="leading-7 text-[#5e3f3c]">
-                      Confirm the fare, complete payment, and keep the booking reference for check-in, changes, refunds, and support.
+                      Confirm the fare, complete payment, and keep the booking reference for check-in, changes, refunds,
+                      and support.
                     </div>
                   ),
                 },
               ]}
-              onFinish={() =>
-                toast.push({ message: "Tutorial complete", tone: "success" })
-              }
+              onFinish={() => toast.push({ message: "Tutorial complete", tone: "success" })}
             />
           </div>
 
@@ -103,7 +103,10 @@ export default function BookingTutorial() {
                 Try the updated flight search flow with live filters.
               </p>
             </Link>
-            <Link href="/help/travel-requirements" className="block rounded-xl border border-[#e5e2e1] bg-white p-5 shadow-sm">
+            <Link
+              href="/help/travel-requirements"
+              className="block rounded-xl border border-[#e5e2e1] bg-white p-5 shadow-sm"
+            >
               <span className="material-symbols-outlined text-primary">verified_user</span>
               <h2 className="mt-3 font-bold">Travel guidelines</h2>
               <p className="mt-2 text-sm leading-6 text-[#5e3f3c]">
@@ -113,7 +116,6 @@ export default function BookingTutorial() {
           </aside>
         </section>
       </main>
-      <Footer />
     </div>
   );
 }
