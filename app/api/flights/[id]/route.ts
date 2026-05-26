@@ -45,6 +45,14 @@ export async function GET(request: Request, context: any) {
 export async function PUT(request: Request, context: any) {
   const id = context?.params?.id;
   const body: any = await request.json().catch(() => ({}));
+  try {
+    // Temporary debug logging to help trace admin update payloads
+    // Remove or lower log level when debugging is complete.
+    // eslint-disable-next-line no-console
+    console.debug("PUT /api/flights/:id received", { id, body });
+  } catch (e) {
+    // ignore logging errors
+  }
 
   const data: any = {};
   if (body.flight_number !== undefined) data.flightNumber = body.flight_number;
@@ -142,6 +150,8 @@ export async function PUT(request: Request, context: any) {
     if (body.recurrence_rule !== undefined)
       nextData.recurrence_rule = body.recurrence_rule;
 
+    // eslint-disable-next-line no-console
+    console.debug("Updating flightMeta for", id, { nextData });
     await prisma.flightMeta.upsert({
       where: { flightId: id },
       create: { flightId: id, data: nextData },

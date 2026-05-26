@@ -75,17 +75,28 @@ export default function FlightsAdminPage() {
     const url = editingFlightId
       ? `/api/flights/${editingFlightId}`
       : `/api/flights`;
-    const res = await fetch(url, {
-      method,
-      body: JSON.stringify(form),
-      headers: { "Content-Type": "application/json" },
-    });
-    if (res.ok) {
-      setForm({});
-      setEditingFlightId(null);
-      await load();
-    } else {
-      console.error(await res.text());
+    try {
+      console.debug("Saving flight to", url, "method", method, "payload", form);
+      const res = await fetch(url, {
+        method,
+        body: JSON.stringify(form),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        setForm({});
+        setEditingFlightId(null);
+        await load();
+      } else {
+        const txt = await res.text().catch(() => "<no body>");
+        console.error("Flight save failed:", res.status, txt);
+        // Surface a user-friendly error so admins see failures
+        // eslint-disable-next-line no-alert
+        alert(`Save failed: ${res.status} ${txt}`);
+      }
+    } catch (err) {
+      console.error("Save flight network error", err);
+      // eslint-disable-next-line no-alert
+      alert(`Network error while saving flight: ${String(err)}`);
     }
     setCreating(false);
   }
