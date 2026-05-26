@@ -55,7 +55,7 @@ export default function FlightCard({
     [
       { code: "CLASS_A", label: "Executive", available: flight.seatsAvailable?.FIRST || 0 },
       { code: "CLASS_B", label: "Middle Class", available: flight.seatsAvailable?.BUSINESS || 0 },
-      { code: "CLASS_C", label: "Low Class", available: flight.seatsAvailable?.ECONOMY || 0 },
+      { code: "CLASS_C", label: "Economy", available: flight.seatsAvailable?.ECONOMY || 0 },
     ];
 
   const totalSeats = capacities.reduce(
@@ -69,157 +69,135 @@ export default function FlightCard({
     flight.stops === 0
       ? "Direct Flight"
       : `${flight.stops} Stop${flight.stops > 1 ? "s" : ""}`;
+      
   const originAirport = getAirportByCode(flight.origin);
   const destinationAirport = getAirportByCode(flight.destination);
   const originCity = flight.originCity || originAirport?.city || flight.origin;
   const destinationCity =
     flight.destinationCity || destinationAirport?.city || flight.destination;
-  const routeTitle = flight.routeTitle || `${originCity} to ${destinationCity}`;
-  const routeImage = flight.routeImage || "/images/hero_banner.png";
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-[#e5e2e1] bg-white shadow-[0_10px_30px_rgba(13,13,13,0.06)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#d8d0ce] hover:shadow-[0_18px_44px_rgba(13,13,13,0.1)]">
-      <div className="grid lg:grid-cols-[220px_1fr]">
-        <div className="relative min-h-[170px] lg:min-h-full bg-[#410001]">
-          <img
-            src={routeImage}
-            alt={routeTitle}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-          <div className="absolute left-4 right-4 bottom-4">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/75">
-              {flight.airline} {flight.flightNumber}
-            </p>
-            <h3 className="mt-1 text-xl font-black leading-tight text-white">
-              {routeTitle}
+    <article className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md">
+      
+      {/* Top Header: Airline & Basic Info */}
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 bg-gray-50/50 px-5 py-3 sm:px-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e71520]/10">
+            <span className="material-symbols-outlined text-[18px] text-[#e71520]" aria-hidden="true">
+              airlines
+            </span>
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-900">
+              {flight.airline} <span className="font-medium text-gray-500">{flight.flightNumber}</span>
             </h3>
           </div>
         </div>
 
-        <div className="p-5 md:p-6">
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eee8e6] pb-4">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#5e3f3c]">
-              <span className="rounded-full border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-1.5">
-                {flight.aircraft}
-              </span>
-              <span className="rounded-full border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-1.5">
-                Terminal {flight.terminal}
-              </span>
-              <span
-                className={`rounded-full border px-3 py-1.5 ${
-                  totalSeats < 10
-                    ? "border-[#ffdce0] bg-[#fff5f5] text-[#e71520]"
-                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                }`}
-              >
-                {totalSeats} seats left
-              </span>
-            </div>
-            <span className="rounded-full bg-[#410001] px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-white">
-              {stopsText}
+        <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+          <span className="rounded-md bg-white px-2.5 py-1 shadow-sm border border-gray-100">
+            {flight.aircraft}
+          </span>
+          <span className="rounded-md bg-white px-2.5 py-1 shadow-sm border border-gray-100">
+            Terminal {flight.terminal}
+          </span>
+          {totalSeats < 10 && (
+            <span className="rounded-md bg-red-50 text-red-600 px-2.5 py-1 font-semibold border border-red-100">
+              Only {totalSeats} seats left
             </span>
-          </header>
+          )}
+        </div>
+      </header>
 
-          <div className="grid gap-6 py-6 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-5">
-              <div>
-                <time className="block text-4xl font-black leading-none text-[#1A1A1A]">
-                  {formatTime(flight.departAt)}
-                </time>
-                <p className="mt-2 text-sm font-bold text-[#5e3f3c]">
-                  {formatDate(flight.departAt)}
-                </p>
-                <p className="mt-3 text-2xl font-black text-[#e71520]">
-                  {flight.origin}
-                </p>
-                <p className="text-sm font-semibold text-[#1A1A1A]">
-                  {originCity}
-                </p>
-              </div>
-
-              <div className="flex min-w-[96px] flex-col items-center sm:min-w-[150px]">
-                <div className="rounded-full border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-1 text-xs font-black text-[#1A1A1A] shadow-sm">
-                  {durationHours}h {durationMins}m
-                </div>
-                <div className="my-3 flex w-full items-center">
-                  <div className="h-px flex-1 bg-[#d9d1cf]" />
-                  <span className="material-symbols-outlined mx-2 text-[24px] text-[#e71520]" aria-hidden="true">
-                    flight
-                  </span>
-                  <div className="h-px flex-1 bg-[#d9d1cf]" />
-                </div>
-                <p className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-[#5e3f3c]">
-                  {stopsText}
-                </p>
-              </div>
-
-              <div className="text-right">
-                <time className="block text-4xl font-black leading-none text-[#1A1A1A]">
-                  {formatTime(flight.arriveAt)}
-                </time>
-                <p className="mt-2 text-sm font-bold text-[#5e3f3c]">
-                  {formatDate(flight.arriveAt)}
-                </p>
-                <p className="mt-3 text-2xl font-black text-[#1A1A1A]">
-                  {flight.destination}
-                </p>
-                <p className="text-sm font-semibold text-[#1A1A1A]">
-                  {destinationCity}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-4 border-t border-[#eee8e6] pt-5 lg:block lg:min-w-[170px] lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0 lg:text-right">
-              <div>
-                <span className="block text-[11px] font-black uppercase tracking-[0.16em] text-[#5e3f3c]">
-                  From
-                </span>
-                <div className="mt-1 text-3xl font-black text-[#1A1A1A]">
-                  {formatCurrency(price, currency === "KES" ? "KES" : "USD")}
-                </div>
-              </div>
-              <Link
-                href={`/bookings?flightId=${encodeURIComponent(flight.id)}`}
-                aria-label={`Select flight from ${flight.origin} to ${flight.destination} for ${formatCurrency(price, currency === "KES" ? "KES" : "USD")}`}
-                className="inline-flex min-w-[132px] items-center justify-center gap-2 rounded-xl bg-[#e71520] px-6 py-3.5 font-bold text-white shadow-[0_10px_24px_rgba(231,21,32,0.22)] transition-all duration-200 hover:bg-[#c9121a] focus:outline-none focus:ring-4 focus:ring-[#e71520]/30"
-              >
-                Select
-                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-                  arrow_forward
-                </span>
-              </Link>
+      {/* Main Body: Times, Route, and Price */}
+      <div className="flex flex-col lg:flex-row">
+        
+        {/* Flight Route Details */}
+        <div className="flex flex-1 items-center justify-between p-5 sm:p-6">
+          
+          {/* Origin */}
+          <div className="w-[100px] sm:w-[140px]">
+            <time className="block text-2xl sm:text-3xl font-bold text-gray-900">
+              {formatTime(flight.departAt)}
+            </time>
+            <p className="mt-1 text-xs sm:text-sm font-medium text-gray-500">
+              {formatDate(flight.departAt)}
+            </p>
+            <div className="mt-3">
+              <p className="text-lg sm:text-xl font-bold text-gray-900">{flight.origin}</p>
+              <p className="truncate text-xs sm:text-sm text-gray-500">{originCity}</p>
             </div>
           </div>
 
-          <footer className="border-t border-[#eee8e6] pt-4">
-            <div className="flex flex-wrap gap-2">
-              {capacities.map((entry) => {
-                const isAvailable = Number(entry.available) > 0;
-                return (
-                  <div
-                    key={entry.code}
-                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-                      isAvailable
-                        ? "border-[#e5e2e1] bg-[#fcf9f8]"
-                        : "border-[#ffdce0] bg-[#fff5f5] opacity-70"
-                    }`}
-                  >
-                    <span className="font-bold text-[#1A1A1A]">{entry.label}</span>
-                    <span
-                      className={`font-black ${
-                        isAvailable ? "text-emerald-700" : "text-[#e71520]"
-                      }`}
-                    >
-                      {isAvailable ? `${entry.available} seats` : "Sold out"}
-                    </span>
-                  </div>
-                );
-              })}
+          {/* Timeline & Duration */}
+          <div className="flex flex-1 flex-col items-center px-4 sm:px-8">
+            <span className="mb-2 text-xs font-semibold text-gray-500">
+              {durationHours}h {durationMins}m
+            </span>
+            <div className="flex w-full items-center">
+              <div className="h-[2px] flex-1 rounded-full bg-gray-200" />
+              <span className="material-symbols-outlined mx-2 text-[20px] text-[#e71520] rotate-90" aria-hidden="true">
+                flight
+              </span>
+              <div className="h-[2px] flex-1 rounded-full bg-gray-200" />
             </div>
-          </footer>
+            <span className={`mt-2 rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider ${flight.stops === 0 ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"}`}>
+              {stopsText}
+            </span>
+          </div>
+
+          {/* Destination */}
+          <div className="w-[100px] text-right sm:w-[140px]">
+            <time className="block text-2xl sm:text-3xl font-bold text-gray-900">
+              {formatTime(flight.arriveAt)}
+            </time>
+            <p className="mt-1 text-xs sm:text-sm font-medium text-gray-500">
+              {formatDate(flight.arriveAt)}
+            </p>
+            <div className="mt-3">
+              <p className="text-lg sm:text-xl font-bold text-gray-900">{flight.destination}</p>
+              <p className="truncate text-xs sm:text-sm text-gray-500">{destinationCity}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Pricing & CTA */}
+        <div className="flex items-center justify-between border-t border-gray-100 p-5 sm:p-6 lg:min-w-[220px] lg:flex-col lg:justify-center lg:border-l lg:border-t-0 lg:bg-gray-50/30">
+          <div className="text-left lg:text-center">
+            <span className="text-xs font-medium uppercase tracking-wider text-gray-500">Price from</span>
+            <div className="mt-1 text-2xl sm:text-3xl font-black text-[#e71520]">
+              {formatCurrency(price, currency === "KES" ? "KES" : "USD")}
+            </div>
+          </div>
+          
+          <Link
+            href={`/bookings?flightId=${encodeURIComponent(flight.id)}`}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#e71520] px-6 py-3 text-sm font-bold text-white transition-all hover:bg-[#c9121a] focus:outline-none focus:ring-4 focus:ring-[#e71520]/20 lg:mt-4 lg:w-full"
+          >
+            Select Flight
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+              arrow_forward
+            </span>
+          </Link>
         </div>
       </div>
+
+      {/* Footer: Class Capacities */}
+      <footer className="border-t border-gray-100 bg-gray-50/50 px-5 py-3 sm:px-6">
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
+          {capacities.map((entry) => {
+            const isAvailable = Number(entry.available) > 0;
+            return (
+              <div key={entry.code} className="flex items-center gap-2 text-sm">
+                <span className="font-medium text-gray-600">{entry.label}:</span>
+                <span className={`font-semibold ${isAvailable ? "text-emerald-600" : "text-gray-400"}`}>
+                  {isAvailable ? `${entry.available} left` : "Sold out"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </footer>
     </article>
   );
 }
