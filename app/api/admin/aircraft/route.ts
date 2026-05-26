@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { query } from "../../../../lib/db";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const rows = query.all(`SELECT * FROM aircraft ORDER BY created_at DESC`);
+  const rows = await prisma.aircraft.findMany({
+    orderBy: { createdAt: "desc" }
+  });
   return NextResponse.json(rows);
 }

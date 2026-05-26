@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const metrics = query.all(
-    `SELECT id, url, payload_json, received_at FROM metrics_rum ORDER BY received_at DESC LIMIT 1000`,
-  );
-  return NextResponse.json({ metrics });
+  const metrics = await prisma.metricsRum.findMany({
+    orderBy: { receivedAt: "desc" },
+    take: 1000,
+  });
+  
+  const mapped = metrics.map(m => ({
+    id: m.id,
+    url: m.url,
+    payload_json: m.payloadJson,
+    received_at: m.receivedAt
+  }));
+  
+  return NextResponse.json({ metrics: mapped });
 }

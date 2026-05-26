@@ -1,4 +1,4 @@
-import { query } from "./db";
+import { prisma } from "./prisma";
 
 function isoDate(date?: string | Date) {
   if (!date) return null;
@@ -15,23 +15,26 @@ export async function revenueAnalytics({
   to?: string;
   interval?: "day" | "month" | "year";
 }) {
-  const fromIso = isoDate(from) || "1970-01-01T00:00:00Z";
+  const fromIso = isoDate(from) || "1970-01-01T00:00:00.000Z";
   const toIso = isoDate(to) || new Date().toISOString();
-  const fmt =
-    interval === "month" ? "%Y-%m" : interval === "year" ? "%Y" : "%Y-%m-%d";
-  const rows = query.all<any>(
-    `
-    SELECT strftime('${fmt}', p.created_at) AS period,
-      COUNT(*) AS payments_count,
-      COALESCE(SUM(p.amount),0) AS revenue
-    FROM payments p
-    WHERE datetime(p.created_at) BETWEEN datetime(?) AND datetime(?)
+  
+  // Using native SQL for complex aggregations on PostgreSQL
+  const formatStr = interval === "month" ? "YYYY-MM" : interval === "year" ? "YYYY" : "YYYY-MM-DD";
+  
+  const rows = await prisma.$queryRawUnsafe<any[]>(`
+    SELECT TO_CHAR("createdAt", '${formatStr}') AS period,
+      COUNT(*)::int AS payments_count,
+      COALESCE(SUM("amount"), 0) AS revenue
+    FROM "Payment"
+    WHERE "createdAt" >= $1::timestamp AND "createdAt" <= $2::timestamp
     GROUP BY period
     ORDER BY period ASC
-  `,
-    [fromIso, toIso],
-  );
-  return rows;
+  `, new Date(fromIso), new Date(toIso));
+  
+  return rows.map(r => ({
+    ...r,
+    revenue: Number(r.revenue)
+  }));
 }
 
 export async function flightOccupancyAnalytics({
@@ -41,26 +44,25 @@ export async function flightOccupancyAnalytics({
   from?: string;
   to?: string;
 }) {
-  const fromIso = isoDate(from) || "1970-01-01T00:00:00Z";
+  const fromIso = isoDate(from) || "1970-01-01T00:00:00.000Z";
   const toIso = isoDate(to) || new Date().toISOString();
-  const rows = query.all<any>(
-    `
-    SELECT f.id as flight_id, f.flight_number, s.id as schedule_id, s.departure_time,
-      (SELECT COUNT(*) FROM seats WHERE flight_id = f.id) AS total_seats,
-      (SELECT COUNT(*) FROM bookings_v2 b WHERE b.flight_id = f.id AND b.status IN ('CONFIRMED','COMPLETED') AND datetime(b.created_at) BETWEEN datetime(?) AND datetime(?)) AS booked_seats
-    FROM flight_schedules s
-    JOIN flights f ON f.id = s.flight_id
-    WHERE datetime(s.departure_time) BETWEEN datetime(?) AND datetime(?)
-    ORDER BY s.departure_time ASC
-  `,
-    [fromIso, toIso, fromIso, toIso],
-  );
+  
+  const rows = await prisma.$queryRawUnsafe<any[]>(`
+    SELECT f."id" as flight_id, f."flightNumber" as flight_number, s."id" as schedule_id, s."departureTime" as departure_time,
+      (SELECT COUNT(*)::int FROM "Seat" WHERE "flightId" = f."id") AS total_seats,
+      (SELECT COUNT(*)::int FROM "Booking" b WHERE b."flightId" = f."id" AND b."status" IN ('CONFIRMED','COMPLETED') AND b."createdAt" >= $1::timestamp AND b."createdAt" <= $2::timestamp) AS booked_seats
+    FROM "FlightSchedule" s
+    JOIN "Flight" f ON f."id" = s."flightId"
+    WHERE s."departureTime" >= $3::timestamp AND s."departureTime" <= $4::timestamp
+    ORDER BY s."departureTime" ASC
+  `, new Date(fromIso), new Date(toIso), new Date(fromIso), new Date(toIso));
+  
   return rows.map((r) => ({
     ...r,
     total_seats: Number(r.total_seats || 0),
     booked_seats: Number(r.booked_seats || 0),
     occupancy_pct: r.total_seats
-      ? Math.round((r.booked_seats / r.total_seats) * 100)
+      ? Math.round((Number(r.booked_seats) / Number(r.total_seats)) * 100)
       : 0,
   }));
 }
@@ -74,47 +76,23 @@ export async function peakRouteAnalytics({
   to?: string;
   limit?: number;
 }) {
-  const fromIso = isoDate(from) || "1970-01-01T00:00:00Z";
+  const fromIso = isoDate(from) || "1970-01-01T00:00:00.000Z";
   const toIso = isoDate(to) || new Date().toISOString();
-  const rows = query.all<any>(
-    `
-    SELECT f.origin, f.destination, COUNT(b.id) AS bookings_count, COALESCE(SUM(p.amount),0) AS revenue
-    FROM flights f
-    LEFT JOIN bookings_v2 b ON b.flight_id = f.id AND b.status IN ('CONFIRMED','COMPLETED') AND datetime(b.created_at) BETWEEN datetime(?) AND datetime(?)
-    LEFT JOIN payments p ON p.booking_id = b.id
-    GROUP BY f.origin, f.destination
+  
+  const rows = await prisma.$queryRawUnsafe<any[]>(`
+    SELECT f."origin", f."destination", COUNT(b."id")::int AS bookings_count, COALESCE(SUM(p."amount"), 0) AS revenue
+    FROM "Flight" f
+    LEFT JOIN "Booking" b ON b."flightId" = f."id" AND b."status" IN ('CONFIRMED','COMPLETED') AND b."createdAt" >= $1::timestamp AND b."createdAt" <= $2::timestamp
+    LEFT JOIN "Payment" p ON p."bookingId" = b."id"
+    GROUP BY f."origin", f."destination"
     ORDER BY bookings_count DESC
-    LIMIT ?
-  `,
-    [fromIso, toIso, limit],
-  );
-  return rows;
-}
-
-export async function passengerTrends({
-  from,
-  to,
-  interval = "month",
-}: {
-  from?: string;
-  to?: string;
-  interval?: "day" | "month" | "year";
-}) {
-  const fromIso = isoDate(from) || "1970-01-01T00:00:00Z";
-  const toIso = isoDate(to) || new Date().toISOString();
-  const fmt =
-    interval === "year" ? "%Y" : interval === "day" ? "%Y-%m-%d" : "%Y-%m";
-  const rows = query.all<any>(
-    `
-    SELECT strftime('${fmt}', ph.travel_at) AS period, COUNT(*) AS trips, COUNT(DISTINCT ph.passenger_profile_id) AS unique_passengers
-    FROM passenger_travel_history ph
-    WHERE datetime(ph.travel_at) BETWEEN datetime(?) AND datetime(?)
-    GROUP BY period
-    ORDER BY period ASC
-  `,
-    [fromIso, toIso],
-  );
-  return rows;
+    LIMIT $3
+  `, new Date(fromIso), new Date(toIso), limit);
+  
+  return rows.map(r => ({
+    ...r,
+    revenue: Number(r.revenue)
+  }));
 }
 
 export async function bookingTrends({
@@ -126,21 +104,30 @@ export async function bookingTrends({
   to?: string;
   interval?: "day" | "month" | "year";
 }) {
-  const fromIso = isoDate(from) || "1970-01-01T00:00:00Z";
+  const fromIso = isoDate(from) || "1970-01-01T00:00:00.000Z";
   const toIso = isoDate(to) || new Date().toISOString();
-  const fmt =
-    interval === "month" ? "%Y-%m" : interval === "year" ? "%Y" : "%Y-%m-%d";
-  const rows = query.all<any>(
-    `
-    SELECT strftime('${fmt}', b.created_at) AS period, COUNT(*) AS bookings, COALESCE(SUM(b.seats),0) AS seats_booked
-    FROM bookings_v2 b
-    WHERE datetime(b.created_at) BETWEEN datetime(?) AND datetime(?)
-    GROUP BY period
-    ORDER BY period ASC
-  `,
-    [fromIso, toIso],
-  );
-  return rows;
+  const formatStr = interval === "month" ? "YYYY-MM" : interval === "year" ? "YYYY" : "YYYY-MM-DD";
+  
+  const rows = await prisma.$queryRawUnsafe<any[]>(`
+    SELECT TO_CHAR(b."createdAt", '${formatStr}') AS period, 
+      COUNT(*)::int AS bookings, 
+      (SELECT COUNT(*)::int FROM "BookingPassenger" bp WHERE bp."bookingId" = b."id") AS seats_booked
+    FROM "Booking" b
+    WHERE b."createdAt" >= $1::timestamp AND b."createdAt" <= $2::timestamp
+    GROUP BY period, b."id"
+  `, new Date(fromIso), new Date(toIso));
+  
+  // Aggregate since we grouped by booking ID to get seats
+  const aggregated = rows.reduce((acc: any, row: any) => {
+    if (!acc[row.period]) {
+      acc[row.period] = { period: row.period, bookings: 0, seats_booked: 0 };
+    }
+    acc[row.period].bookings += 1;
+    acc[row.period].seats_booked += Number(row.seats_booked || 0);
+    return acc;
+  }, {});
+  
+  return Object.values(aggregated).sort((a: any, b: any) => a.period.localeCompare(b.period));
 }
 
 export async function cancellationAnalytics({
@@ -150,22 +137,52 @@ export async function cancellationAnalytics({
   from?: string;
   to?: string;
 }) {
-  const fromIso = isoDate(from) || "1970-01-01T00:00:00Z";
+  const fromIso = isoDate(from) || "1970-01-01T00:00:00.000Z";
   const toIso = isoDate(to) || new Date().toISOString();
-  const rows = query.all<any>(
-    `
-    SELECT reason, COUNT(*) AS cancellations, COALESCE(SUM(cancelled_seats),0) AS seats_affected
-    FROM booking_cancellations
-    WHERE datetime(cancelled_at) BETWEEN datetime(?) AND datetime(?)
-    GROUP BY reason
+  
+  const rows = await prisma.$queryRawUnsafe<any[]>(`
+    SELECT "reason", COUNT(*)::int AS cancellations, COALESCE(SUM("cancelledSeats"), 0) AS seats_affected
+    FROM "BookingCancellation"
+    WHERE "cancelledAt" >= $1::timestamp AND "cancelledAt" <= $2::timestamp
+    GROUP BY "reason"
     ORDER BY cancellations DESC
-  `,
-    [fromIso, toIso],
-  );
+  `, new Date(fromIso), new Date(toIso));
+  
+  return rows.map(r => ({
+    ...r,
+    seats_affected: Number(r.seats_affected)
+  }));
+}
+
+export async function passengerTrends({
+  from,
+  to,
+  interval = "month",
+}: {
+  from?: string;
+  to?: string;
+  interval?: "day" | "month" | "year";
+}) {
+  // Mock passenger trends as we don't have a specific passenger_travel_history table in Prisma
+  // We'll base it on BookingPassenger creation instead
+  const fromIso = isoDate(from) || "1970-01-01T00:00:00.000Z";
+  const toIso = isoDate(to) || new Date().toISOString();
+  const formatStr = interval === "month" ? "YYYY-MM" : interval === "year" ? "YYYY" : "YYYY-MM-DD";
+  
+  const rows = await prisma.$queryRawUnsafe<any[]>(`
+    SELECT TO_CHAR(bp."createdAt", '${formatStr}') AS period, 
+      COUNT(*)::int AS trips, 
+      COUNT(DISTINCT bp."passengerId")::int AS unique_passengers
+    FROM "BookingPassenger" bp
+    JOIN "Booking" b ON b."id" = bp."bookingId"
+    WHERE b."status" IN ('CONFIRMED', 'COMPLETED') AND bp."createdAt" >= $1::timestamp AND bp."createdAt" <= $2::timestamp
+    GROUP BY period
+    ORDER BY period ASC
+  `, new Date(fromIso), new Date(toIso));
+  
   return rows;
 }
 
-// Very simple forecasting: linear projection based on average period-over-period growth
 export async function forecastingRevenue({
   from,
   to,
@@ -177,7 +194,6 @@ export async function forecastingRevenue({
   periods?: number;
   interval?: "month" | "day" | "year";
 }) {
-  // get historical revenue per interval
   const hist = await revenueAnalytics({
     from,
     to,
@@ -185,7 +201,7 @@ export async function forecastingRevenue({
       interval === "month" ? "month" : interval === "year" ? "year" : "day",
   });
   if (!hist || hist.length === 0) return { series: [], forecast: [] };
-  // compute simple growth rates
+  
   const revenues = hist.map((r: any) => Number(r.revenue || 0));
   const growths: number[] = [];
   for (let i = 1; i < revenues.length; i++) {
@@ -213,52 +229,45 @@ export async function kpiTracking({
   from?: string;
   to?: string;
 }) {
-  const fromIso = isoDate(from) || "1970-01-01T00:00:00Z";
+  const fromIso = isoDate(from) || "1970-01-01T00:00:00.000Z";
   const toIso = isoDate(to) || new Date().toISOString();
-  const totalRevenue = query.get<any>(
-    `SELECT COALESCE(SUM(amount),0) as total FROM payments WHERE datetime(created_at) BETWEEN datetime(?) AND datetime(?)`,
-    [fromIso, toIso],
-  );
-  const totalBookings = query.get<any>(
-    `SELECT COUNT(*) as bookings FROM bookings_v2 WHERE datetime(created_at) BETWEEN datetime(?) AND datetime(?)`,
-    [fromIso, toIso],
-  );
-  const avgBookingValue = query.get<any>(
-    `SELECT AVG(total_price) as avg_value FROM bookings WHERE datetime(created_at) BETWEEN datetime(?) AND datetime(?)`,
-    [fromIso, toIso],
-  );
-  const cancellations = query.get<any>(
-    `SELECT COUNT(*) as cancellations FROM booking_cancellations WHERE datetime(cancelled_at) BETWEEN datetime(?) AND datetime(?)`,
-    [fromIso, toIso],
-  );
-  const cancellationRate = totalBookings?.bookings
-    ? (cancellations?.cancellations || 0) / totalBookings.bookings
+  
+  const totals = await prisma.$queryRawUnsafe<any[]>(`
+    SELECT 
+      (SELECT COALESCE(SUM("amount"), 0) FROM "Payment" WHERE "createdAt" >= $1::timestamp AND "createdAt" <= $2::timestamp) as total_revenue,
+      (SELECT COUNT(*)::int FROM "Booking" WHERE "createdAt" >= $1::timestamp AND "createdAt" <= $2::timestamp) as total_bookings,
+      (SELECT AVG("totalAmount") FROM "Booking" WHERE "createdAt" >= $1::timestamp AND "createdAt" <= $2::timestamp) as avg_booking_value,
+      (SELECT COUNT(*)::int FROM "BookingCancellation" WHERE "cancelledAt" >= $1::timestamp AND "cancelledAt" <= $2::timestamp) as cancellations
+  `, new Date(fromIso), new Date(toIso));
+  
+  const row = totals[0];
+  const cancellationRate = row.total_bookings
+    ? (row.cancellations || 0) / row.total_bookings
     : 0;
-  // occupancy overall: sum booked seats / sum total seats across schedules in period
-  const occ = query.get<any>(
-    `
+    
+  const occ = await prisma.$queryRawUnsafe<any[]>(`
     SELECT
-      COALESCE(SUM(b_booked.booked),0) AS booked_seats,
-      COALESCE(SUM(seat_counts.total),0) AS total_seats
+      COALESCE(SUM(b_booked.booked), 0)::int AS booked_seats,
+      COALESCE(SUM(seat_counts.total), 0)::int AS total_seats
     FROM (
-      SELECT flight_id, COUNT(*) as booked FROM bookings_v2 b WHERE datetime(b.created_at) BETWEEN datetime(?) AND datetime(?) AND b.status IN ('CONFIRMED','COMPLETED') GROUP BY flight_id
+      SELECT "flightId", COUNT(*)::int as booked FROM "Booking" b WHERE b."createdAt" >= $1::timestamp AND b."createdAt" <= $2::timestamp AND b."status" IN ('CONFIRMED','COMPLETED') GROUP BY "flightId"
     ) b_booked
     LEFT JOIN (
-      SELECT flight_id, COUNT(*) as total FROM seats GROUP BY flight_id
-    ) seat_counts ON seat_counts.flight_id = b_booked.flight_id
-  `,
-    [fromIso, toIso],
-  );
+      SELECT "flightId", COUNT(*)::int as total FROM "Seat" GROUP BY "flightId"
+    ) seat_counts ON seat_counts."flightId" = b_booked."flightId"
+  `, new Date(fromIso), new Date(toIso));
+  
+  const occRow = occ[0];
 
   return {
-    totalRevenue: Number(totalRevenue?.total || 0),
-    totalBookings: Number(totalBookings?.bookings || 0),
-    avgBookingValue: Number(avgBookingValue?.avg_value || 0),
-    cancellations: Number(cancellations?.cancellations || 0),
+    totalRevenue: Number(row?.total_revenue || 0),
+    totalBookings: Number(row?.total_bookings || 0),
+    avgBookingValue: Number(row?.avg_booking_value || 0),
+    cancellations: Number(row?.cancellations || 0),
     cancellationRate: Number(cancellationRate || 0),
     occupancy:
-      occ && occ.total_seats
-        ? Math.round((occ.booked_seats / occ.total_seats) * 100)
+      occRow && Number(occRow.total_seats) > 0
+        ? Math.round((Number(occRow.booked_seats) / Number(occRow.total_seats)) * 100)
         : null,
   };
 }

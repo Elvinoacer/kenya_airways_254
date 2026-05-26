@@ -1,28 +1,29 @@
-/**
- * Lightweight, lazy Prisma client wrapper.
- * This file purposely avoids static imports so the repo can compile
- * even when `@prisma/client` is not installed in disconnected environments.
- */
-let prisma: any = null;
+import { Pool } from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@prisma/client';
 
-export function getPrisma(): any {
-  if (prisma) return prisma;
-  try {
-    // use eval to avoid static TS module resolution when package is absent
-    // eslint-disable-next-line no-eval
-    const pkg: any = eval("require")("@prisma/client");
-    const PrismaClient = pkg.PrismaClient;
-    prisma = new PrismaClient();
-  } catch (err) {
-    // Prisma not installed or not configured — caller should handle null
-    // Keep a minimal fallback to avoid throwing at import time
-    // eslint-disable-next-line no-console
-    console.warn(
-      "Prisma not available. Install @prisma/client to enable DB features.",
-    );
-    prisma = null;
+const connectionString = `${process.env.DATABASE_URL}`;
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+let prismaInstance: PrismaClient;
+
+if (globalForPrisma.prisma) {
+  prismaInstance = globalForPrisma.prisma;
+} else {
+  const pool = new Pool({ connectionString });
+  const adapter = new PrismaPg(pool);
+  prismaInstance = new PrismaClient({ 
+    adapter,
+    log: ["error", "warn"],
+  });
+
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = prismaInstance;
   }
-  return prisma;
 }
 
-export default getPrisma;
+export const prisma = prismaInstance;
+export default prisma;

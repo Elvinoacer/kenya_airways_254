@@ -1,4 +1,4 @@
-import { query } from "./db";
+import { prisma } from "./prisma";
 import messaging from "./messaging";
 
 function makeId(prefix = "a-") {
@@ -9,103 +9,104 @@ function makeId(prefix = "a-") {
   );
 }
 
-export function listUsers(limit = 200) {
-  return query.all(
-    `SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC LIMIT ?`,
-    [limit],
-  );
+export async function listUsers(limit = 200) {
+  return prisma.user.findMany({
+    select: { id: true, email: true, name: true, role: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
 }
 
-export function getUser(id: string) {
-  return query.get(`SELECT * FROM users WHERE id = ?`, [id]);
+export async function getUser(id: string) {
+  return prisma.user.findUnique({ where: { id } });
 }
 
-export function setUserRole(id: string, role: string) {
-  query.run(
-    `UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    [role, id],
-  );
-  const entryId = makeId("audit-");
-  query.run(
-    `INSERT INTO audit_logs (id, actor_id, actor_role, action, target_type, target_id, details_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [entryId, null, null, `set_role`, "user", id, JSON.stringify({ role })],
-  );
+export async function setUserRole(id: string, role: string) {
+  await prisma.user.update({
+    where: { id },
+    data: { role: role as any },
+  });
+  await prisma.auditLog.create({
+    data: {
+      action: "set_role",
+      targetType: "user",
+      targetId: id,
+      detailsJson: JSON.stringify({ role }),
+    },
+  });
   return getUser(id);
 }
 
-export function getSetting(key: string) {
-  return query.get(`SELECT * FROM admin_settings WHERE key_name = ?`, [key]);
+export async function getSetting(key: string) {
+  return prisma.adminSetting.findUnique({ where: { keyName: key } });
 }
 
-export function setSetting(key: string, value: string, description?: string) {
-  const exists: any = getSetting(key);
+export async function setSetting(key: string, value: string, description?: string) {
+  const exists = await getSetting(key);
   if (exists) {
-    query.run(
-      `UPDATE admin_settings SET value = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE key_name = ?`,
-      [value, description || exists.description || null, key],
-    );
+    await prisma.adminSetting.update({
+      where: { keyName: key },
+      data: { value, description: description || exists.description || null },
+    });
   } else {
-    const id = makeId("sett-");
-    query.run(
-      `INSERT INTO admin_settings (id, key_name, value, description) VALUES (?, ?, ?, ?)`,
-      [id, key, value, description || null],
-    );
+    await prisma.adminSetting.create({
+      data: { keyName: key, value, description: description || null },
+    });
   }
-  const entryId = makeId("audit-");
-  query.run(
-    `INSERT INTO audit_logs (id, actor_id, actor_role, action, details_json) VALUES (?, ?, ?, ?, ?)`,
-    [entryId, null, null, `set_setting:${key}`, JSON.stringify({ value })],
-  );
+  await prisma.auditLog.create({
+    data: {
+      action: `set_setting:${key}`,
+      detailsJson: JSON.stringify({ value }),
+    },
+  });
   return getSetting(key);
 }
 
-export function listFeatureToggles() {
-  return query.all(`SELECT * FROM feature_toggles ORDER BY name`);
+export async function listFeatureToggles() {
+  return prisma.featureToggle.findMany({ orderBy: { name: "asc" } });
 }
 
-export function setFeatureToggle(
+export async function setFeatureToggle(
   name: string,
   enabled: boolean,
   description?: string,
 ) {
-  const t: any = query.get(`SELECT * FROM feature_toggles WHERE name = ?`, [
-    name,
-  ]);
+  const t = await prisma.featureToggle.findUnique({ where: { name } });
   if (t) {
-    query.run(
-      `UPDATE feature_toggles SET enabled = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?`,
-      [enabled ? 1 : 0, description || t.description || null, name],
-    );
+    await prisma.featureToggle.update({
+      where: { name },
+      data: { enabled, description: description || t.description || null },
+    });
   } else {
-    const id = makeId("ft-");
-    query.run(
-      `INSERT INTO feature_toggles (id, name, enabled, description) VALUES (?, ?, ?, ?)`,
-      [id, name, enabled ? 1 : 0, description || null],
-    );
+    await prisma.featureToggle.create({
+      data: { name, enabled, description: description || null },
+    });
   }
-  const entryId = makeId("audit-");
-  query.run(
-    `INSERT INTO audit_logs (id, action, details_json) VALUES (?, ?, ?)`,
-    [entryId, `toggle_feature:${name}`, JSON.stringify({ enabled })],
-  );
-  return query.get(`SELECT * FROM feature_toggles WHERE name = ?`, [name]);
+  await prisma.auditLog.create({
+    data: {
+      action: `toggle_feature:${name}`,
+      detailsJson: JSON.stringify({ enabled }),
+    },
+  });
+  return prisma.featureToggle.findUnique({ where: { name } });
 }
 
-export function listAuditLogs(limit = 200) {
-  return query.all(
-    `SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?`,
-    [limit],
-  );
+export async function listAuditLogs(limit = 200) {
+  return prisma.auditLog.findMany({
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
 }
 
-export function exportUsersCsv() {
-  const rows = query.all<any>(
-    `SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC`,
-  );
+export async function exportUsersCsv() {
+  const rows = await prisma.user.findMany({
+    select: { id: true, email: true, name: true, role: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+  });
   const header = ["id", "email", "name", "role", "created_at"].join(",") + "\n";
   const body = rows
     .map((r) =>
-      [r.id, r.email, r.name || "", r.role, r.created_at]
+      [r.id, r.email, r.name || "", r.role, r.createdAt.toISOString()]
         .map((c) => String(c).replace(/\n/g, " "))
         .join(","),
     )
@@ -113,36 +114,37 @@ export function exportUsersCsv() {
   return header + body;
 }
 
-export function enableMaintenanceMode(enabled: boolean) {
-  setSetting(
+export async function enableMaintenanceMode(enabled: boolean) {
+  await setSetting(
     "maintenance_mode",
     enabled ? "1" : "0",
     "Toggle maintenance mode",
   );
-  const entryId = makeId("audit-");
-  query.run(
-    `INSERT INTO audit_logs (id, action, details_json) VALUES (?, ?, ?)`,
-    [entryId, `maintenance_mode`, JSON.stringify({ enabled })],
-  );
+  await prisma.auditLog.create({
+    data: {
+      action: "maintenance_mode",
+      detailsJson: JSON.stringify({ enabled }),
+    },
+  });
   return { ok: true };
 }
 
-export function announceGlobal(
+export async function announceGlobal(
   subject: string | null,
   message: string,
   actor?: string,
 ) {
-  // Use messaging broadcast for global announcements
-  const res = messaging.broadcastAnnouncement({
+  const res = await messaging.broadcastAnnouncement({
     from: actor,
     message,
     subject: subject || "Announcement",
   });
-  const id = makeId("audit-");
-  query.run(
-    `INSERT INTO audit_logs (id, action, details_json) VALUES (?, ?, ?)`,
-    [id, `announce_global`, JSON.stringify({ subject, message, actor })],
-  );
+  await prisma.auditLog.create({
+    data: {
+      action: "announce_global",
+      detailsJson: JSON.stringify({ subject, message, actor }),
+    },
+  });
   return res;
 }
 

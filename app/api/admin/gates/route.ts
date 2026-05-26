@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { query } from "../../../../lib/db";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const rows = query.all(`SELECT * FROM gates ORDER BY gate_code`);
+  const rows = await prisma.gate.findMany({
+    orderBy: { gateCode: "asc" }
+  });
   return NextResponse.json(rows);
 }

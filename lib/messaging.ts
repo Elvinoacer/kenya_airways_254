@@ -1,44 +1,40 @@
-import { query } from "./db";
+import { prisma } from "./prisma";
 import notifications from "./notifications";
 
-function makeId(prefix = "m-") {
-  return (
-    prefix +
-    ((globalThis as any).crypto?.randomUUID?.() ||
-      String(Date.now()) + Math.random().toString(36).slice(2))
-  );
-}
-
-export function createThread(
+export async function createThread(
   participants: string[],
   subject?: string,
   createdBy?: string,
 ) {
-  const id = makeId("thread-");
-  query.run(
-    `INSERT INTO message_threads (id, subject, participants_json, created_by) VALUES (?, ?, ?, ?)`,
-    [
-      id,
-      subject || null,
-      JSON.stringify(participants || []),
-      createdBy || null,
-    ],
-  );
-  return { id };
+  const thread = await prisma.messageThread.create({
+    data: {
+      subject: subject || null,
+      participantsJson: JSON.stringify(participants || []),
+      createdBy: createdBy || null,
+    },
+  });
+  return { id: thread.id };
 }
 
-export function getThread(id: string) {
-  return query.get(`SELECT * FROM message_threads WHERE id = ?`, [id]);
+export async function getThread(id: string) {
+  return prisma.messageThread.findUnique({ where: { id } });
 }
 
-export function listThreadsForUser(userId: string, limit = 50) {
-  return query.all(
-    `SELECT * FROM message_threads WHERE json_extract(participants_json, '$') LIKE ? ORDER BY created_at DESC LIMIT ?`,
-    ["%" + userId + "%", limit],
-  );
+export async function listThreadsForUser(userId: string, limit = 50) {
+  // SQLite JSON querying is limited in Prisma, so we'll fetch more and filter, or use raw if needed.
+  // Using a simplistic contains workaround for Prisma on SQLite string matching for JSON.
+  // Since we migrated to PostgreSQL, we can use JSON array containment or just LIKE if it's stored as string.
+  // We mapped it as String in Prisma, so we use string matching.
+  return prisma.messageThread.findMany({
+    where: {
+      participantsJson: { contains: `"${userId}"` }
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
 }
 
-export function sendMessage({
+export async function sendMessage({
   threadId,
   from,
   to,
@@ -53,76 +49,96 @@ export function sendMessage({
 }) {
   let tid = threadId;
   if (!tid) {
-    const thr = createThread(
+    const thr = await createThread(
       [from, ...(to || [])],
       metadata?.subject || null,
       from,
     );
     tid = thr.id;
   }
-  const mid = makeId("msg-");
-  query.run(
-    `INSERT INTO messages (id, thread_id, sender_id, content, metadata_json) VALUES (?, ?, ?, ?, ?)`,
-    [mid, tid, from, content, JSON.stringify(metadata || {})],
-  );
-  // create receipts for recipients
+  const message = await prisma.message.create({
+    data: {
+      threadId: tid,
+      senderId: from,
+      content,
+      metadataJson: JSON.stringify(metadata || {}),
+    },
+  });
+  
   for (const u of to || []) {
-    const rid = makeId("r-");
-    query.run(
-      `INSERT INTO message_receipts (id, message_id, user_id, delivered_channels) VALUES (?, ?, ?, ?)`,
-      [rid, mid, u, "in-app"],
-    );
-    // create in-app notification for recipient
-    notifications.createInAppNotification(
+    await prisma.messageReceipt.create({
+      data: {
+        messageId: message.id,
+        userId: u,
+        deliveredChannels: "in-app",
+      },
+    });
+    await notifications.createInAppNotification(
       u,
       "message",
       metadata?.title || "New message",
       content,
-      { threadId: tid, messageId: mid },
+      { threadId: tid, messageId: message.id },
     );
   }
-  return { id: mid, threadId: tid };
+  return { id: message.id, threadId: tid };
 }
 
-export function getMessagesInThread(threadId: string, limit = 200) {
-  return query.all(
-    `SELECT m.*, mr.user_id as recipient, mr.read as is_read, mr.read_at FROM messages m LEFT JOIN message_receipts mr ON mr.message_id = m.id WHERE m.thread_id = ? ORDER BY m.created_at ASC LIMIT ?`,
-    [threadId, limit],
-  );
+export async function getMessagesInThread(threadId: string, limit = 200) {
+  const messages = await prisma.message.findMany({
+    where: { threadId },
+    include: { receipts: true },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+  });
+  // Flatten for backwards compatibility
+  return messages.map(m => {
+    const receipt = m.receipts[0];
+    return {
+      ...m,
+      recipient: receipt?.userId,
+      is_read: receipt?.read,
+      read_at: receipt?.readAt,
+    };
+  });
 }
 
-export function markMessageRead(messageId: string, userId: string) {
-  const r: any = query.get(
-    `SELECT * FROM message_receipts WHERE message_id = ? AND user_id = ?`,
-    [messageId, userId],
-  );
-  if (!r) return false;
-  query.run(
-    `UPDATE message_receipts SET read = 1, read_at = datetime('now') WHERE id = ?`,
-    [r.id],
-  );
+export async function markMessageRead(messageId: string, userId: string) {
+  const receipt = await prisma.messageReceipt.findFirst({
+    where: { messageId, userId },
+  });
+  if (!receipt) return false;
+  await prisma.messageReceipt.update({
+    where: { id: receipt.id },
+    data: { read: true, readAt: new Date() },
+  });
   return true;
 }
 
-export function addMessageTemplate(
+export async function addMessageTemplate(
   name: string,
   channel: string,
   subjectTemplate: string | null,
   bodyTemplate: string,
 ) {
-  const id = makeId("tmpl-");
-  query.run(
-    `INSERT INTO message_templates (id, name, channel, subject_template, body_template) VALUES (?, ?, ?, ?, ?)`,
-    [id, name, channel, subjectTemplate, bodyTemplate],
-  );
-  return { id };
+  const template = await prisma.messageTemplate.create({
+    data: {
+      name,
+      channel,
+      subjectTemplate,
+      bodyTemplate,
+    },
+  });
+  return { id: template.id };
 }
 
-export function listMessageTemplates() {
-  return query.all(`SELECT * FROM message_templates ORDER BY created_at DESC`);
+export async function listMessageTemplates() {
+  return prisma.messageTemplate.findMany({
+    orderBy: { createdAt: "desc" },
+  });
 }
 
-export function broadcastAnnouncement({
+export async function broadcastAnnouncement({
   from,
   targetUserIds,
   subject,
@@ -135,12 +151,10 @@ export function broadcastAnnouncement({
   message: string;
   channels?: string[];
 }) {
-  // If no target users provided, insert into notifications for all users (careful in production)
   if (!targetUserIds) {
-    // simple broadcast via notifications table to avoid mass email in dev
-    const users = query.all<any>(`SELECT id FROM users`);
+    const users = await prisma.user.findMany({ select: { id: true } });
     for (const u of users) {
-      notifications.createInAppNotification(
+      await notifications.createInAppNotification(
         u.id,
         "announcement",
         subject || "Announcement",
@@ -151,7 +165,7 @@ export function broadcastAnnouncement({
     return { ok: true, count: users.length };
   }
   for (const uid of targetUserIds) {
-    notifications.createInAppNotification(
+    await notifications.createInAppNotification(
       uid,
       "announcement",
       subject || "Announcement",
@@ -162,21 +176,21 @@ export function broadcastAnnouncement({
   return { ok: true, count: (targetUserIds || []).length };
 }
 
-export function getCommunicationHistoryForUser(userId: string, limit = 100) {
-  // combine messages and notifications for a quick history
-  const msgs = query.all(
-    `SELECT m.id, m.content, m.created_at, 'message' as kind FROM messages m JOIN message_receipts mr ON mr.message_id = m.id WHERE mr.user_id = ?`,
-    [userId],
-  );
-  const notifs = query.all(
-    `SELECT id, message as content, created_at, 'notification' as kind FROM notifications WHERE user_id = ?`,
-    [userId],
-  );
-  const combined = [...msgs, ...notifs]
-    .sort(
-      (a: any, b: any) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    )
+export async function getCommunicationHistoryForUser(userId: string, limit = 100) {
+  const msgs = await prisma.message.findMany({
+    where: { receipts: { some: { userId } } },
+    select: { id: true, content: true, createdAt: true },
+  });
+  const msgsMapped = msgs.map(m => ({ ...m, kind: 'message' }));
+  
+  const notifs = await prisma.notification.findMany({
+    where: { userId },
+    select: { id: true, message: true, createdAt: true },
+  });
+  const notifsMapped = notifs.map(n => ({ id: n.id, content: n.message, createdAt: n.createdAt, kind: 'notification' }));
+  
+  const combined = [...msgsMapped, ...notifsMapped]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, limit);
   return combined;
 }

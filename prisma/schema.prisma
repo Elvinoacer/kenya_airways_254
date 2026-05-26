@@ -1,0 +1,854 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ══════════════════════════════════════════
+// AUTHENTICATION & USERS
+// ══════════════════════════════════════════
+
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  name             String?
+  role             Role      @default(PASSENGER)
+  passwordHash     String
+  avatarUrl        String?
+  failedAttempts   Int       @default(0)
+  lockedUntil      DateTime?
+  twoFactorEnabled Boolean   @default(false)
+  emailVerified    Boolean   @default(false)
+  phone            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions         Session[]
+  passengerProfile Passenger?
+  notifications    Notification[]
+  pushSubscriptions PushSubscription[]
+}
+
+enum Role {
+  PASSENGER
+  STAFF
+  ADMIN
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress    String?
+  userAgent    String?
+  isValid      Boolean  @default(true)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+model VerificationToken {
+  id        String    @id @default(uuid())
+  email     String
+  token     String    @unique
+  code      String
+  type      TokenType
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  @@unique([email, type])
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  MFA_CODE
+}
+
+model LoginAttempt {
+  id        String   @id @default(uuid())
+  email     String
+  ipAddress String
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([ipAddress])
+}
+
+model SuspiciousAlert {
+  id        String   @id @default(uuid())
+  userId    String
+  ipAddress String
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+// ══════════════════════════════════════════
+// PASSENGERS
+// ══════════════════════════════════════════
+
+model Passenger {
+  id              String    @id @default(uuid())
+  userId          String?   @unique
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firstName       String
+  lastName        String
+  phone           String?
+  passportNumber  String?   @unique
+  nationality     String?
+  dateOfBirth     DateTime?
+  frequentFlyerNo String?   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookingPassengers BookingPassenger[]
+}
+
+// ══════════════════════════════════════════
+// FLIGHTS & ROUTES
+// ══════════════════════════════════════════
+
+model Route {
+  id          String @id @default(uuid())
+  origin      String
+  destination String
+  basePrice   Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  flights Flight[]
+}
+
+model Flight {
+  id            String       @id @default(uuid())
+  flightNumber  String       @unique
+  routeId       String?
+  route         Route?       @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  origin        String?
+  destination   String?
+  departureTime DateTime?
+  arrivalTime   DateTime?
+  status        FlightStatus @default(SCHEDULED)
+  aircraftId    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings          Booking[]
+  seats             Seat[]
+  seatLocks         SeatLock[]
+  waitlist          FlightWaitlist[]
+  schedules         FlightSchedule[]
+  meta              FlightMeta?
+  staffAssignments  StaffAssignment[]
+}
+
+model FlightMeta {
+  id       String @id @default(uuid())
+  flightId String @unique
+  flight   Flight @relation(fields: [flightId], references: [id], onDelete: Cascade)
+  data     Json   @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum FlightStatus {
+  SCHEDULED
+  BOARDING
+  IN_FLIGHT
+  LANDED
+  DELAYED
+  CANCELLED
+}
+
+model FlightSchedule {
+  id            String               @id @default(uuid())
+  flightId      String
+  flight        Flight               @relation(fields: [flightId], references: [id], onDelete: Cascade)
+  departureTime DateTime
+  arrivalTime   DateTime?
+  status        FlightScheduleStatus @default(SCHEDULED)
+  aircraftId    String?
+  aircraft      Aircraft?            @relation(fields: [aircraftId], references: [id], onDelete: SetNull)
+  gateId        String?
+  gate          Gate?                @relation(fields: [gateId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  statusUpdates         FlightStatusUpdate[]
+  staffingRequirements  FlightStaffingRequirement[]
+  staffAssignments      StaffAssignment[]
+}
+
+enum FlightScheduleStatus {
+  SCHEDULED
+  BOARDING
+  DEPARTED
+  IN_FLIGHT
+  ARRIVED
+  DELAYED
+  CANCELLED
+}
+
+model FlightStatusUpdate {
+  id         String @id @default(uuid())
+  scheduleId String
+  schedule   FlightSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  status     String
+  reason     String?
+  note       String?
+  actor      String?
+
+  createdAt DateTime @default(now())
+}
+
+model Aircraft {
+  id           String @id @default(uuid())
+  registration String @unique
+  type         String?
+  capacity     Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedules FlightSchedule[]
+}
+
+model Gate {
+  id       String @id @default(uuid())
+  gateCode String @unique
+  terminal String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedules FlightSchedule[]
+}
+
+// ══════════════════════════════════════════
+// SEATS & INVENTORY
+// ══════════════════════════════════════════
+
+model Seat {
+  id         String     @id @default(uuid())
+  flightId   String
+  flight     Flight     @relation(fields: [flightId], references: [id], onDelete: Cascade)
+  seatNumber String
+  seatClass  SeatClass
+  isOccupied Boolean    @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meta SeatMeta?
+
+  @@unique([flightId, seatNumber])
+}
+
+model SeatMeta {
+  id              String  @id @default(uuid())
+  seatId          String  @unique
+  seat            Seat    @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  isEmergencyExit Boolean @default(false)
+  isAccessible    Boolean @default(false)
+  priceModifier   Float?
+  preferenceTags  String?
+}
+
+model SeatLock {
+  id                   String   @id @default(uuid())
+  seatId               String
+  flightId             String
+  flight               Flight   @relation(fields: [flightId], references: [id], onDelete: Cascade)
+  userId               String?
+  reservedForBookingId String?
+  expiresAt            DateTime
+
+  createdAt DateTime @default(now())
+}
+
+model FlightWaitlist {
+  id                   String  @id @default(uuid())
+  flightId             String
+  flight               Flight  @relation(fields: [flightId], references: [id], onDelete: Cascade)
+  passengerProfileId   String?
+  userId               String?
+  requestedSeatClass   String?
+
+  createdAt DateTime @default(now())
+}
+
+enum SeatClass {
+  ECONOMY
+  PREMIUM_ECONOMY
+  BUSINESS
+  FIRST
+}
+
+// ══════════════════════════════════════════
+// BOOKINGS & PAYMENTS
+// ══════════════════════════════════════════
+
+model Booking {
+  id               String        @id @default(uuid())
+  bookingReference String        @unique
+  flightId         String
+  flight           Flight        @relation(fields: [flightId], references: [id], onDelete: Cascade)
+  status           BookingStatus @default(PENDING)
+  totalAmount      Float
+  seatClass        SeatClass     @default(ECONOMY)
+  contactEmail     String?
+  contactPhone     String?
+  userId           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  passengers    BookingPassenger[]
+  payments      Payment[]
+  cancellation  BookingCancellation?
+}
+
+model BookingPassenger {
+  id             String     @id @default(uuid())
+  bookingId      String
+  booking        Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  passengerId    String?
+  passenger      Passenger? @relation(fields: [passengerId], references: [id], onDelete: SetNull)
+  firstName      String
+  lastName       String
+  seatAssignment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BookingCancellation {
+  id             String  @id @default(uuid())
+  bookingId      String  @unique
+  booking        Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reason         String?
+  cancelledSeats Int?
+  refundAmount   Float?
+  actor          String?
+
+  cancelledAt DateTime @default(now())
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  bookingId         String?
+  booking           Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  amount            Float
+  currency          String        @default("KES")
+  provider          String
+  status            PaymentStatus @default(PENDING)
+  providerPaymentId String?
+  metadataJson      String?
+  transactionId     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attempts PaymentAttempt[]
+  refunds  Refund[]
+  invoices Invoice[]
+}
+
+model PaymentAttempt {
+  id                   String  @id @default(uuid())
+  paymentId            String
+  payment              Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  attemptNo            Int
+  providerResponseJson String?
+  success              Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model Invoice {
+  id            String @id @default(uuid())
+  bookingId     String?
+  paymentId     String?
+  payment       Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  invoiceNumber String @unique
+  amount        Float
+  currency      String @default("KES")
+
+  createdAt DateTime @default(now())
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+// ══════════════════════════════════════════
+// REFUNDS
+// ══════════════════════════════════════════
+
+model Refund {
+  id                String       @id @default(uuid())
+  refundRef         String       @unique
+  bookingId         String?
+  bookingReference  String?
+  paymentId         String?
+  payment           Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  provider          String?
+  providerRefundId  String?
+  amount            Float
+  currency          String       @default("KES")
+  status            RefundStatus @default(REQUESTED)
+  reason            String
+  partial           Boolean      @default(false)
+  approvalRequired  Boolean      @default(false)
+  requestedByRole   String?
+  requestedBy       String?
+  approvedBy        String?
+  rejectedBy        String?
+  failureReason     String?
+  contactEmail      String?
+  contactPhone      String?
+  source            String?
+  notes             String?
+  metadataJson      String?
+
+  requestedAt DateTime  @default(now())
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+  completedAt DateTime?
+  failedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  events RefundEvent[]
+}
+
+model RefundEvent {
+  id          String @id @default(uuid())
+  refundId    String
+  refund      Refund @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  status      String
+  message     String?
+  actor       String?
+  detailsJson String?
+
+  createdAt DateTime @default(now())
+}
+
+enum RefundStatus {
+  REQUESTED
+  PENDING_APPROVAL
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+  FAILED
+}
+
+// ══════════════════════════════════════════
+// ADMIN
+// ══════════════════════════════════════════
+
+model AdminSetting {
+  id          String @id @default(uuid())
+  keyName     String @unique
+  value       String
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FeatureToggle {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  enabled     Boolean @default(false)
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String  @id @default(uuid())
+  actorId     String?
+  actorRole   String?
+  action      String
+  targetType  String?
+  targetId    String?
+  detailsJson String?
+
+  createdAt DateTime @default(now())
+}
+
+// ══════════════════════════════════════════
+// EMPLOYEES & HR
+// ══════════════════════════════════════════
+
+model Department {
+  id                String  @id @default(uuid())
+  code              String  @unique
+  name              String
+  description       String?
+  managerEmployeeId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employees Employee[]
+}
+
+model Employee {
+  id               String  @id @default(uuid())
+  userId           String?
+  employeeNumber   String  @unique
+  firstName        String
+  lastName         String
+  email            String?
+  phone            String?
+  jobTitle         String?
+  employeeRole     String
+  departmentId     String?
+  department       Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  employmentType   String  @default("FULL_TIME")
+  status           String  @default("ACTIVE")
+  permissionsJson  String  @default("[]")
+  profileJson      String  @default("{}")
+  notes            String?
+  hiredAt          String?
+  managerEmployeeId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedules    EmployeeSchedule[]
+  availability EmployeeAvailability[]
+  activityLogs EmployeeActivityLog[]
+  staffAssignments StaffAssignment[]
+}
+
+model EmployeeSchedule {
+  id           String @id @default(uuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  scheduleDate String
+  shiftStart   String
+  shiftEnd     String
+  timezone     String @default("Africa/Nairobi")
+  status       String @default("SCHEDULED")
+  location     String?
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmployeeAvailability {
+  id               String  @id @default(uuid())
+  employeeId       String
+  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  availabilityDate String?
+  dayOfWeek        Int?
+  availableFrom    String?
+  availableTo      String?
+  timezone         String  @default("Africa/Nairobi")
+  status           String  @default("AVAILABLE")
+  notes            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmployeeActivityLog {
+  id          String @id @default(uuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  action      String
+  detailsJson String?
+  actor       String?
+
+  createdAt DateTime @default(now())
+}
+
+// ══════════════════════════════════════════
+// STAFF ASSIGNMENTS
+// ══════════════════════════════════════════
+
+model FlightStaffingRequirement {
+  id               String @id @default(uuid())
+  flightScheduleId String
+  flightSchedule   FlightSchedule @relation(fields: [flightScheduleId], references: [id], onDelete: Cascade)
+  role             String
+  requiredCount    Int    @default(1)
+  notes            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StaffAssignment {
+  id               String  @id @default(uuid())
+  flightScheduleId String?
+  flightSchedule   FlightSchedule? @relation(fields: [flightScheduleId], references: [id], onDelete: SetNull)
+  flightId         String?
+  flight           Flight? @relation(fields: [flightId], references: [id], onDelete: SetNull)
+  employeeId       String?
+  employee         Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  assignmentRole   String
+  status           String  @default("OPEN")
+  source           String  @default("MANUAL")
+  matchScore       Int     @default(0)
+  matchReason      String?
+  conflictReason   String?
+  openText         String?
+  requiredCount    Int     @default(1)
+  notes            String?
+  metadataJson     String?
+  approvedBy       String?
+  rejectedBy       String?
+  completedBy      String?
+  startedAt        DateTime?
+  endedAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  history StaffAssignmentHistory[]
+}
+
+model StaffAssignmentHistory {
+  id           String @id @default(uuid())
+  assignmentId String
+  assignment   StaffAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  action       String
+  detailsJson  String?
+  actor        String?
+
+  createdAt DateTime @default(now())
+}
+
+// ══════════════════════════════════════════
+// NOTIFICATIONS
+// ══════════════════════════════════════════
+
+model Notification {
+  id                String  @id @default(uuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  title             String
+  message           String
+  metadataJson      String?
+  read              Boolean @default(false)
+  deliveredChannels String?
+
+  createdAt DateTime @default(now())
+}
+
+model PushSubscription {
+  id       String @id @default(uuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint String
+  keysJson String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, endpoint])
+}
+
+model ScheduledReminder {
+  id        String   @id @default(uuid())
+  userId    String?
+  bookingId String?
+  sendAt    DateTime
+  type      String   @default("booking_reminder")
+  paramsJson String?
+  sent      Boolean  @default(false)
+  sentAt    DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+// ══════════════════════════════════════════
+// MESSAGING
+// ══════════════════════════════════════════
+
+model MessageThread {
+  id               String  @id @default(uuid())
+  subject          String?
+  participantsJson String?
+  createdBy        String?
+
+  createdAt DateTime @default(now())
+
+  messages Message[]
+}
+
+model Message {
+  id           String @id @default(uuid())
+  threadId     String
+  thread       MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId     String
+  content      String
+  metadataJson String?
+
+  createdAt DateTime @default(now())
+
+  receipts MessageReceipt[]
+}
+
+model MessageReceipt {
+  id                String   @id @default(uuid())
+  messageId         String
+  message           Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId            String
+  read              Boolean  @default(false)
+  readAt            DateTime?
+  deliveredChannels String?
+
+  createdAt DateTime @default(now())
+}
+
+model MessageTemplate {
+  id              String  @id @default(uuid())
+  name            String
+  channel         String
+  subjectTemplate String?
+  bodyTemplate    String
+
+  createdAt DateTime @default(now())
+}
+
+// ══════════════════════════════════════════
+// SUPPORT TICKETS
+// ══════════════════════════════════════════
+
+model SupportTicket {
+  id              String  @id @default(uuid())
+  ticketRef       String  @unique
+  name            String?
+  email           String
+  subject         String?
+  message         String
+  status          String  @default("OPEN")
+  priority        String  @default("NORMAL")
+  assignedTo      String?
+  escalationLevel Int     @default(0)
+  slaDueAt        DateTime?
+  contextJson     String?
+  csatScore       Int?
+  csatFeedback    String?
+  csatSubmittedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events      SupportTicketEvent[]
+  csatEntries SupportTicketCsat[]
+}
+
+model SupportTicketEvent {
+  id          String @id @default(uuid())
+  ticketId    String
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  eventType   String
+  detailsJson String?
+  actor       String?
+
+  createdAt DateTime @default(now())
+}
+
+model SupportTicketCsat {
+  id       String  @id @default(uuid())
+  ticketId String
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  score    Int
+  feedback String?
+
+  createdAt DateTime @default(now())
+}
+
+model LiveChatSession {
+  id        String  @id @default(uuid())
+  ticketId  String?
+  visitorId String?
+
+  createdAt DateTime @default(now())
+
+  messages LiveChatMessage[]
+}
+
+model LiveChatMessage {
+  id           String @id @default(uuid())
+  sessionId    String
+  session      LiveChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender       String
+  message      String
+  metadataJson String?
+
+  createdAt DateTime @default(now())
+}
+
+// ══════════════════════════════════════════
+// SCHEDULED REPORTS
+// ══════════════════════════════════════════
+
+model ReportSchedule {
+  id              String  @id @default(uuid())
+  name            String
+  reportType      String
+  paramsJson      String?
+  intervalMinutes Int     @default(1440)
+  nextRunAt       DateTime?
+  lastRunAt       DateTime?
+  active          Boolean @default(true)
+  createdBy       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  storedReports StoredReport[]
+}
+
+model StoredReport {
+  id           String  @id @default(uuid())
+  scheduleId   String?
+  schedule     ReportSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  reportType   String
+  paramsJson   String?
+  filePath     String
+  fileFormat   String  @default("csv")
+
+  generatedAt DateTime @default(now())
+}
+
+// ══════════════════════════════════════════
+// METRICS
+// ══════════════════════════════════════════
+
+model MetricsRum {
+  id          String   @id @default(uuid())
+  url         String
+  payloadJson String
+  receivedAt  DateTime @default(now())
+}

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { query } from "../../../../../lib/db";
+import { prisma } from "../../../../../lib/prisma";
 
 function addDays(date: Date, days: number) {
   const d = new Date(date);
@@ -9,17 +9,20 @@ function addDays(date: Date, days: number) {
 
 export async function GET(request: Request, context: any) {
   const id = context?.params?.id;
-  const row: any = query.get(
-    `SELECT f.*, m.recurrence_rule FROM flights f LEFT JOIN flight_meta m ON m.flight_id = f.id WHERE f.id = ?`,
-    [id],
-  );
+  const row = await prisma.flight.findUnique({
+    where: { id },
+    include: { meta: true }
+  });
+  
   if (!row) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  const rule: string | null = row.recurrence_rule || null;
+  
+  const metaData = row.meta?.data as any || {};
+  const rule: string | null = metaData.recurrence_rule || null;
   if (!rule) return NextResponse.json({ occurrences: [] });
 
   // Very small recurrence support: 'daily' or 'weekly:Mon,Tue'
   const occurrences: any[] = [];
-  const start = new Date(row.departure_time);
+  const start = new Date(row.departureTime || Date.now());
   const until = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days window
 
   if (rule === "daily") {
@@ -34,15 +37,6 @@ export async function GET(request: Request, context: any) {
       .split(",")
       .map((d) => d.trim().toLowerCase())
       .filter(Boolean);
-    const mapping: any = {
-      sun: 0,
-      mon: 1,
-      tue: 2,
-      wed: 3,
-      thu: 4,
-      fri: 5,
-      sat: 6,
-    };
     let cur = new Date(start);
     while (cur <= until && occurrences.length < 200) {
       if (

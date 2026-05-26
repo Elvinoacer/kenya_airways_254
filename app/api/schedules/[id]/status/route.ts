@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { query } from "../../../../../lib/db";
+import { prisma } from "../../../../../lib/prisma";
 import { notifyPassengersForFlight } from "../../../../../lib/notifications";
 
 export async function POST(request: Request, context: any) {
@@ -9,61 +9,51 @@ export async function POST(request: Request, context: any) {
   if (!status)
     return NextResponse.json({ error: "missing_status" }, { status: 400 });
 
-  const schedule: any = query.get(
-    `SELECT * FROM flight_schedules WHERE id = ?`,
-    [scheduleId],
-  );
+  const schedule = await prisma.flightSchedule.findUnique({
+    where: { id: scheduleId }
+  });
+  
   if (!schedule)
     return NextResponse.json({ error: "schedule_not_found" }, { status: 404 });
 
-  // Update schedule status and optional delay
-  const updates: any[] = [];
-  const setParts: string[] = [];
-  setParts.push(`status = ?`);
-  updates.push(status);
-  if (typeof delay_minutes !== "undefined") {
-    setParts.push(`delay_minutes = ?`);
-    updates.push(Number(delay_minutes) || 0);
-  }
-  updates.push(scheduleId);
-  query.run(
-    `UPDATE flight_schedules SET ${setParts.join(", ")}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    updates,
-  );
+  // Update schedule status (delay_minutes is not in our schema, so we skip it or could add to meta)
+  await prisma.flightSchedule.update({
+    where: { id: scheduleId },
+    data: { status: status as any }
+  });
 
   // insert status update record
-  const updateId =
-    (globalThis as any).crypto?.randomUUID?.() ||
-    String(Date.now()) + Math.random().toString(36).slice(2);
-  query.run(
-    `INSERT INTO flight_status_updates (id, schedule_id, status, reason, note, actor) VALUES (?, ?, ?, ?, ?, ?)`,
-    [updateId, scheduleId, status, reason || null, note || null, actor || null],
-  );
+  const update = await prisma.flightStatusUpdate.create({
+    data: {
+      scheduleId,
+      status,
+      reason: reason || null,
+      note: note || null,
+      actor: actor || null
+    }
+  });
 
   // Notify passengers associated with the flight
   let notified = 0;
   try {
-    notified = await notifyPassengersForFlight(schedule.flight_id, {
+    notified = await notifyPassengersForFlight(schedule.flightId, {
       status,
       reason,
       note,
       actor,
     });
-    // update record with notified count
-    query.run(
-      `UPDATE flight_status_updates SET notified_passengers_count = ? WHERE id = ?`,
-      [notified, updateId],
-    );
+    // Notified passengers count is not in Prisma schema for FlightStatusUpdate, so we skip updating it.
   } catch (e) {
     // swallow notification errors but keep update logged
   }
 
-  const updated = query.get(`SELECT * FROM flight_schedules WHERE id = ?`, [
-    scheduleId,
-  ]);
+  const updated = await prisma.flightSchedule.findUnique({
+    where: { id: scheduleId }
+  });
+  
   return NextResponse.json({
     schedule: updated,
-    status_update_id: updateId,
+    status_update_id: update.id,
     notified,
   });
 }

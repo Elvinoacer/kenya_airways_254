@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const scheduleId = url.searchParams.get("scheduleId") || undefined;
   return NextResponse.json({
-    requirements: listFlightStaffingRequirements(scheduleId),
+    requirements: await listFlightStaffingRequirements(scheduleId),
   });
 }
 
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   if (!body.flightScheduleId || !body.role) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
-  const requirement = setFlightStaffingRequirements({
+  const requirement = await setFlightStaffingRequirements({
     flightScheduleId: body.flightScheduleId,
     role: body.role,
     requiredCount: body.requiredCount,

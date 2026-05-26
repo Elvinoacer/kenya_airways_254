@@ -12,7 +12,7 @@ import {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const assignments = listAssignments({
+  const assignments = await listAssignments({
     scheduleId: url.searchParams.get("scheduleId") || undefined,
     employeeId: url.searchParams.get("employeeId") || undefined,
     status: url.searchParams.get("status") || undefined,
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (!body.flightScheduleId || !body.role) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
-  const assignment = createStaffAssignment({
+  const assignment = await createStaffAssignment({
     flightScheduleId: body.flightScheduleId,
     employeeId: body.employeeId || null,
     role: body.role,
@@ -50,23 +50,23 @@ export async function PATCH(request: Request) {
     let assignment;
     switch (String(action).toUpperCase()) {
       case "APPROVE":
-        assignment = approveAssignment(id, actor);
+        assignment = await approveAssignment(id, actor);
         break;
       case "REJECT":
-        assignment = rejectAssignment(id, actor, reason);
+        assignment = await rejectAssignment(id, actor, reason);
         break;
       case "ASSIGN":
-        assignment = assignEmployeeToSchedule(
+        assignment = await assignEmployeeToSchedule(
           id,
           actor,
           body.employeeId || undefined,
         );
         break;
       case "COMPLETE":
-        assignment = completeAssignment(id, actor);
+        assignment = await completeAssignment(id, actor);
         break;
       case "CANCEL":
-        assignment = cancelAssignment(id, actor, reason);
+        assignment = await cancelAssignment(id, actor, reason);
         break;
       default:
         return NextResponse.json(

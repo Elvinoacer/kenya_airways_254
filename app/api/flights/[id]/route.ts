@@ -1,98 +1,99 @@
 import { NextResponse } from "next/server";
-import { query } from "../../../../lib/db";
+import { prisma } from "../../../../lib/prisma";
 
 export async function GET(request: Request, context: any) {
   const id = context?.params?.id;
-  const row = query.get(
-    `SELECT f.*, coalesce(m.is_active,1) as is_active, coalesce(m.is_archived,0) as is_archived FROM flights f LEFT JOIN flight_meta m ON m.flight_id = f.id WHERE f.id = ?`,
-    [id],
-  );
-  if (!row) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  return NextResponse.json({ flight: row });
+  const flight = await prisma.flight.findUnique({
+    where: { id },
+    include: { meta: true }
+  });
+  
+  if (!flight) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  
+  const metaData = flight.meta?.data as any || {};
+  return NextResponse.json({ 
+    flight: {
+      ...flight,
+      flight_number: flight.flightNumber,
+      departure_time: flight.departureTime,
+      arrival_time: flight.arrivalTime,
+      is_active: metaData.is_active ?? 1,
+      is_archived: metaData.is_archived ?? 0
+    }
+  });
 }
 
 export async function PUT(request: Request, context: any) {
   const id = context?.params?.id;
   const body: any = await request.json().catch(() => ({}));
-  const fields = [
-    "flight_number",
-    "origin",
-    "destination",
-    "departure_time",
-    "arrival_time",
-    "price_economy",
-    "price_business",
-    "price_first",
-  ];
-  const updates: any[] = [];
-  const setParts: string[] = [];
-  for (const f of fields) {
-    if (Object.prototype.hasOwnProperty.call(body, f)) {
-      setParts.push(`${f} = ?`);
-      updates.push(body[f]);
-    }
+  
+  const data: any = {};
+  if (body.flight_number !== undefined) data.flightNumber = body.flight_number;
+  if (body.origin !== undefined) data.origin = body.origin;
+  if (body.destination !== undefined) data.destination = body.destination;
+  if (body.departure_time !== undefined) data.departureTime = new Date(body.departure_time);
+  if (body.arrival_time !== undefined) data.arrivalTime = new Date(body.arrival_time);
+  
+  if (Object.keys(data).length > 0) {
+    await prisma.flight.update({
+      where: { id },
+      data
+    });
   }
-  if (setParts.length) {
-    updates.push(id);
-    query.run(
-      `UPDATE flights SET ${setParts.join(", ")} WHERE id = ?`,
-      updates,
-    );
-  }
+  
   // meta updates
   if (
     body.is_active !== undefined ||
     body.is_archived !== undefined ||
     body.recurrence_rule !== undefined
   ) {
-    const meta = query.get(`SELECT * FROM flight_meta WHERE flight_id = ?`, [
-      id,
-    ]) as any;
-    if (meta) {
-      query.run(
-        `UPDATE flight_meta SET is_active = ?, is_archived = ?, recurrence_rule = ?, updated_at = CURRENT_TIMESTAMP WHERE flight_id = ?`,
-        [
-          body.is_active !== undefined
-            ? body.is_active
-              ? 1
-              : 0
-            : meta.is_active,
-          body.is_archived !== undefined
-            ? body.is_archived
-              ? 1
-              : 0
-            : meta.is_archived,
-          body.recurrence_rule ?? meta.recurrence_rule,
-          id,
-        ],
-      );
-    } else {
-      query.run(
-        `INSERT INTO flight_meta (flight_id, is_active, is_archived, recurrence_rule) VALUES (?, ?, ?, ?)`,
-        [
-          id,
-          body.is_active !== undefined ? (body.is_active ? 1 : 0) : 1,
-          body.is_archived !== undefined ? (body.is_archived ? 1 : 0) : 0,
-          body.recurrence_rule ?? null,
-        ],
-      );
-    }
+    const flightMeta = await prisma.flightMeta.findUnique({ where: { flightId: id } });
+    const currentData = flightMeta?.data as any || {};
+    
+    const nextData = { ...currentData };
+    if (body.is_active !== undefined) nextData.is_active = body.is_active ? 1 : 0;
+    if (body.is_archived !== undefined) nextData.is_archived = body.is_archived ? 1 : 0;
+    if (body.recurrence_rule !== undefined) nextData.recurrence_rule = body.recurrence_rule;
+    
+    await prisma.flightMeta.upsert({
+      where: { flightId: id },
+      create: { flightId: id, data: nextData },
+      update: { data: nextData }
+    });
   }
 
-  const updated = query.get(
-    `SELECT f.*, coalesce(m.is_active,1) as is_active, coalesce(m.is_archived,0) as is_archived FROM flights f LEFT JOIN flight_meta m ON m.flight_id = f.id WHERE f.id = ?`,
-    [id],
-  );
-  return NextResponse.json({ flight: updated });
+  const updated = await prisma.flight.findUnique({
+    where: { id },
+    include: { meta: true }
+  });
+  
+  const metaData = updated?.meta?.data as any || {};
+  return NextResponse.json({ 
+    flight: {
+      ...updated,
+      flight_number: updated?.flightNumber,
+      departure_time: updated?.departureTime,
+      arrival_time: updated?.arrivalTime,
+      is_active: metaData.is_active ?? 1,
+      is_archived: metaData.is_archived ?? 0
+    }
+  });
 }
 
 export async function DELETE(request: Request, context: any) {
   const id = context?.params?.id;
   // Soft delete by archiving
-  query.run(
-    `INSERT OR REPLACE INTO flight_meta (flight_id, is_active, is_archived, updated_at) VALUES (?, 0, 1, CURRENT_TIMESTAMP)`,
-    [id],
-  );
+  const flightMeta = await prisma.flightMeta.findUnique({ where: { flightId: id } });
+  const currentData = flightMeta?.data as any || {};
+  currentData.is_active = 0;
+  currentData.is_archived = 1;
+  
+  await prisma.flightMeta.upsert({
+    where: { flightId: id },
+    create: { flightId: id, data: currentData },
+    update: { data: currentData }
+  });
+  
   return NextResponse.json({ success: true });
 }
 
@@ -102,33 +103,32 @@ export async function POST(request: Request, context: any) {
   const url = new URL(request.url);
   const action = url.searchParams.get("action");
   const body: any = await request.json().catch(() => ({}));
+  
   if (action === "duplicate" || action === "clone") {
-    const row: any = query.get(`SELECT * FROM flights WHERE id = ?`, [id]);
+    const row = await prisma.flight.findUnique({ where: { id } });
     if (!row) return NextResponse.json({ error: "not_found" }, { status: 404 });
-    const newId =
-      (globalThis as any).crypto?.randomUUID?.() || String(Date.now());
-    const newFlightNumber = `${row.flight_number}-copy`;
-    query.run(
-      `INSERT INTO flights (id, flight_number, origin, destination, departure_time, arrival_time, price_economy, price_business, price_first) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        newId,
-        newFlightNumber,
-        row.origin,
-        row.destination,
-        body.departure_time ?? row.departure_time,
-        body.arrival_time ?? row.arrival_time,
-        body.price_economy ?? row.price_economy,
-        body.price_business ?? row.price_business,
-        body.price_first ?? row.price_first,
-      ],
-    );
-    query.run(
-      `INSERT INTO flight_meta (flight_id, is_active, is_archived) VALUES (?, 1, 0)`,
-      [newId],
-    );
-    const created = query.get(`SELECT * FROM flights WHERE id = ?`, [newId]);
+    
+    const newFlightNumber = `${row.flightNumber}-copy`;
+    
+    const created = await prisma.flight.create({
+      data: {
+        flightNumber: newFlightNumber,
+        origin: row.origin,
+        destination: row.destination,
+        departureTime: body.departure_time ? new Date(body.departure_time) : row.departureTime,
+        arrivalTime: body.arrival_time ? new Date(body.arrival_time) : row.arrivalTime,
+        meta: {
+          create: {
+            data: { is_active: 1, is_archived: 0 }
+          }
+        }
+      },
+      include: { meta: true }
+    });
+    
     return NextResponse.json({ flight: created }, { status: 201 });
   }
+  
   if (
     action === "activate" ||
     action === "deactivate" ||
@@ -136,25 +136,32 @@ export async function POST(request: Request, context: any) {
   ) {
     const isActive = action === "activate" ? 1 : 0;
     const isArchived = action === "archive" ? 1 : 0;
-    const meta = query.get(`SELECT * FROM flight_meta WHERE flight_id = ?`, [
-      id,
-    ]);
-    if (meta) {
-      query.run(
-        `UPDATE flight_meta SET is_active = ?, is_archived = ?, updated_at = CURRENT_TIMESTAMP WHERE flight_id = ?`,
-        [isActive, isArchived, id],
-      );
-    } else {
-      query.run(
-        `INSERT INTO flight_meta (flight_id, is_active, is_archived) VALUES (?, ?, ?)`,
-        [id, isActive, isArchived],
-      );
-    }
-    const updated = query.get(
-      `SELECT f.*, coalesce(m.is_active,1) as is_active, coalesce(m.is_archived,0) as is_archived FROM flights f LEFT JOIN flight_meta m ON m.flight_id = f.id WHERE f.id = ?`,
-      [id],
-    );
-    return NextResponse.json({ flight: updated });
+    
+    const flightMeta = await prisma.flightMeta.findUnique({ where: { flightId: id } });
+    const currentData = flightMeta?.data as any || {};
+    currentData.is_active = isActive;
+    currentData.is_archived = isArchived;
+    
+    await prisma.flightMeta.upsert({
+      where: { flightId: id },
+      create: { flightId: id, data: currentData },
+      update: { data: currentData }
+    });
+    
+    const updated = await prisma.flight.findUnique({
+      where: { id },
+      include: { meta: true }
+    });
+    
+    const metaData = updated?.meta?.data as any || {};
+    return NextResponse.json({ 
+      flight: {
+        ...updated,
+        flight_number: updated?.flightNumber,
+        is_active: metaData.is_active ?? 1,
+        is_archived: metaData.is_archived ?? 0
+      }
+    });
   }
 
   return NextResponse.json({ error: "unknown_action" }, { status: 400 });

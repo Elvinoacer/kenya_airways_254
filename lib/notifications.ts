@@ -1,15 +1,4 @@
-import { query } from "./db";
-import path from "path";
-
-function makeId(prefix = "n-") {
-  return (
-    prefix +
-    ((
-      globalThis as unknown as { crypto?: { randomUUID?: () => string } }
-    ).crypto?.randomUUID?.() ||
-      String(Date.now()) + Math.random().toString(36).slice(2))
-  );
-}
+import { prisma } from "./prisma";
 
 export async function createInAppNotification(
   userId: string,
@@ -18,51 +7,64 @@ export async function createInAppNotification(
   message: string,
   metadata?: any,
 ) {
-  const id = makeId("notif-");
-  query.run(
-    `INSERT INTO notifications (id, user_id, type, title, message, metadata_json, read, delivered_channels) VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
-    [
-      id,
+  const notification = await prisma.notification.create({
+    data: {
       userId,
       type,
       title,
       message,
-      JSON.stringify(metadata || {}),
-      "in-app",
-    ],
-  );
-  return { id };
+      metadataJson: JSON.stringify(metadata || {}),
+      deliveredChannels: "in-app",
+      read: false,
+    },
+  });
+  return { id: notification.id };
 }
 
-export function listInAppNotifications(userId: string, limit = 50) {
-  return query.all(
-    `SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
-    [userId, limit],
-  );
+export async function listInAppNotifications(userId: string, limit = 50) {
+  return prisma.notification.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
 }
 
-export function markNotificationRead(id: string) {
-  query.run(`UPDATE notifications SET read = 1 WHERE id = ?`, [id]);
+export async function markNotificationRead(id: string) {
+  await prisma.notification.update({
+    where: { id },
+    data: { read: true },
+  });
   return true;
 }
 
-export function savePushSubscription(
+export async function savePushSubscription(
   userId: string,
   endpoint: string,
   keys: any,
 ) {
-  const id = makeId("ps-");
-  query.run(
-    `INSERT OR REPLACE INTO push_subscriptions (id, user_id, endpoint, keys_json) VALUES (?, ?, ?, ?)`,
-    [id, userId, endpoint, JSON.stringify(keys || {})],
-  );
-  return { id };
+  const existing = await prisma.pushSubscription.findUnique({
+    where: { userId_endpoint: { userId, endpoint } },
+  });
+  if (existing) {
+    const updated = await prisma.pushSubscription.update({
+      where: { id: existing.id },
+      data: { keysJson: JSON.stringify(keys || {}) },
+    });
+    return { id: updated.id };
+  } else {
+    const created = await prisma.pushSubscription.create({
+      data: {
+        userId,
+        endpoint,
+        keysJson: JSON.stringify(keys || {}),
+      },
+    });
+    return { id: created.id };
+  }
 }
 
-async function sendWebPushToSubscription(sub: any, payload: any) {
+export async function sendWebPushToSubscription(sub: any, payload: any) {
   try {
-    // load optional dependency via runtime require to avoid bundler resolution
-    // eslint-disable-next-line no-eval
     const mod = eval("require")("web-push");
     const webpush = (mod && mod.default) || mod;
     const VAPID_SUBJECT =
@@ -84,8 +86,6 @@ async function sendWebPushToSubscription(sub: any, payload: any) {
 
 export async function sendEmail(to: string, subject: string, body: string) {
   try {
-    // dynamic require to avoid bundler static resolution
-    // eslint-disable-next-line no-eval
     const mod = eval("require")("nodemailer");
     const nodemailer = (mod && mod.default) || mod;
     if (!nodemailer) throw new Error("nodemailer not installed");
@@ -113,13 +113,11 @@ export async function sendEmail(to: string, subject: string, body: string) {
 
 export async function sendSms(to: string, message: string) {
   try {
-    // dynamic require Twilio if configured
     if (
       process.env.TWILIO_ACCOUNT_SID &&
       process.env.TWILIO_AUTH_TOKEN &&
       process.env.TWILIO_FROM
     ) {
-      // eslint-disable-next-line no-eval
       const mod = eval("require")("twilio");
       const Twilio = (mod && mod.default) || mod;
       if (!Twilio) throw new Error("twilio not installed");
@@ -146,106 +144,102 @@ export async function notifyPassengersForFlight(
   flightId: string,
   update: { status: string; reason?: string; note?: string; actor?: string },
 ) {
-  const bookings: any[] = query.all(
-    `SELECT id, booking_ref, contact_email, contact_phone, user_id FROM bookings_v2 WHERE flight_id = ? AND status NOT IN ('CANCELLED')`,
-    [flightId],
-  );
+  const bookings = await prisma.booking.findMany({
+    where: { flightId, status: { not: "CANCELLED" } },
+  });
   let notified = 0;
   for (const b of bookings) {
-    const auditId = makeId("ba-");
-    query.run(
-      `INSERT INTO booking_audit_v2 (id, booking_id, action, details_json, actor) VALUES (?, ?, ?, ?, ?)`,
-      [
-        auditId,
-        b.id,
-        "FLIGHT_STATUS_UPDATE",
-        JSON.stringify({
+    await prisma.auditLog.create({
+      data: {
+        action: "FLIGHT_STATUS_UPDATE",
+        targetType: "booking",
+        targetId: b.id,
+        detailsJson: JSON.stringify({
           status: update.status,
           reason: update.reason,
           note: update.note,
           flightId,
         }),
-        update.actor || "system",
-      ],
-    );
-    // create in-app notification
-    if (b.user_id)
+        actorId: update.actor || "system",
+      },
+    });
+    if (b.userId) {
       await createInAppNotification(
-        b.user_id,
+        b.userId,
         "flight_update",
         `Flight update: ${update.status}`,
         `${update.note || update.reason || ""}`,
       );
-    // send email and sms when available
-    if (b.contact_email)
+    }
+    if (b.contactEmail) {
       await sendEmail(
-        b.contact_email,
+        b.contactEmail,
         `Flight update: ${update.status}`,
         `Your flight ${flightId} status: ${update.status}. ${update.note || ""}`,
       );
-    if (b.contact_phone)
+    }
+    if (b.contactPhone) {
       await sendSms(
-        b.contact_phone,
+        b.contactPhone,
         `Flight ${flightId} update: ${update.status}. ${update.note || ""}`,
       );
+    }
     notified += 1;
   }
   return notified;
 }
 
-export function scheduleReminder(
+export async function scheduleReminder(
   userId: string | null,
   bookingId: string | null,
   sendAtIso: string,
   type = "booking_reminder",
   params?: any,
 ) {
-  const id = makeId("rem-");
-  query.run(
-    `INSERT INTO scheduled_reminders (id, user_id, booking_id, send_at, type, params_json, sent) VALUES (?, ?, ?, ?, ?, ?, 0)`,
-    [
-      id,
-      userId || null,
-      bookingId || null,
-      sendAtIso,
+  const reminder = await prisma.scheduledReminder.create({
+    data: {
+      userId,
+      bookingId,
+      sendAt: new Date(sendAtIso),
       type,
-      JSON.stringify(params || {}),
-    ],
-  );
-  return { id };
+      paramsJson: JSON.stringify(params || {}),
+      sent: false,
+    },
+  });
+  return { id: reminder.id };
 }
 
 export async function processDueReminders() {
-  const rows = query.all<any>(
-    `SELECT * FROM scheduled_reminders WHERE sent = 0 AND datetime(send_at) <= datetime('now')`,
-  );
+  const reminders = await prisma.scheduledReminder.findMany({
+    where: { sent: false, sendAt: { lte: new Date() } },
+  });
   const results: any[] = [];
-  for (const r of rows) {
+  for (const r of reminders) {
     try {
-      const params = r.params_json ? JSON.parse(r.params_json) : {};
-      // Attempt delivery: for simplicity, prefer email -> sms -> in-app
-      const user = r.user_id
-        ? query.get<any>(`SELECT * FROM users WHERE id = ?`, [r.user_id])
-        : null;
-      if (user && user.email)
+      const params = r.paramsJson ? JSON.parse(r.paramsJson) : {};
+      const user = r.userId ? await prisma.user.findUnique({ where: { id: r.userId } }) : null;
+      if (user?.email) {
         await sendEmail(
           user.email,
           `Reminder: ${r.type}`,
           params.message || "Reminder from airline",
         );
-      if (user && user.phone)
+      }
+      if (user?.phone) {
         await sendSms(user.phone, params.message || "Reminder from airline");
-      if (r.user_id)
+      }
+      if (r.userId) {
         await createInAppNotification(
-          r.user_id,
+          r.userId,
           r.type,
           params.title || "Reminder",
           params.message || "Reminder",
         );
-      query.run(
-        `UPDATE scheduled_reminders SET sent = 1, sent_at = datetime('now') WHERE id = ?`,
-        [r.id],
-      );
+      }
+      await prisma.scheduledReminder.update({
+        where: { id: r.id },
+        data: { sent: true, sentAt: new Date() },
+      });
       results.push({ id: r.id, ok: true });
     } catch (e: any) {
       console.error("processDueReminders error", e?.message || e);

@@ -1,7 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { query, UserRow, PassengerRow, SessionRow } from '../../lib/db';
+import { prisma } from '../../lib/prisma';
 import {
   hashPassword,
   verifyPassword,
@@ -20,7 +20,6 @@ import {
   generateSessionCookie,
   SessionPayload
 } from '../../lib/auth-session';
-import crypto from 'node:crypto';
 
 // Helper to get active session from cookies
 async function getActiveSession(): Promise<SessionPayload | null> {
@@ -45,23 +44,29 @@ export async function registerAction(
     }
 
     // Check if user already exists
-    const existing = query.get<UserRow>('SELECT id FROM users WHERE email = ?', [email]);
+    const existing = await prisma.user.findUnique({
+      where: { email }
+    });
     if (existing) {
       return { success: false, error: 'A user with this email address already exists.' };
     }
 
-    const userId = crypto.randomUUID();
     const passwordHash = hashPassword(password);
 
     // Save user
-    query.run(
-      `INSERT INTO users (id, email, name, password_hash, role, email_verified, failed_attempts)
-       VALUES (?, ?, ?, ?, ?, 0, 0)`,
-      [userId, email, name || null, passwordHash, role]
-    );
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name: name || null,
+        passwordHash,
+        role: role as any,
+        emailVerified: false,
+        failedAttempts: 0
+      }
+    });
 
     // Generate email verification token
-    const { token } = createVerificationToken(email, 'EMAIL_VERIFICATION');
+    const { token } = await createVerificationToken(email, 'EMAIL_VERIFICATION');
 
     // Simulate sending email by printing to logs
     console.log('\n=== [MOCK EMAIL] EMAIL VERIFICATION LINK ===');
@@ -94,38 +99,38 @@ export async function loginAction(
     const ip = ipAddress || '127.0.0.1';
 
     // Throttle login check
-    if (isLoginThrottled(email, ip)) {
+    if (await isLoginThrottled(email, ip)) {
       return { success: false, error: 'Too many login attempts. Please try again in 5 minutes.' };
     }
 
     // Record login attempt
-    recordLoginAttempt(email, ip);
+    await recordLoginAttempt(email, ip);
 
     // Find user
-    const user = query.get<UserRow>('SELECT * FROM users WHERE email = ?', [email]);
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return { success: false, error: 'Invalid email or password.' };
     }
 
     // Check account lockout
-    if (user.locked_until) {
-      const lockExpiry = new Date(user.locked_until).getTime();
+    if (user.lockedUntil) {
+      const lockExpiry = new Date(user.lockedUntil).getTime();
       if (lockExpiry > Date.now()) {
         const minutesLeft = Math.ceil((lockExpiry - Date.now()) / 60000);
         return { success: false, error: `Account is locked. Please try again in ${minutesLeft} minutes.` };
       } else {
         // Lock expired, reset attempts
-        resetFailedLoginAttempts(user.id);
-        user.locked_until = null;
-        user.failed_attempts = 0;
+        await resetFailedLoginAttempts(user.id);
+        user.lockedUntil = null;
+        user.failedAttempts = 0;
       }
     }
 
     // Verify password
-    const passwordMatch = verifyPassword(password, user.password_hash);
+    const passwordMatch = verifyPassword(password, user.passwordHash);
     if (!passwordMatch) {
       // Re-fetch user details for updated lock parameters
-      const { lockedUntil, remainingAttempts } = handleFailedLogin(user);
+      const { lockedUntil, remainingAttempts } = await handleFailedLogin(user);
       if (lockedUntil) {
         return { success: false, error: 'Too many failed attempts. Your account has been locked for 15 minutes.' };
       }
@@ -133,12 +138,12 @@ export async function loginAction(
     }
 
     // Reset failed login attempts on successful credentials match
-    resetFailedLoginAttempts(user.id);
+    await resetFailedLoginAttempts(user.id);
 
     // Check if 2FA (Two-Factor Authentication) is enabled
-    if (user.two_factor_enabled === 1) {
+    if (user.twoFactorEnabled) {
       // Generate 2FA Verification Code
-      const { code } = createVerificationToken(email, 'MFA_CODE', 5 * 60 * 1000); // 5 mins expiry
+      const { code } = await createVerificationToken(email, 'MFA_CODE', 5 * 60 * 1000); // 5 mins expiry
 
       console.log('\n=== [MOCK EMAIL] 2FA LOGIN VERIFICATION CODE ===');
       console.log(`To: ${email}`);
@@ -204,26 +209,24 @@ export async function verify2FALoginAction(
       return { success: false, error: 'Email and verification code are required.' };
     }
 
-    // Validate 2FA code in SQLite
-    const row = query.get<{ expires_at: string }>(
-      "SELECT expires_at FROM verification_tokens WHERE email = ? AND code = ? AND type = 'MFA_CODE'",
-      [email, code]
-    );
+    const row = await prisma.verificationToken.findUnique({
+      where: { email_type: { email, type: 'MFA_CODE' } }
+    });
 
-    if (!row) {
+    if (!row || row.code !== code) {
       return { success: false, error: 'Invalid 2FA code.' };
     }
 
-    if (new Date(row.expires_at).getTime() < Date.now()) {
-      query.run("DELETE FROM verification_tokens WHERE email = ? AND type = 'MFA_CODE'", [email]);
+    if (row.expiresAt.getTime() < Date.now()) {
+      await prisma.verificationToken.delete({ where: { id: row.id } });
       return { success: false, error: '2FA code has expired. Please log in again.' };
     }
 
     // Clean up code
-    query.run("DELETE FROM verification_tokens WHERE email = ? AND type = 'MFA_CODE'", [email]);
+    await prisma.verificationToken.delete({ where: { id: row.id } });
 
     // Fetch user
-    const user = query.get<UserRow>('SELECT * FROM users WHERE email = ?', [email]);
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return { success: false, error: 'User not found.' };
     }
@@ -273,7 +276,7 @@ export async function verify2FALoginAction(
 export async function logoutAction() {
   const session = await getActiveSession();
   if (session) {
-    revokeSession(session.sessionId);
+    await revokeSession(session.sessionId);
   }
 
   // Clear cookie
@@ -286,7 +289,7 @@ export async function logoutAction() {
 export async function logoutAllDevicesAction() {
   const session = await getActiveSession();
   if (session) {
-    revokeAllUserSessions(session.userId);
+    await revokeAllUserSessions(session.userId);
   }
 
   // Clear cookie
@@ -306,11 +309,11 @@ export async function forgotPasswordAction(email: string) {
       return { success: false, error: 'Email is required.' };
     }
 
-    const user = query.get<UserRow>('SELECT email FROM users WHERE email = ?', [email]);
+    const user = await prisma.user.findUnique({ where: { email } });
     
     // Always return success to prevent email enumeration attacks
     if (user) {
-      const { token } = createVerificationToken(email, 'PASSWORD_RESET', 30 * 60 * 1000); // 30 mins expiry
+      const { token } = await createVerificationToken(email, 'PASSWORD_RESET', 30 * 60 * 1000); // 30 mins expiry
 
       console.log('\n=== [MOCK EMAIL] PASSWORD RESET LINK ===');
       console.log(`To: ${email}`);
@@ -331,12 +334,12 @@ export async function resetPasswordAction(token: string, passwordStr: string) {
     }
 
     // Verify token
-    const email = verifyPasswordResetToken(token);
+    const email = await verifyPasswordResetToken(token);
     if (!email) {
       return { success: false, error: 'Invalid or expired password reset link.' };
     }
 
-    const user = query.get<UserRow>('SELECT id FROM users WHERE email = ?', [email]);
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return { success: false, error: 'User not found.' };
     }
@@ -344,15 +347,14 @@ export async function resetPasswordAction(token: string, passwordStr: string) {
     const passwordHash = hashPassword(passwordStr);
 
     // Update password, unlock, reset failed attempts
-    query.run(
-      `UPDATE users 
-       SET password_hash = ?, failed_attempts = 0, locked_until = NULL, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [passwordHash, user.id]
-    );
-
-    // Delete token
-    query.run("DELETE FROM verification_tokens WHERE token = ? AND type = 'PASSWORD_RESET'", [token]);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        failedAttempts: 0,
+        lockedUntil: null
+      }
+    });
 
     return { success: true, message: 'Password has been reset successfully! You can now log in.' };
   } catch (err: any) {
@@ -366,7 +368,7 @@ export async function verifyEmailAction(token: string) {
       return { success: false, error: 'Verification token is required.' };
     }
 
-    const email = verifyEmailToken(token);
+    const email = await verifyEmailToken(token);
     if (!email) {
       return { success: false, error: 'Invalid or expired email verification link.' };
     }
@@ -400,19 +402,26 @@ export async function onboardPassengerAction(
     }
 
     // Check unique passport
-    const existing = query.get<{ id: string }>('SELECT id FROM passengers WHERE passport_no = ?', [passportNo]);
+    const existing = await prisma.passenger.findUnique({
+      where: { passportNumber: passportNo }
+    });
+    
     if (existing) {
       return { success: false, error: 'A passenger with this passport number is already registered.' };
     }
 
-    const passengerId = crypto.randomUUID();
-
     // Insert passenger record
-    query.run(
-      `INSERT INTO passengers (id, user_id, first_name, last_name, phone, passport_no, nationality, date_of_birth)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [passengerId, session.userId, firstName, lastName, phone || null, passportNo, nationality, dateOfBirthStr || null]
-    );
+    await prisma.passenger.create({
+      data: {
+        userId: session.userId,
+        firstName,
+        lastName,
+        phone: phone || null,
+        passportNumber: passportNo,
+        nationality,
+        dateOfBirth: dateOfBirthStr ? new Date(dateOfBirthStr) : null
+      }
+    });
 
     // Regenerate session cookie payload to set onboardingCompleted = true
     const updatedPayload: SessionPayload = {
@@ -448,21 +457,24 @@ export async function getProfileInfo() {
     const session = await getActiveSession();
     if (!session) return null;
 
-    const user = query.get<UserRow>('SELECT id, email, name, role, two_factor_enabled, avatar_url FROM users WHERE id = ?', [session.userId]);
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      include: {
+        passengerProfile: true
+      }
+    });
+    
     if (!user) return null;
 
-    let passenger: PassengerRow | undefined;
-    if (user.role === 'PASSENGER') {
-      passenger = query.get<PassengerRow>('SELECT * FROM passengers WHERE user_id = ?', [user.id]);
-    }
-
     // Get active sessions
-    const activeSessions = query.all<SessionRow>(
-      `SELECT id, ip_address, user_agent, created_at FROM sessions 
-       WHERE user_id = ? AND is_valid = 1 AND datetime(expires_at) > datetime('now')
-       ORDER BY created_at DESC`,
-      [user.id]
-    );
+    const activeSessions = await prisma.session.findMany({
+      where: {
+        userId: user.id,
+        isValid: true,
+        expiresAt: { gt: new Date() }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
 
     return {
       user: {
@@ -470,15 +482,15 @@ export async function getProfileInfo() {
         email: user.email,
         name: user.name,
         role: user.role,
-        twoFactorEnabled: user.two_factor_enabled === 1,
-        avatarUrl: user.avatar_url,
+        twoFactorEnabled: user.twoFactorEnabled,
+        avatarUrl: user.avatarUrl,
       },
-      passenger,
+      passenger: user.passengerProfile,
       activeSessions: activeSessions.map(s => ({
         id: s.id,
-        ipAddress: s.ip_address,
-        userAgent: s.user_agent,
-        createdAt: s.created_at,
+        ipAddress: s.ipAddress,
+        userAgent: s.userAgent,
+        createdAt: s.createdAt,
         isCurrent: s.id === session.sessionId
       }))
     };
@@ -501,18 +513,15 @@ export async function updateProfileSettingsAction(
     const session = await getActiveSession();
     if (!session) return { success: false, error: 'Unauthorized.' };
 
-    // Update user name and avatar
+    const updateData: any = { name };
     if (avatarBase64) {
-      query.run(
-        'UPDATE users SET name = ?, avatar_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [name, avatarBase64, session.userId]
-      );
-    } else {
-      query.run(
-        'UPDATE users SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [name, session.userId]
-      );
+      updateData.avatarUrl = avatarBase64;
     }
+
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: updateData
+    });
 
     // Update passenger specific info if PASSENGER
     if (session.role === 'PASSENGER') {
@@ -522,21 +531,35 @@ export async function updateProfileSettingsAction(
 
       // Check passport collision
       if (passportNo) {
-        const collision = query.get<{ id: string }>(
-          'SELECT id FROM passengers WHERE passport_no = ? AND user_id != ?',
-          [passportNo, session.userId]
-        );
-        if (collision) {
+        const collision = await prisma.passenger.findUnique({
+          where: { passportNumber: passportNo }
+        });
+        
+        if (collision && collision.userId !== session.userId) {
           return { success: false, error: 'Passport number is already registered by another passenger.' };
         }
       }
 
-      query.run(
-        `UPDATE passengers 
-         SET first_name = ?, last_name = ?, phone = ?, passport_no = ?, nationality = ?, date_of_birth = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE user_id = ?`,
-        [firstName, lastName, phone || null, passportNo || null, nationality || null, dateOfBirth || null, session.userId]
-      );
+      await prisma.passenger.upsert({
+        where: { userId: session.userId },
+        update: {
+          firstName,
+          lastName,
+          phone: phone || null,
+          passportNumber: passportNo || null,
+          nationality: nationality || null,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null
+        },
+        create: {
+          userId: session.userId,
+          firstName,
+          lastName,
+          phone: phone || null,
+          passportNumber: passportNo || null,
+          nationality: nationality || null,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null
+        }
+      });
     }
 
     return { success: true, message: 'Profile updated successfully.' };
@@ -550,10 +573,10 @@ export async function toggle2FAAction(enable: boolean) {
     const session = await getActiveSession();
     if (!session) return { success: false, error: 'Unauthorized.' };
 
-    query.run(
-      'UPDATE users SET two_factor_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [enable ? 1 : 0, session.userId]
-    );
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { twoFactorEnabled: enable }
+    });
 
     return { success: true, message: `Two-Factor Authentication has been ${enable ? 'enabled' : 'disabled'}.` };
   } catch (err: any) {
@@ -570,16 +593,23 @@ export async function changePasswordAction(currentPasswordStr: string, newPasswo
       return { success: false, error: 'Passwords are required and new password must be at least 8 characters.' };
     }
 
-    const user = query.get<UserRow>('SELECT password_hash FROM users WHERE id = ?', [session.userId]);
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { passwordHash: true }
+    });
+    
     if (!user) return { success: false, error: 'User not found.' };
 
-    const valid = verifyPassword(currentPasswordStr, user.password_hash);
+    const valid = verifyPassword(currentPasswordStr, user.passwordHash);
     if (!valid) {
       return { success: false, error: 'Incorrect current password.' };
     }
 
     const newHash = hashPassword(newPasswordStr);
-    query.run('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [newHash, session.userId]);
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { passwordHash: newHash }
+    });
 
     return { success: true, message: 'Password changed successfully.' };
   } catch (err: any) {
@@ -593,7 +623,10 @@ export async function revokeActiveSessionAction(sessionId: string) {
     if (!session) return { success: false, error: 'Unauthorized.' };
 
     // Revoke selected session
-    query.run('UPDATE sessions SET is_valid = 0 WHERE id = ? AND user_id = ?', [sessionId, session.userId]);
+    await prisma.session.updateMany({
+      where: { id: sessionId, userId: session.userId },
+      data: { isValid: false }
+    });
 
     return { success: true, message: 'Session revoked successfully.' };
   } catch (err: any) {

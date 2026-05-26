@@ -9,15 +9,19 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "next": "16.2.6",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "luxon": "^3.5.0",
-    "exceljs": "^4.3.0",
-    "pdfkit": "^0.13.0",
-    "uuid": "^9.0.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "chart.js": "^4.4.0",
-    "react-chartjs-2": "^5.2.0"
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.3.0",
+    "luxon": "^3.5.0",
+    "next": "16.2.6",
+    "pdfkit": "^0.13.0",
+    "pg": "^8.21.0",
+    "react": "19.2.4",
+    "react-chartjs-2": "^5.2.0",
+    "react-dom": "19.2.4",
+    "uuid": "^9.0.0"
   },
   "optionalDependencies": {
     "ioredis": "^5.3.2",
@@ -30,6 +34,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "prisma": "^7.8.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

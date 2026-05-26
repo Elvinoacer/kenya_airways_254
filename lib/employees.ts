@@ -1,4 +1,4 @@
-import { query } from "./db";
+import { prisma } from "./prisma";
 
 export type EmployeeStatus = "ACTIVE" | "ON_LEAVE" | "SUSPENDED" | "INACTIVE";
 export type EmployeeScheduleStatus =
@@ -47,13 +47,6 @@ export type EmployeeFilterInput = {
   availabilityDate?: string;
 };
 
-function makeId() {
-  return (
-    (globalThis as any).crypto?.randomUUID?.() ||
-    String(Date.now()) + Math.random().toString(36).slice(2)
-  );
-}
-
 function makeEmployeeNumber() {
   return `EMP-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`;
 }
@@ -90,117 +83,104 @@ function serialize(value: any) {
   return JSON.stringify(value ?? {});
 }
 
-function logEmployeeActivity(
+async function logEmployeeActivity(
   employeeId: string,
   action: string,
   details?: Record<string, any>,
   actor?: string,
 ) {
-  query.run(
-    `INSERT INTO employee_activity_logs (id, employee_id, action, details_json, actor) VALUES (?, ?, ?, ?, ?)`,
-    [
-      makeId(),
+  await prisma.employeeActivityLog.create({
+    data: {
       employeeId,
       action,
-      JSON.stringify(details || {}),
-      actor || null,
-    ],
-  );
+      detailsJson: JSON.stringify(details || {}),
+      actor: actor || null,
+    },
+  });
 }
 
-export function listDepartments() {
-  return query.all(`SELECT * FROM departments ORDER BY name ASC`);
+export async function listDepartments() {
+  return prisma.department.findMany({ orderBy: { name: "asc" } });
 }
 
-export function getDepartment(id: string) {
-  return query.get(`SELECT * FROM departments WHERE id = ?`, [id]);
+export async function getDepartment(id: string) {
+  return prisma.department.findUnique({ where: { id } });
 }
 
-export function createDepartment(input: DepartmentInput) {
-  const id = makeId();
+export async function createDepartment(input: DepartmentInput) {
   const code =
     (input.code || input.name)
       .toUpperCase()
       .replace(/[^A-Z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
-      .slice(0, 20) || `DEP-${id.slice(0, 8).toUpperCase()}`;
-  query.run(
-    `INSERT INTO departments (id, code, name, description, manager_employee_id) VALUES (?, ?, ?, ?, ?)`,
-    [
-      id,
+      .slice(0, 20) || `DEP-${Date.now().toString().slice(0, 8).toUpperCase()}`;
+      
+  const department = await prisma.department.create({
+    data: {
       code,
-      input.name.trim(),
-      normalizeText(input.description),
-      input.managerEmployeeId || null,
-    ],
-  );
-  return query.get(`SELECT * FROM departments WHERE id = ?`, [id]);
-}
-
-export function updateDepartment(id: string, input: Partial<DepartmentInput>) {
-  const current: any = getDepartment(id);
-  if (!current) throw new Error("Department not found");
-  const code =
-    input.code === undefined ? current.code : input.code || current.code;
-  const name = input.name === undefined ? current.name : input.name.trim();
-  const description =
-    input.description === undefined
-      ? current.description
-      : normalizeText(input.description);
-  const managerEmployeeId =
-    input.managerEmployeeId === undefined
-      ? current.manager_employee_id
-      : input.managerEmployeeId;
-  query.run(
-    `UPDATE departments SET code = ?, name = ?, description = ?, manager_employee_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    [code, name, description, managerEmployeeId || null, id],
-  );
-  return getDepartment(id);
-}
-
-export function deleteDepartment(id: string) {
-  const department = getDepartment(id);
-  if (!department) throw new Error("Department not found");
-  query.run(
-    `UPDATE employees SET department_id = NULL WHERE department_id = ?`,
-    [id],
-  );
-  query.run(`DELETE FROM departments WHERE id = ?`, [id]);
+      name: input.name.trim(),
+      description: normalizeText(input.description),
+      managerEmployeeId: input.managerEmployeeId || null,
+    },
+  });
   return department;
 }
 
-export function createEmployee(input: EmployeeInput) {
-  const id = makeId();
+export async function updateDepartment(id: string, input: Partial<DepartmentInput>) {
+  const current = await getDepartment(id);
+  if (!current) throw new Error("Department not found");
+  
+  const department = await prisma.department.update({
+    where: { id },
+    data: {
+      code: input.code === undefined ? current.code : input.code || current.code,
+      name: input.name === undefined ? current.name : input.name.trim(),
+      description: input.description === undefined ? current.description : normalizeText(input.description),
+      managerEmployeeId: input.managerEmployeeId === undefined ? current.managerEmployeeId : input.managerEmployeeId,
+    },
+  });
+  return department;
+}
+
+export async function deleteDepartment(id: string) {
+  const department = await getDepartment(id);
+  if (!department) throw new Error("Department not found");
+  
+  await prisma.employee.updateMany({
+    where: { departmentId: id },
+    data: { departmentId: null },
+  });
+  
+  await prisma.department.delete({ where: { id } });
+  return department;
+}
+
+export async function createEmployee(input: EmployeeInput) {
   const employeeNumber = input.employeeNumber || makeEmployeeNumber();
-  query.run(
-    `INSERT INTO employees (
-      id, user_id, employee_number, first_name, last_name, email, phone, job_title,
-      employee_role, department_id, employment_type, status, permissions_json,
-      profile_json, notes, hired_at, manager_employee_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      input.userId || null,
+  
+  const employee = await prisma.employee.create({
+    data: {
+      userId: input.userId || null,
       employeeNumber,
-      input.firstName.trim(),
-      input.lastName.trim(),
-      normalizeText(input.email),
-      normalizeText(input.phone),
-      normalizeText(input.jobTitle),
-      input.employeeRole.trim(),
-      input.departmentId || null,
-      input.employmentType || "FULL_TIME",
-      input.status || "ACTIVE",
-      JSON.stringify(input.permissions || []),
-      serialize(input.profile || {}),
-      normalizeText(input.notes),
-      input.hiredAt || null,
-      input.managerEmployeeId || null,
-    ],
-  );
-  const employee = getEmployee(id);
-  logEmployeeActivity(
-    id,
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      email: normalizeText(input.email),
+      phone: normalizeText(input.phone),
+      jobTitle: normalizeText(input.jobTitle),
+      employeeRole: input.employeeRole.trim(),
+      departmentId: input.departmentId || null,
+      employmentType: input.employmentType || "FULL_TIME",
+      status: input.status || "ACTIVE",
+      permissionsJson: JSON.stringify(input.permissions || []),
+      profileJson: serialize(input.profile || {}),
+      notes: normalizeText(input.notes),
+      hiredAt: input.hiredAt || null,
+      managerEmployeeId: input.managerEmployeeId || null,
+    },
+  });
+  
+  await logEmployeeActivity(
+    employee.id,
     "employee.create",
     {
       employeeNumber,
@@ -209,196 +189,158 @@ export function createEmployee(input: EmployeeInput) {
     },
     input.actor,
   );
-  return employee;
+  
+  return getEmployee(employee.id);
 }
 
-export function listEmployees(filters: EmployeeFilterInput = {}) {
-  const where: string[] = [];
-  const params: any[] = [];
+export async function listEmployees(filters: EmployeeFilterInput = {}) {
+  const where: any = {};
+  
   if (filters.q) {
-    const q = `%${filters.q.trim().toLowerCase()}%`;
-    where.push(
-      `(LOWER(e.first_name) LIKE ? OR LOWER(e.last_name) LIKE ? OR LOWER(e.email) LIKE ? OR LOWER(e.employee_number) LIKE ? OR LOWER(e.job_title) LIKE ?)`,
-    );
-    params.push(q, q, q, q, q);
+    const q = filters.q.trim().toLowerCase();
+    where.OR = [
+      { firstName: { contains: q, mode: 'insensitive' } },
+      { lastName: { contains: q, mode: 'insensitive' } },
+      { email: { contains: q, mode: 'insensitive' } },
+      { employeeNumber: { contains: q, mode: 'insensitive' } },
+      { jobTitle: { contains: q, mode: 'insensitive' } },
+    ];
   }
+  
   if (filters.departmentId) {
-    where.push(`e.department_id = ?`);
-    params.push(filters.departmentId);
+    where.departmentId = filters.departmentId;
   }
+  
   if (filters.role) {
-    where.push(`e.employee_role = ?`);
-    params.push(filters.role);
+    where.employeeRole = filters.role;
   }
+  
   if (filters.status) {
-    where.push(`e.status = ?`);
-    params.push(filters.status);
+    where.status = filters.status;
   }
+  
   if (filters.availabilityDate) {
-    where.push(`EXISTS (
-      SELECT 1 FROM employee_availability a
-      WHERE a.employee_id = e.id
-        AND (a.availability_date = ? OR (a.day_of_week IS NOT NULL AND a.day_of_week = CAST(strftime('%w', ?) AS INTEGER)))
-    )`);
-    params.push(filters.availabilityDate, filters.availabilityDate);
+    where.availability = {
+      some: {
+        OR: [
+          { availabilityDate: filters.availabilityDate },
+          { dayOfWeek: new Date(filters.availabilityDate).getDay() }
+        ]
+      }
+    };
   }
 
-  const sql = `
-    SELECT
-      e.*,
-      d.name AS department_name,
-      d.code AS department_code,
-      (SELECT COUNT(*) FROM employee_schedules s WHERE s.employee_id = e.id) AS schedule_count,
-      (SELECT COUNT(*) FROM employee_availability a WHERE a.employee_id = e.id) AS availability_count,
-      (SELECT COUNT(*) FROM employee_activity_logs l WHERE l.employee_id = e.id) AS activity_count
-    FROM employees e
-    LEFT JOIN departments d ON d.id = e.department_id
-    ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-    ORDER BY e.updated_at DESC, e.created_at DESC
-  `;
-  return query.all(sql, params).map(attachEmployeeComputedFields);
-}
-
-export function getEmployee(id: string) {
-  const row: any = query.get(
-    `
-    SELECT
-      e.*,
-      d.name AS department_name,
-      d.code AS department_code
-    FROM employees e
-    LEFT JOIN departments d ON d.id = e.department_id
-    WHERE e.id = ?
-  `,
-    [id],
-  );
-  if (!row) return null;
-  const schedules = query.all(
-    `SELECT * FROM employee_schedules WHERE employee_id = ? ORDER BY schedule_date DESC, shift_start DESC`,
-    [id],
-  );
-  const availability = query.all(
-    `SELECT * FROM employee_availability WHERE employee_id = ? ORDER BY COALESCE(availability_date, '') DESC, day_of_week ASC`,
-    [id],
-  );
-  const activity = query.all(
-    `SELECT * FROM employee_activity_logs WHERE employee_id = ? ORDER BY created_at DESC`,
-    [id],
-  );
-  return attachEmployeeComputedFields({
-    ...row,
-    schedules,
-    availability,
-    activity,
+  const employees = await prisma.employee.findMany({
+    where,
+    include: {
+      department: true,
+      _count: {
+        select: { schedules: true, availability: true, activityLogs: true }
+      }
+    },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }]
   });
+  
+  return employees.map(e => ({
+    ...e,
+    department_name: e.department?.name,
+    department_code: e.department?.code,
+    schedule_count: e._count.schedules,
+    availability_count: e._count.availability,
+    activity_count: e._count.activityLogs,
+    ...attachEmployeeComputedFields(e)
+  }));
 }
 
-export function updateEmployee(id: string, input: Partial<EmployeeInput>) {
-  const current: any = query.get(`SELECT * FROM employees WHERE id = ?`, [id]);
-  if (!current) throw new Error("Employee not found");
-  const employeeNumber =
-    input.employeeNumber === undefined
-      ? current.employee_number
-      : input.employeeNumber;
-  const firstName =
-    input.firstName === undefined ? current.first_name : input.firstName.trim();
-  const lastName =
-    input.lastName === undefined ? current.last_name : input.lastName.trim();
-  const email =
-    input.email === undefined ? current.email : normalizeText(input.email);
-  const phone =
-    input.phone === undefined ? current.phone : normalizeText(input.phone);
-  const jobTitle =
-    input.jobTitle === undefined
-      ? current.job_title
-      : normalizeText(input.jobTitle);
-  const employeeRole =
-    input.employeeRole === undefined
-      ? current.employee_role
-      : input.employeeRole.trim();
-  const departmentId =
-    input.departmentId === undefined
-      ? current.department_id
-      : input.departmentId;
-  const employmentType =
-    input.employmentType === undefined
-      ? current.employment_type
-      : input.employmentType;
-  const status = input.status === undefined ? current.status : input.status;
-  const permissionsJson =
-    input.permissions === undefined
-      ? current.permissions_json
-      : JSON.stringify(input.permissions || []);
-  const profileJson =
-    input.profile === undefined
-      ? current.profile_json
-      : serialize(input.profile || {});
-  const notes =
-    input.notes === undefined ? current.notes : normalizeText(input.notes);
-  const hiredAt =
-    input.hiredAt === undefined ? current.hired_at : input.hiredAt;
-  const managerEmployeeId =
-    input.managerEmployeeId === undefined
-      ? current.manager_employee_id
-      : input.managerEmployeeId;
+export async function getEmployee(id: string) {
+  const employee = await prisma.employee.findUnique({
+    where: { id },
+    include: {
+      department: true,
+      schedules: {
+        orderBy: [{ scheduleDate: "desc" }, { shiftStart: "desc" }]
+      },
+      availability: {
+        orderBy: [{ availabilityDate: "desc" }, { dayOfWeek: "asc" }]
+      },
+      activityLogs: {
+        orderBy: { createdAt: "desc" }
+      }
+    }
+  });
+  
+  if (!employee) return null;
+  
+  return {
+    ...employee,
+    department_name: employee.department?.name,
+    department_code: employee.department?.code,
+    activity: employee.activityLogs,
+    ...attachEmployeeComputedFields(employee)
+  };
+}
 
-  query.run(
-    `UPDATE employees SET
-      employee_number = ?, first_name = ?, last_name = ?, email = ?, phone = ?, job_title = ?,
-      employee_role = ?, department_id = ?, employment_type = ?, status = ?, permissions_json = ?,
-      profile_json = ?, notes = ?, hired_at = ?, manager_employee_id = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?`,
-    [
-      employeeNumber,
-      firstName,
-      lastName,
-      email,
-      phone,
-      jobTitle,
-      employeeRole,
-      departmentId || null,
-      employmentType,
-      status,
-      permissionsJson,
-      profileJson,
-      notes,
-      hiredAt || null,
-      managerEmployeeId || null,
-      id,
-    ],
-  );
-  logEmployeeActivity(id, "employee.update", { changes: input }, input.actor);
+export async function updateEmployee(id: string, input: Partial<EmployeeInput>) {
+  const current = await prisma.employee.findUnique({ where: { id } });
+  if (!current) throw new Error("Employee not found");
+  
+  await prisma.employee.update({
+    where: { id },
+    data: {
+      employeeNumber: input.employeeNumber === undefined ? current.employeeNumber : input.employeeNumber,
+      firstName: input.firstName === undefined ? current.firstName : input.firstName.trim(),
+      lastName: input.lastName === undefined ? current.lastName : input.lastName.trim(),
+      email: input.email === undefined ? current.email : normalizeText(input.email),
+      phone: input.phone === undefined ? current.phone : normalizeText(input.phone),
+      jobTitle: input.jobTitle === undefined ? current.jobTitle : normalizeText(input.jobTitle),
+      employeeRole: input.employeeRole === undefined ? current.employeeRole : input.employeeRole.trim(),
+      departmentId: input.departmentId === undefined ? current.departmentId : input.departmentId,
+      employmentType: input.employmentType === undefined ? current.employmentType : input.employmentType,
+      status: input.status === undefined ? current.status : input.status,
+      permissionsJson: input.permissions === undefined ? current.permissionsJson : JSON.stringify(input.permissions || []),
+      profileJson: input.profile === undefined ? current.profileJson : serialize(input.profile || {}),
+      notes: input.notes === undefined ? current.notes : normalizeText(input.notes),
+      hiredAt: input.hiredAt === undefined ? current.hiredAt : input.hiredAt,
+      managerEmployeeId: input.managerEmployeeId === undefined ? current.managerEmployeeId : input.managerEmployeeId,
+    },
+  });
+  
+  await logEmployeeActivity(id, "employee.update", { changes: input }, input.actor);
   return getEmployee(id);
 }
 
-export function deleteEmployee(id: string, actor?: string) {
-  const employee = getEmployee(id);
+export async function deleteEmployee(id: string, actor?: string) {
+  const employee = await getEmployee(id);
   if (!employee) throw new Error("Employee not found");
-  query.run(
-    `UPDATE employees SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    ["INACTIVE", id],
-  );
-  logEmployeeActivity(
+  
+  await prisma.employee.update({
+    where: { id },
+    data: { status: "INACTIVE" },
+  });
+  
+  await logEmployeeActivity(
     id,
     "employee.delete",
-    { employeeNumber: employee.employee_number },
+    { employeeNumber: employee.employeeNumber },
     actor,
   );
   return getEmployee(id);
 }
 
-export function setEmployeePermissions(
+export async function setEmployeePermissions(
   id: string,
   permissions: string[],
   actor?: string,
 ) {
-  const employee: any = query.get(`SELECT * FROM employees WHERE id = ?`, [id]);
+  const employee = await prisma.employee.findUnique({ where: { id } });
   if (!employee) throw new Error("Employee not found");
-  query.run(
-    `UPDATE employees SET permissions_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    [JSON.stringify(permissions || []), id],
-  );
-  logEmployeeActivity(
+  
+  await prisma.employee.update({
+    where: { id },
+    data: { permissionsJson: JSON.stringify(permissions || []) },
+  });
+  
+  await logEmployeeActivity(
     id,
     "employee.permissions.update",
     { permissions },
@@ -407,7 +349,7 @@ export function setEmployeePermissions(
   return getEmployee(id);
 }
 
-export function addEmployeeSchedule(
+export async function addEmployeeSchedule(
   employeeId: string,
   input: {
     scheduleDate: string;
@@ -420,42 +362,39 @@ export function addEmployeeSchedule(
   },
   actor?: string,
 ) {
-  const employee: any = query.get(`SELECT * FROM employees WHERE id = ?`, [
-    employeeId,
-  ]);
+  const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
   if (!employee) throw new Error("Employee not found");
-  const id = makeId();
-  query.run(
-    `INSERT INTO employee_schedules (id, employee_id, schedule_date, shift_start, shift_end, timezone, status, location, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
+  
+  const schedule = await prisma.employeeSchedule.create({
+    data: {
       employeeId,
-      input.scheduleDate,
-      input.shiftStart,
-      input.shiftEnd,
-      input.timezone || "Africa/Nairobi",
-      input.status || "SCHEDULED",
-      normalizeText(input.location),
-      normalizeText(input.notes),
-    ],
-  );
-  logEmployeeActivity(
+      scheduleDate: input.scheduleDate,
+      shiftStart: input.shiftStart,
+      shiftEnd: input.shiftEnd,
+      timezone: input.timezone || "Africa/Nairobi",
+      status: input.status || "SCHEDULED",
+      location: normalizeText(input.location),
+      notes: normalizeText(input.notes),
+    },
+  });
+  
+  await logEmployeeActivity(
     employeeId,
     "employee.schedule.create",
-    { scheduleId: id, ...input },
+    { scheduleId: schedule.id, ...input },
     actor,
   );
-  return query.get(`SELECT * FROM employee_schedules WHERE id = ?`, [id]);
+  return schedule;
 }
 
-export function listEmployeeSchedules(employeeId: string) {
-  return query.all(
-    `SELECT * FROM employee_schedules WHERE employee_id = ? ORDER BY schedule_date DESC, shift_start DESC`,
-    [employeeId],
-  );
+export async function listEmployeeSchedules(employeeId: string) {
+  return prisma.employeeSchedule.findMany({
+    where: { employeeId },
+    orderBy: [{ scheduleDate: "desc" }, { shiftStart: "desc" }],
+  });
 }
 
-export function addEmployeeAvailability(
+export async function addEmployeeAvailability(
   employeeId: string,
   input: {
     availabilityDate?: string | null;
@@ -468,68 +407,70 @@ export function addEmployeeAvailability(
   },
   actor?: string,
 ) {
-  const employee: any = query.get(`SELECT * FROM employees WHERE id = ?`, [
-    employeeId,
-  ]);
+  const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
   if (!employee) throw new Error("Employee not found");
-  const id = makeId();
-  query.run(
-    `INSERT INTO employee_availability (id, employee_id, availability_date, day_of_week, available_from, available_to, timezone, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
+  
+  const availability = await prisma.employeeAvailability.create({
+    data: {
       employeeId,
-      input.availabilityDate || null,
-      typeof input.dayOfWeek === "number" ? input.dayOfWeek : null,
-      normalizeText(input.availableFrom),
-      normalizeText(input.availableTo),
-      input.timezone || "Africa/Nairobi",
-      input.status || "AVAILABLE",
-      normalizeText(input.notes),
-    ],
-  );
-  logEmployeeActivity(
+      availabilityDate: input.availabilityDate || null,
+      dayOfWeek: typeof input.dayOfWeek === "number" ? input.dayOfWeek : null,
+      availableFrom: normalizeText(input.availableFrom),
+      availableTo: normalizeText(input.availableTo),
+      timezone: input.timezone || "Africa/Nairobi",
+      status: input.status || "AVAILABLE",
+      notes: normalizeText(input.notes),
+    },
+  });
+  
+  await logEmployeeActivity(
     employeeId,
     "employee.availability.create",
-    { availabilityId: id, ...input },
+    { availabilityId: availability.id, ...input },
     actor,
   );
-  return query.get(`SELECT * FROM employee_availability WHERE id = ?`, [id]);
+  return availability;
 }
 
-export function listEmployeeAvailability(employeeId: string) {
-  return query.all(
-    `SELECT * FROM employee_availability WHERE employee_id = ? ORDER BY COALESCE(availability_date, '') DESC, day_of_week ASC`,
-    [employeeId],
-  );
+export async function listEmployeeAvailability(employeeId: string) {
+  return prisma.employeeAvailability.findMany({
+    where: { employeeId },
+    orderBy: [{ availabilityDate: "desc" }, { dayOfWeek: "asc" }],
+  });
 }
 
-export function listEmployeeActivity(employeeId?: string) {
+export async function listEmployeeActivity(employeeId?: string) {
   if (employeeId) {
-    return query.all(
-      `SELECT * FROM employee_activity_logs WHERE employee_id = ? ORDER BY created_at DESC`,
-      [employeeId],
-    );
+    return prisma.employeeActivityLog.findMany({
+      where: { employeeId },
+      orderBy: { createdAt: "desc" },
+    });
   }
-  return query.all(
-    `
-      SELECT l.*, e.first_name, e.last_name, e.employee_number
-      FROM employee_activity_logs l
-      LEFT JOIN employees e ON e.id = l.employee_id
-      ORDER BY l.created_at DESC
-      LIMIT 250
-    `,
-  );
+  
+  return prisma.employeeActivityLog.findMany({
+    include: {
+      employee: {
+        select: { firstName: true, lastName: true, employeeNumber: true }
+      }
+    },
+    orderBy: { createdAt: "desc" },
+    take: 250,
+  }).then(logs => logs.map(l => ({
+    ...l,
+    first_name: l.employee.firstName,
+    last_name: l.employee.lastName,
+    employee_number: l.employee.employeeNumber
+  })));
 }
 
-export function getEmployeeDashboard(employeeId?: string) {
+export async function getEmployeeDashboard(employeeId?: string) {
   if (!employeeId) return null;
   return getEmployee(employeeId);
 }
 
 function attachEmployeeComputedFields(row: any) {
   return {
-    ...row,
-    permissions: parseJsonArray(row.permissions_json),
-    profile: parseJsonObject(row.profile_json),
+    permissions: parseJsonArray(row.permissionsJson),
+    profile: parseJsonObject(row.profileJson),
   };
 }

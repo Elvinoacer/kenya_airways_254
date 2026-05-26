@@ -1,4 +1,4 @@
-import { query } from "./db";
+import { prisma } from "./prisma";
 import crypto from "crypto";
 
 export function escapeHtml(str: string) {
@@ -7,19 +7,18 @@ export function escapeHtml(str: string) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
 
 export function validateString(input: any, maxLength = 2000) {
   if (typeof input !== "string") return false;
   if (input.length > maxLength) return false;
-  // basic XSS prevention by rejecting script tags
-  if (/\<\s*script/i.test(input)) return false;
+  if (/<\s*script/i.test(input)) return false;
   return true;
 }
 
-export function logAudit(
+export async function logAudit(
   actorId: string | null,
   actorRole: string | null,
   action: string,
@@ -27,42 +26,31 @@ export function logAudit(
   targetId?: string,
   details?: any,
 ) {
-  const id =
-    (globalThis as any).crypto?.randomUUID?.() ||
-    String(Date.now()) + Math.random().toString(36).slice(2);
-  query.run(
-    `INSERT INTO audit_logs (id, actor_id, actor_role, action, target_type, target_id, details_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      actorId || null,
-      actorRole || null,
+  const entry = await prisma.auditLog.create({
+    data: {
+      actorId: actorId || null,
+      actorRole: actorRole || null,
       action,
-      targetType || null,
-      targetId || null,
-      JSON.stringify(details || {}),
-    ],
-  );
-  return { id };
+      targetType: targetType || null,
+      targetId: targetId || null,
+      detailsJson: JSON.stringify(details || {}),
+    },
+  });
+  return { id: entry.id };
 }
 
-export function logSecurityEvent(
+export async function logSecurityEvent(
   level: "info" | "warning" | "critical",
   message: string,
   details?: any,
 ) {
-  // reuse audit_logs for security events; tag with action prefix
-  const id =
-    (globalThis as any).crypto?.randomUUID?.() ||
-    String(Date.now()) + Math.random().toString(36).slice(2);
-  query.run(
-    `INSERT INTO audit_logs (id, action, details_json) VALUES (?, ?, ?)`,
-    [
-      id,
-      `security:${level}`,
-      JSON.stringify({ message, details: details || {} }),
-    ],
-  );
-  return { id };
+  const entry = await prisma.auditLog.create({
+    data: {
+      action: `security:${level}`,
+      detailsJson: JSON.stringify({ message, details: details || {} }),
+    },
+  });
+  return { id: entry.id };
 }
 
 const ENC_ALGO = "aes-256-gcm";

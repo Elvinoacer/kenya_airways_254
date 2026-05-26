@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import security from "@/lib/security";
-import { query } from "@/lib/db";
+import support from "@/lib/support";
 
 export async function POST(request: Request) {
   try {
@@ -10,23 +10,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "missing_fields" }, { status: 400 });
     }
 
-    // persist ticket
-    const ticketRef = `TKT-${Date.now().toString(36).toUpperCase()}`;
-    query.run(
-      `INSERT INTO support_tickets (id, ticket_ref, name, email, subject, message, context_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        ticketRef + "-" + Math.random().toString(36).slice(2),
-        ticketRef,
-        name || null,
-        email,
-        subject || null,
-        message,
-        JSON.stringify(context || {}),
-      ],
-    );
+    const { ticketRef } = await support.createTicket({
+      name,
+      email,
+      subject,
+      message,
+      context
+    });
 
     // also log an audit entry
-    security.logAudit(
+    await security.logAudit(
       null,
       null,
       "support_message_created",

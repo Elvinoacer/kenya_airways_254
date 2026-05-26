@@ -1,50 +1,53 @@
-import { query } from "./db";
+import { prisma } from "./prisma";
 import realtime from "./realtime";
 
-export function getSeatsForFlight(flightId: string) {
-  return query.all(
-    `SELECT s.*, m.is_emergency_exit, m.is_accessible, m.price_modifier, m.preference_tags FROM seats s LEFT JOIN seats_meta m ON m.seat_id = s.id WHERE s.flight_id = ? ORDER BY seat_class, seat_number`,
-    [flightId],
-  );
+export async function getSeatsForFlight(flightId: string) {
+  const seats = await prisma.seat.findMany({
+    where: { flightId },
+    include: { meta: true },
+    orderBy: [{ seatClass: "asc" }, { seatNumber: "asc" }],
+  });
+  return seats.map((s) => ({
+    id: s.id,
+    flight_id: s.flightId,
+    seat_number: s.seatNumber,
+    seat_class: s.seatClass,
+    is_occupied: s.isOccupied,
+    is_emergency_exit: s.meta?.isEmergencyExit || false,
+    is_accessible: s.meta?.isAccessible || false,
+    price_modifier: s.meta?.priceModifier || null,
+    preference_tags: s.meta?.preferenceTags || null,
+  }));
 }
 
-export function getSeatOccupancySummary(flightId: string) {
-  const total = query.get(
-    `SELECT COUNT(*) as c FROM seats WHERE flight_id = ?`,
-    [flightId],
-  ) as any;
-  const occupied = query.get(
-    `SELECT COUNT(*) as c FROM seats WHERE flight_id = ? AND is_occupied = 1`,
-    [flightId],
-  ) as any;
-  const locked = query.get(
-    `SELECT COUNT(*) as c FROM seat_locks WHERE flight_id = ? AND expires_at > CURRENT_TIMESTAMP`,
-    [flightId],
-  ) as any;
+export async function getSeatOccupancySummary(flightId: string) {
+  const total = await prisma.seat.count({ where: { flightId } });
+  const occupied = await prisma.seat.count({ where: { flightId, isOccupied: true } });
+  const locked = await prisma.seatLock.count({
+    where: { flightId, expiresAt: { gt: new Date() } },
+  });
   return {
-    total: total?.c || 0,
-    occupied: occupied?.c || 0,
-    locked: locked?.c || 0,
-    available: (total?.c || 0) - (occupied?.c || 0) - (locked?.c || 0),
+    total,
+    occupied,
+    locked,
+    available: total - occupied - locked,
   };
 }
 
-export function isSeatAvailable(seatId: string, flightId: string) {
-  const seat: any = query.get(
-    `SELECT * FROM seats WHERE id = ? AND flight_id = ?`,
-    [seatId, flightId],
-  );
+export async function isSeatAvailable(seatId: string, flightId: string) {
+  const seat = await prisma.seat.findFirst({
+    where: { id: seatId, flightId },
+  });
   if (!seat) return false;
-  if (seat.is_occupied) return false;
-  const lock: any = query.get(
-    `SELECT * FROM seat_locks WHERE seat_id = ? AND flight_id = ? AND expires_at > CURRENT_TIMESTAMP`,
-    [seatId, flightId],
-  );
+  if (seat.isOccupied) return false;
+  const lock = await prisma.seatLock.findFirst({
+    where: { seatId, flightId, expiresAt: { gt: new Date() } },
+  });
   if (lock) return false;
   return true;
 }
 
-export function lockSeat({
+export async function lockSeat({
   seatId,
   flightId,
   userId,
@@ -57,49 +60,47 @@ export function lockSeat({
   bookingId?: string;
   ttlSeconds?: number;
 }) {
-  // check availability
-  if (!isSeatAvailable(seatId, flightId)) {
+  if (!(await isSeatAvailable(seatId, flightId))) {
     return { success: false, reason: "not_available" };
   }
-  const id =
-    (globalThis as any).crypto?.randomUUID?.() ||
-    String(Date.now()) + Math.random().toString(36).slice(2);
-  const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
-  query.run(
-    `INSERT INTO seat_locks (id, seat_id, flight_id, user_id, reserved_for_booking_id, expires_at) VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, seatId, flightId, userId || null, bookingId || null, expiresAt],
-  );
+  const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+  const lock = await prisma.seatLock.create({
+    data: {
+      seatId,
+      flightId,
+      userId: userId || null,
+      reservedForBookingId: bookingId || null,
+      expiresAt,
+    },
+  });
   try {
-    realtime.emitSeatUpdate(flightId, { action: "lock", seatId, lockId: id });
+    realtime.emitSeatUpdate(flightId, { action: "lock", seatId, lockId: lock.id });
   } catch (e) {}
-  return { success: true, lockId: id, expiresAt };
+  return { success: true, lockId: lock.id, expiresAt: expiresAt.toISOString() };
 }
 
-export function unlockSeat(lockId: string) {
-  const lock = query.get(`SELECT * FROM seat_locks WHERE id = ?`, [
-    lockId,
-  ]) as any;
+export async function unlockSeat(lockId: string) {
+  const lock = await prisma.seatLock.findUnique({ where: { id: lockId } });
   if (!lock) return { success: false, reason: "not_found" };
-  query.run(`DELETE FROM seat_locks WHERE id = ?`, [lockId]);
+  await prisma.seatLock.delete({ where: { id: lockId } });
   try {
-    realtime.emitSeatUpdate(lock.flight_id, {
+    realtime.emitSeatUpdate(lock.flightId, {
       action: "unlock",
-      seatId: lock.seat_id,
+      seatId: lock.seatId,
       lockId,
     });
   } catch (e) {}
   return { success: true };
 }
 
-export function releaseExpiredLocks() {
-  // Delete expired locks
-  const res = query.run(
-    `DELETE FROM seat_locks WHERE expires_at <= CURRENT_TIMESTAMP`,
-  );
-  return res.changes;
+export async function releaseExpiredLocks() {
+  const result = await prisma.seatLock.deleteMany({
+    where: { expiresAt: { lte: new Date() } },
+  });
+  return result.count;
 }
 
-export function addToWaitlist({
+export async function addToWaitlist({
   flightId,
   passengerProfileId,
   userId,
@@ -110,25 +111,20 @@ export function addToWaitlist({
   userId?: string;
   requestedSeatClass?: string;
 }) {
-  const id =
-    (globalThis as any).crypto?.randomUUID?.() ||
-    String(Date.now()) + Math.random().toString(36).slice(2);
-  query.run(
-    `INSERT INTO flight_waitlist (id, flight_id, passenger_profile_id, user_id, requested_seat_class) VALUES (?, ?, ?, ?, ?)`,
-    [
-      id,
+  const entry = await prisma.flightWaitlist.create({
+    data: {
       flightId,
-      passengerProfileId || null,
-      userId || null,
-      requestedSeatClass || null,
-    ],
-  );
-  return { id };
+      passengerProfileId: passengerProfileId || null,
+      userId: userId || null,
+      requestedSeatClass: requestedSeatClass || null,
+    },
+  });
+  return { id: entry.id };
 }
 
-export function getWaitlistForFlight(flightId: string) {
-  return query.all(
-    `SELECT * FROM flight_waitlist WHERE flight_id = ? ORDER BY created_at`,
-    [flightId],
-  );
+export async function getWaitlistForFlight(flightId: string) {
+  return prisma.flightWaitlist.findMany({
+    where: { flightId },
+    orderBy: { createdAt: "asc" },
+  });
 }

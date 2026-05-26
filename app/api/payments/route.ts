@@ -6,14 +6,14 @@ import {
   startCardPayment,
   createInvoiceForBooking,
 } from "../../../lib/payments";
-import { query } from "../../..//lib/db";
+import { prisma } from "../../../lib/prisma";
 
 export async function POST(request: Request) {
   const body: any = await request.json().catch(() => ({}));
   const { bookingId, amount, currency, provider, metadata } = body;
   if (!amount || !provider)
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
-  const payment: any = createPayment({
+  const payment: any = await createPayment({
     bookingId,
     amount,
     currency,
@@ -22,13 +22,13 @@ export async function POST(request: Request) {
   });
 
   // attach provider_payment_id placeholder for webhook matching for simulated flows
-  query.run(`UPDATE payments SET provider_payment_id = ? WHERE id = ?`, [
-    `${provider}-${payment.id}`,
-    payment.id,
-  ]);
+  await prisma.payment.update({
+    where: { id: payment.id },
+    data: { providerPaymentId: `${provider}-${payment.id}` }
+  });
 
   // optionally create invoice
-  if (bookingId) createInvoiceForBooking(bookingId, amount, currency || "KES");
+  if (bookingId) await createInvoiceForBooking(bookingId, amount, currency || "KES");
 
   // provider-specific kickoff
   if (provider === "MPESA") {
@@ -59,8 +59,9 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  const rows = query.all(
-    `SELECT * FROM payments ORDER BY created_at DESC LIMIT 200`,
-  );
+  const rows = await prisma.payment.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 200
+  });
   return NextResponse.json({ payments: rows });
 }
