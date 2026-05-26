@@ -2,6 +2,7 @@
 import React, { Suspense, useEffect, useState } from "react";
 import FlightCard from "./components/FlightCard";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AIRPORTS } from "@/lib/airports";
 
 type SearchParams = {
   origin?: string;
@@ -12,18 +13,30 @@ type SearchParams = {
   cabin?: string;
   sort?: string;
   currency?: "USD" | "KES";
+  passengers?: string;
+  priceMin?: string;
+  priceMax?: string;
+  durationMax?: string;
+  directOnly?: string;
+  seatsMin?: string;
+  refundable?: string;
+  baggageIncluded?: string;
 };
 
 function SearchContent() {
   const [params, setParams] = useState<SearchParams>({ currency: "USD" });
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+  const [error, setError] = useState("");
   const router = useRouter();
   const searchParamsHook = useSearchParams();
 
   useEffect(() => {
     async function doSearch() {
+      if (!initialized) return;
       setLoading(true);
+      setError("");
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => {
         if (v) qs.set(k, String(v));
@@ -34,21 +47,29 @@ function SearchContent() {
       } catch (e) {
         /* ignore in environments without router support */
       }
-      const res = await fetch(`/api/flights?${qs.toString()}`);
-      const data = await res.json();
-      setResults(data.results || []);
-      setLoading(false);
+      try {
+        const res = await fetch(`/api/flights?${qs.toString()}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Search failed");
+        setResults(data.results || []);
+      } catch (err: any) {
+        setResults([]);
+        setError(err.message || "We couldn't load flights right now.");
+      } finally {
+        setLoading(false);
+      }
     }
     doSearch();
-  }, [params]);
+  }, [params, initialized, router]);
 
   useEffect(() => {
     // initialize from URL search params on mount
     try {
       const sp = Object.fromEntries(searchParamsHook?.entries() || []);
-      if (Object.keys(sp).length) setParams(sp as any);
+      setParams({ currency: "USD", passengers: "1", ...sp } as any);
+      setInitialized(true);
     } catch (e) {
-      // ignore
+      setInitialized(true);
     }
   }, [searchParamsHook]);
 
@@ -84,6 +105,11 @@ function SearchContent() {
                     origin: String(form.get("origin") || ""),
                     destination: String(form.get("destination") || ""),
                     departDate: String(form.get("departDate") || ""),
+                    returnDate: String(form.get("returnDate") || ""),
+                    tripType: String(form.get("tripType") || "return"),
+                    cabin: String(form.get("cabin") || ""),
+                    passengers: String(form.get("passengers") || "1"),
+                    sort: String(form.get("sort") || "depart"),
                     currency: String(form.get("currency") || "USD") as "USD" | "KES",
                   };
                   const priceMin = form.get("priceMin");
@@ -111,38 +137,92 @@ function SearchContent() {
                   if (seatsMin) next.seatsMin = String(seatsMin);
                   if (refundable) next.refundable = "true";
                   if (baggageIncluded) next.baggageIncluded = "true";
-                  if (mealIncluded) next.mealIncluded = "true";
-                  if (wifiAvailable) next.wifiAvailable = "true";
 
                   setParams(next);
                 }}
                 className="space-y-4"
               >
                 <div>
+                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Trip</label>
+                  <select
+                    name="tripType"
+                    value={params.tripType || "return"}
+                    onChange={(event) =>
+                      setParams((current) => ({ ...current, tripType: event.target.value }))
+                    }
+                    className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
+                  >
+                    <option value="return">Return</option>
+                    <option value="oneway">One-way</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-[#5e3f3c] mb-1">From</label>
-                  <input
+                  <select
                     name="origin"
-                    placeholder="Origin (IATA or city)"
-                    className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
-                  />
+                    value={params.origin || ""}
+                    onChange={(event) =>
+                      setParams((current) => ({ ...current, origin: event.target.value }))
+                    }
+                    className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
+                  >
+                    <option value="">Any origin</option>
+                    {AIRPORTS.map((airport) => (
+                      <option key={airport.iata} value={airport.iata}>
+                        {airport.city} ({airport.iata})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#5e3f3c] mb-1">To</label>
-                  <input
+                  <select
                     name="destination"
-                    placeholder="Destination (IATA or city)"
-                    className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
-                  />
+                    value={params.destination || ""}
+                    onChange={(event) =>
+                      setParams((current) => ({ ...current, destination: event.target.value }))
+                    }
+                    className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
+                  >
+                    <option value="">Any destination</option>
+                    {AIRPORTS.map((airport) => (
+                      <option key={airport.iata} value={airport.iata}>
+                        {airport.city} ({airport.iata})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Date</label>
-                  <input name="departDate" type="date" className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]" />
+                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Depart</label>
+                  <input name="departDate" value={params.departDate || ""} onChange={(event) => setParams((current) => ({ ...current, departDate: event.target.value }))} type="date" className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]" />
+                </div>
+                {params.tripType !== "oneway" && (
+                  <div>
+                    <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Return</label>
+                    <input name="returnDate" value={params.returnDate || ""} onChange={(event) => setParams((current) => ({ ...current, returnDate: event.target.value }))} type="date" className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]" />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Cabin</label>
+                  <select name="cabin" value={params.cabin || ""} onChange={(event) => setParams((current) => ({ ...current, cabin: event.target.value }))} className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white">
+                    <option value="">Any cabin</option>
+                    <option value="CLASS_A">Class A: Executive</option>
+                    <option value="CLASS_B">Class B: Middle class</option>
+                    <option value="CLASS_C">Class C: Low class</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Passengers</label>
+                  <input name="passengers" value={params.passengers || "1"} onChange={(event) => setParams((current) => ({ ...current, passengers: event.target.value }))} min="1" max="9" type="number" className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#5e3f3c] mb-1">Currency</label>
                   <select
                     name="currency"
-                    defaultValue="USD"
+                    value={params.currency || "USD"}
+                    onChange={(event) =>
+                      setParams((current) => ({ ...current, currency: event.target.value as "USD" | "KES" }))
+                    }
                     className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
                   >
                     <option value="USD">USD</option>
@@ -151,7 +231,14 @@ function SearchContent() {
                 </div>
 
                 <div className="pt-4 border-t border-[#e5e2e1]">
-                  <h3 className="font-semibold text-[#1A1A1A] mb-3">Filters</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-[#1A1A1A]">Filters</h3>
+                    <select name="sort" value={params.sort || "depart"} onChange={(event) => setParams((current) => ({ ...current, sort: event.target.value }))} className="text-sm rounded-lg border border-[#e5e2e1] bg-white px-2 py-1 text-[#1A1A1A]">
+                      <option value="depart">Earliest</option>
+                      <option value="price">Lowest price</option>
+                      <option value="duration">Shortest</option>
+                    </select>
+                  </div>
                   <div className="space-y-3">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input name="directOnly" type="checkbox" className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded" />
@@ -165,6 +252,12 @@ function SearchContent() {
                       <input name="baggageIncluded" type="checkbox" className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded" />
                       <span className="text-sm text-[#5e3f3c]">Baggage Included</span>
                     </label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+                    <input name="priceMin" placeholder="Min price" className="w-full px-3 py-2 rounded-lg border border-[#e5e2e1] text-sm text-[#1A1A1A]" />
+                    <input name="priceMax" placeholder="Max price" className="w-full px-3 py-2 rounded-lg border border-[#e5e2e1] text-sm text-[#1A1A1A]" />
+                    <input name="durationMax" placeholder="Max mins" className="w-full px-3 py-2 rounded-lg border border-[#e5e2e1] text-sm text-[#1A1A1A]" />
+                    <input name="seatsMin" placeholder="Seats min" className="w-full px-3 py-2 rounded-lg border border-[#e5e2e1] text-sm text-[#1A1A1A]" />
                   </div>
                 </div>
 
@@ -194,6 +287,12 @@ function SearchContent() {
               <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-[#e5e2e1] shadow-sm">
                 <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
                 <p className="text-[#5e3f3c] font-medium">Searching for the best flights...</p>
+              </div>
+            )}
+
+            {!loading && error && (
+              <div className="mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {error}
               </div>
             )}
             

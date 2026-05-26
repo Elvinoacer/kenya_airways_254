@@ -82,6 +82,23 @@ Use the interactive tutorial for screenshots and videos.
     tags: ["booking", "tutorial"],
   },
   {
+    id: "travel-requirements",
+    slug: "travel-requirements",
+    title: "Travel requirements and booking guidelines",
+    content: `
+Before you fly, confirm the requirements for your destination and connection points.
+
+1. Check passport validity and visa rules for every country in your journey.
+2. Review passenger names before payment; names should match the travel document.
+3. Add baggage, accessibility needs, and meal requests before confirming the booking.
+4. Keep your booking reference available for check-in, changes, refunds, and support.
+
+For booking help, open the interactive booking tutorial from the Help Center.
+    `,
+    category: "Travel requirements",
+    tags: ["requirements", "guidelines", "visa", "passport", "booking"],
+  },
+  {
     id: "faq-cancellations",
     slug: "faq-cancellations",
     title: "Cancellations and refunds (FAQ)",

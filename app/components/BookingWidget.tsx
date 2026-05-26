@@ -2,13 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AIRPORTS } from "@/lib/airports";
 
 export default function BookingWidget() {
   const [tripType, setTripType] = useState("return");
-  const [origin, setOrigin] = useState("Nairobi (NBO)");
+  const [origin, setOrigin] = useState("NBO");
   const [destination, setDestination] = useState("");
   const [departDate, setDepartDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
+  const [passengers, setPassengers] = useState(1);
+  const [cabin, setCabin] = useState("CLASS_C");
   const router = useRouter();
 
   function handleSearch() {
@@ -20,6 +23,8 @@ export default function BookingWidget() {
     if (tripType === "return" && returnDate)
       query.set("returnDate", returnDate);
     query.set("tripType", tripType);
+    query.set("passengers", String(passengers));
+    query.set("cabin", cabin);
 
     router.push(`/search?${query.toString()}`);
   }
@@ -58,49 +63,66 @@ export default function BookingWidget() {
 
       {/* Input Fields */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          {
-            label: "From",
-            icon: "flight_takeoff",
-            placeholder: "Nairobi (NBO)",
-          },
-          { label: "To", icon: "flight_land", placeholder: "Destination" },
-          {
-            label: "Dates",
-            icon: "calendar_month",
-            placeholder: "Depart - Return",
-          },
-        ].map(({ label, icon, placeholder }) => (
-          <div key={label} className="relative group">
-            <label className="block text-xs font-semibold tracking-wide text-[#5e3f3c] mb-1">
-              {label}
-            </label>
-            <div className="flex items-center border border-[#936e6a] rounded-lg p-3 group-focus-within:border-primary transition-colors">
-              <span className="material-symbols-outlined text-[#936e6a] mr-2 text-xl">
-                {icon}
-              </span>
-              <input
-                type="text"
-                placeholder={placeholder}
-                value={
-                  label === "From"
-                    ? origin
-                    : label === "To"
-                      ? destination
-                      : label === "Dates"
-                        ? departDate
-                        : ""
-                }
-                onChange={(event) => {
-                  if (label === "From") setOrigin(event.target.value);
-                  if (label === "To") setDestination(event.target.value);
-                  if (label === "Dates") setDepartDate(event.target.value);
-                }}
-                className="w-full border-none focus:ring-0 p-0 text-sm text-[#1A1A1A] placeholder-[#936e6a] bg-transparent"
-              />
-            </div>
+        <div className="relative group">
+          <label className="block text-xs font-semibold tracking-wide text-[#5e3f3c] mb-1">
+            From
+          </label>
+          <div className="flex items-center border border-[#936e6a] rounded-lg p-3 group-focus-within:border-primary transition-colors">
+            <span className="material-symbols-outlined text-[#936e6a] mr-2 text-xl">
+              flight_takeoff
+            </span>
+            <select
+              value={origin}
+              onChange={(event) => setOrigin(event.target.value)}
+              className="w-full border-none focus:ring-0 p-0 text-sm text-[#1A1A1A] bg-transparent"
+            >
+              {AIRPORTS.map((airport) => (
+                <option key={airport.iata} value={airport.iata}>
+                  {airport.city} ({airport.iata})
+                </option>
+              ))}
+            </select>
           </div>
-        ))}
+        </div>
+        <div className="relative group">
+          <label className="block text-xs font-semibold tracking-wide text-[#5e3f3c] mb-1">
+            To
+          </label>
+          <div className="flex items-center border border-[#936e6a] rounded-lg p-3 group-focus-within:border-primary transition-colors">
+            <span className="material-symbols-outlined text-[#936e6a] mr-2 text-xl">
+              flight_land
+            </span>
+            <select
+              value={destination}
+              onChange={(event) => setDestination(event.target.value)}
+              className="w-full border-none focus:ring-0 p-0 text-sm text-[#1A1A1A] bg-transparent"
+              required
+            >
+              <option value="">Destination</option>
+              {AIRPORTS.filter((airport) => airport.iata !== origin).map((airport) => (
+                <option key={airport.iata} value={airport.iata}>
+                  {airport.city} ({airport.iata})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="relative group">
+          <label className="block text-xs font-semibold tracking-wide text-[#5e3f3c] mb-1">
+            Depart
+          </label>
+          <div className="flex items-center border border-[#936e6a] rounded-lg p-3 group-focus-within:border-primary transition-colors">
+            <span className="material-symbols-outlined text-[#936e6a] mr-2 text-xl">
+              calendar_month
+            </span>
+            <input
+              type="date"
+              value={departDate}
+              onChange={(event) => setDepartDate(event.target.value)}
+              className="w-full border-none focus:ring-0 p-0 text-sm text-[#1A1A1A] bg-transparent"
+            />
+          </div>
+        </div>
         {tripType === "return" && (
           <div className="relative group">
             <label className="block text-xs font-semibold tracking-wide text-[#5e3f3c] mb-1">
@@ -130,11 +152,32 @@ export default function BookingWidget() {
               person
             </span>
             <input
-              type="text"
-              readOnly
-              defaultValue="1 Adult, Economy"
+              type="number"
+              min="1"
+              max="9"
+              value={passengers}
+              onChange={(event) => setPassengers(Number(event.target.value))}
               className="w-full border-none focus:ring-0 p-0 text-sm text-[#1A1A1A] cursor-pointer bg-transparent"
             />
+          </div>
+        </div>
+        <div className="relative group">
+          <label className="block text-xs font-semibold tracking-wide text-[#5e3f3c] mb-1">
+            Cabin
+          </label>
+          <div className="flex items-center border border-[#936e6a] rounded-lg p-3 group-focus-within:border-primary transition-colors">
+            <span className="material-symbols-outlined text-[#936e6a] mr-2 text-xl">
+              airline_seat_recline_extra
+            </span>
+            <select
+              value={cabin}
+              onChange={(event) => setCabin(event.target.value)}
+              className="w-full border-none focus:ring-0 p-0 text-sm text-[#1A1A1A] bg-transparent"
+            >
+              <option value="CLASS_C">Class C: Low class</option>
+              <option value="CLASS_B">Class B: Middle class</option>
+              <option value="CLASS_A">Class A: Executive</option>
+            </select>
           </div>
         </div>
       </div>

@@ -69,7 +69,9 @@ export async function proxy(
     if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
       const header = req.headers.get("x-csrf-token");
       const csrfCookie = req.cookies.get("csrfToken")?.value;
-      if (!header || !csrfCookie || header !== csrfCookie) {
+      const origin = req.headers.get("origin");
+      const sameOrigin = !origin || origin === req.nextUrl.origin;
+      if ((!header || !csrfCookie || header !== csrfCookie) && !sameOrigin) {
         security.logSecurityEvent("warning", "csrf_token_mismatch", {
           ip,
           method,
@@ -98,6 +100,7 @@ export async function proxy(
       pathname.startsWith("/staff") ||
       pathname.startsWith("/reports") ||
       pathname.startsWith("/admin");
+    const isProtectedApi = pathname.startsWith("/api/admin");
 
     // Extract session token from cookie
     const sessionCookie = req.cookies.get("kq_session")?.value;
@@ -105,6 +108,12 @@ export async function proxy(
 
     if (!payload) {
       // not authenticated
+      if (isProtectedApi) {
+        return new NextResponse(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+          headers: { "content-type": "application/json" },
+        });
+      }
       if (isProtectedPage || isOnboardingPage) {
         const loginUrl = new URL("/login", req.url);
         loginUrl.searchParams.set("callbackUrl", pathname);
@@ -143,13 +152,24 @@ export async function proxy(
     }
 
     // 4. Role-based checks
-    if (
-      pathname.startsWith("/staff") ||
-      pathname.startsWith("/reports") ||
-      pathname.startsWith("/admin")
-    ) {
-      if (role !== "STAFF" && role !== "ADMIN") {
+    if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+      if (role !== "ADMIN") {
+        if (pathname.startsWith("/api/")) {
+          return new NextResponse(JSON.stringify({ error: "forbidden" }), {
+            status: 403,
+            headers: { "content-type": "application/json" },
+          });
+        }
         // Forbidden: redirect passengers back to dashboard
+        return ensureCsrfCookie(
+          NextResponse.redirect(new URL("/dashboard", req.url)),
+          hasCsrfCookie,
+        );
+      }
+    }
+
+    if (pathname.startsWith("/staff") || pathname.startsWith("/reports")) {
+      if (role !== "STAFF" && role !== "ADMIN") {
         return ensureCsrfCookie(
           NextResponse.redirect(new URL("/dashboard", req.url)),
           hasCsrfCookie,

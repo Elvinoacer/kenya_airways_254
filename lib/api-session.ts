@@ -1,4 +1,8 @@
-import { verifySessionCookie, type SessionPayload } from "./auth-session";
+import {
+  isSessionActiveInDb,
+  verifySessionCookie,
+  type SessionPayload,
+} from "./auth-session";
 
 export async function getSessionFromRequest(
   req: Request,
@@ -9,7 +13,10 @@ export async function getSessionFromRequest(
     .map((part) => part.trim())
     .find((part) => part.startsWith("kq_session="));
   const cookieValue = cookie ? decodeURIComponent(cookie.split("=")[1]) : null;
-  return verifySessionCookie(cookieValue ?? undefined);
+  const payload = await verifySessionCookie(cookieValue ?? undefined);
+  if (!payload) return null;
+  const active = await isSessionActiveInDb(payload.sessionId);
+  return active ? payload : null;
 }
 
 export function canAccessPassenger(

@@ -18,14 +18,20 @@ import {
   verifyPasswordResetToken,
   verifySessionCookie,
   generateSessionCookie,
+  isSessionActiveInDb,
   SessionPayload
 } from '../../lib/auth-session';
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000';
 
 // Helper to get active session from cookies
 async function getActiveSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const cookieVal = cookieStore.get('kq_session')?.value;
-  return verifySessionCookie(cookieVal);
+  const payload = await verifySessionCookie(cookieVal);
+  if (!payload) return null;
+  const active = await isSessionActiveInDb(payload.sessionId);
+  return active ? payload : null;
 }
 
 // ─────────────────────────────────────────
@@ -51,6 +57,8 @@ export async function registerAction(
       return { success: false, error: 'A user with this email address already exists.' };
     }
 
+    const userCount = await prisma.user.count();
+    const effectiveRole = userCount === 0 ? role : 'PASSENGER';
     const passwordHash = hashPassword(password);
 
     // Save user
@@ -59,7 +67,7 @@ export async function registerAction(
         email,
         name: name || null,
         passwordHash,
-        role: role as any,
+        role: effectiveRole as any,
         emailVerified: false,
         failedAttempts: 0
       }
@@ -71,7 +79,7 @@ export async function registerAction(
     // Simulate sending email by printing to logs
     console.log('\n=== [MOCK EMAIL] EMAIL VERIFICATION LINK ===');
     console.log(`To: ${email}`);
-    console.log(`Link: http://localhost:3000/verify-email?token=${token}`);
+    console.log(`Link: ${APP_URL}/verify-email?token=${token}`);
     console.log('============================================\n');
 
     return { success: true, message: 'Registration successful! Please check your email for a verification link.' };
@@ -139,6 +147,10 @@ export async function loginAction(
 
     // Reset failed login attempts on successful credentials match
     await resetFailedLoginAttempts(user.id);
+
+    if (!user.emailVerified) {
+      return { success: false, error: 'Please verify your email address before signing in. Check your inbox or the development server logs for the verification link.' };
+    }
 
     // Check if 2FA (Two-Factor Authentication) is enabled
     if (user.twoFactorEnabled) {
@@ -317,7 +329,7 @@ export async function forgotPasswordAction(email: string) {
 
       console.log('\n=== [MOCK EMAIL] PASSWORD RESET LINK ===');
       console.log(`To: ${email}`);
-      console.log(`Link: http://localhost:3000/reset-password?token=${token}`);
+      console.log(`Link: ${APP_URL}/reset-password?token=${token}`);
       console.log('========================================\n');
     }
 

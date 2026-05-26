@@ -121,25 +121,21 @@ export async function isSessionActiveInDb(sessionId: string): Promise<boolean> {
 
 // Record login attempt (failed or successful)
 export async function recordLoginAttempt(email: string, ipAddress: string): Promise<void> {
-  // We need to add LoginAttempt to schema if not present, but for now we'll execute a raw query or skip if model doesn't exist
-  // Since we created a fresh schema without LoginAttempt, let's use raw query or just return for now
-  // To keep it clean, we should probably add LoginAttempt to Prisma schema if it's strictly needed
-  try {
-    await prisma.$executeRaw`INSERT INTO login_attempts (id, email, ip_address) VALUES (${crypto.randomUUID()}, ${email}, ${ipAddress})`;
-  } catch(e) {
-    // ignore if table missing
-  }
+  await prisma.loginAttempt.create({
+    data: { email, ipAddress },
+  });
 }
 
 // Throttle check: Maximum 10 login attempts in last 5 minutes per IP or email
 export async function isLoginThrottled(email: string, ipAddress: string): Promise<boolean> {
-  try {
-    const windowStart = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const attempts: any[] = await prisma.$queryRaw`SELECT COUNT(*) as count FROM login_attempts WHERE (email = ${email} OR ip_address = ${ipAddress}) AND timestamp > ${windowStart}`;
-    return (attempts[0]?.count ?? 0) >= 10;
-  } catch(e) {
-    return false;
-  }
+  const windowStart = new Date(Date.now() - 5 * 60 * 1000);
+  const attempts = await prisma.loginAttempt.count({
+    where: {
+      createdAt: { gt: windowStart },
+      OR: [{ email }, { ipAddress }],
+    },
+  });
+  return attempts >= 10;
 }
 
 // Increments failed attempts and locks account if it reaches 5 failures
@@ -195,9 +191,9 @@ export async function checkSuspiciousLogin(
   const uaMatched = previousSessions.some((s) => s.userAgent === userAgent);
 
   if (!ipMatched && !uaMatched) {
-    try {
-      await prisma.$executeRaw`INSERT INTO suspicious_alerts (id, user_id, ip_address, user_agent) VALUES (${crypto.randomUUID()}, ${userId}, ${ipAddress}, ${userAgent})`;
-    } catch(e) {}
+    await prisma.suspiciousAlert.create({
+      data: { userId, ipAddress, userAgent },
+    });
     return true;
   }
 
@@ -237,7 +233,7 @@ export async function createVerificationToken(
 }
 
 export async function verifyEmailToken(token: string): Promise<string | null> {
-  const row = await prisma.verificationToken.findUnique({
+  const row = await prisma.verificationToken.findFirst({
     where: { token, type: 'EMAIL_VERIFICATION' }
   });
 
@@ -259,7 +255,7 @@ export async function verifyEmailToken(token: string): Promise<string | null> {
 }
 
 export async function verifyPasswordResetToken(token: string): Promise<string | null> {
-  const row = await prisma.verificationToken.findUnique({
+  const row = await prisma.verificationToken.findFirst({
     where: { token, type: 'PASSWORD_RESET' }
   });
 

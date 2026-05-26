@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { loginAction, verify2FALoginAction } from '../../actions/auth-actions';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -31,7 +33,7 @@ export default function LoginPage() {
         if (res.success) {
           setSuccess('Log in successful! Redirecting...');
           setTimeout(() => {
-            router.push('/dashboard');
+            router.push(callbackUrl);
             router.refresh();
           }, 1500);
         } else {
@@ -46,7 +48,7 @@ export default function LoginPage() {
           } else {
             setSuccess('Log in successful! Redirecting...');
             setTimeout(() => {
-              router.push('/dashboard');
+              router.push(callbackUrl);
               router.refresh();
             }, 1500);
           }
@@ -60,52 +62,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
-  // Mock social logins for demo/testing
-  const handleMockSocialLogin = async (provider: 'Google' | 'Apple') => {
-    setLoading(true);
-    setError('');
-    setSuccess('');
-    
-    // We use a mock email depending on provider
-    const mockEmail = provider === 'Google' ? 'google.passenger@gmail.com' : 'apple.passenger@icloud.com';
-    const mockName = provider === 'Google' ? 'Google Passenger' : 'Apple Passenger';
-
-    try {
-      // Direct mock session injection (in real life, this would route to OAuth client)
-      // For this skeleton, we will register the user if they don't exist and log them in
-      const res = await loginAction(mockEmail, 'MockPass1234!', true);
-      if (res.success) {
-        setSuccess(`Logged in via ${provider}! Redirecting...`);
-        setTimeout(() => {
-          router.push('/dashboard');
-          router.refresh();
-        }, 1500);
-      } else {
-        // If not registered yet, we register and try login
-        const regRes = await registerAction(mockEmail, 'MockPass1234!', mockName, 'PASSENGER');
-        if (regRes.success) {
-          const loginRes = await loginAction(mockEmail, 'MockPass1234!', true);
-          if (loginRes.success) {
-            setSuccess(`Registered and Logged in via ${provider}! Redirecting...`);
-            setTimeout(() => {
-              router.push('/dashboard');
-              router.refresh();
-            }, 1500);
-            return;
-          }
-        }
-        setError(`Failed to sign in with ${provider}: ${regRes.error || 'Internal error'}`);
-      }
-    } catch (err: any) {
-      setError(err.message || 'OAuth mock login failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Import registerAction so mock social login can use it
-  const registerAction = require('../../actions/auth-actions').registerAction;
 
   return (
     <div className="min-h-screen flex bg-[#fcf9f8]">
@@ -289,43 +245,25 @@ export default function LoginPage() {
           </div>
 
           {!twoFactorRequired && (
-            <div className="mt-8">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[#e5e2e1]" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-[#5e3f3c] font-medium">Or continue with</span>
-                </div>
-              </div>
-
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleMockSocialLogin('Google')}
-                  className="w-full inline-flex justify-center py-2.5 px-4 rounded-lg border border-[#e5e2e1] bg-white text-sm font-semibold text-[#1A1A1A] hover:bg-[#fcf9f8] transition-all cursor-pointer shadow-sm"
-                >
-                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                    <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.137 4.114-3.327 0-6.023-2.696-6.023-6.023 0-3.327 2.696-6.023 6.023-6.023 1.455 0 2.784.522 3.821 1.385l3.14-3.14A11.968 11.968 0 0 0 12.24 0C5.642 0 0 5.642 0 12.24s5.642 12.24 12.24 12.24c6.702 0 11.233-4.71 11.233-11.442 0-.771-.067-1.52-.2-2.253H12.24Z"/>
-                  </svg>
-                  Google
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMockSocialLogin('Apple')}
-                  className="w-full inline-flex justify-center py-2.5 px-4 rounded-lg border border-[#e5e2e1] bg-white text-sm font-semibold text-[#1A1A1A] hover:bg-[#fcf9f8] transition-all cursor-pointer shadow-sm"
-                >
-                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                    <path fill="#000000" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.17c.66-.81 1.11-1.93.99-3.06-1 .04-2.2.67-2.92 1.51-.62.73-1.16 1.87-1.01 2.98 1.1.09 2.24-.57 2.94-1.43Z"/>
-                  </svg>
-                  Apple
-                </button>
-              </div>
-            </div>
+            <p className="pt-2 text-center text-xs leading-5 text-[#5e3f3c]">
+              Email verification is required before access to passenger, staff, or admin pages.
+            </p>
           )}
         </form>
       </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#fcf9f8]">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

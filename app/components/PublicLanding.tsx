@@ -208,7 +208,7 @@ export default function KenyaAirwaysPage() {
               </p>
             </div>
             <Link
-              href="/search?origin=New%20York"
+              href="/search?origin=NBO&sort=price"
               className="hidden md:flex items-center gap-1 text-sm font-medium text-primary hover:text-[#e71520] transition-colors"
             >
               View all deals{" "}
@@ -220,7 +220,7 @@ export default function KenyaAirwaysPage() {
               <OfferCard
                 key={offer.city}
                 {...offer}
-                href={`/search?origin=New%20York&destination=${encodeURIComponent(offer.city)}`}
+                href={`/search?origin=NBO&destination=${encodeURIComponent(offer.city)}&sort=price`}
               />
             ))}
           </div>
@@ -322,7 +322,7 @@ export default function KenyaAirwaysPage() {
 
               {/* Travel Requirements */}
               <Link
-                href="/help/booking-tutorial"
+                href="/help/travel-requirements"
                 className="md:col-span-2 group bg-[#a33c33] rounded-2xl p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] flex flex-col justify-center relative overflow-hidden"
               >
                 <div
