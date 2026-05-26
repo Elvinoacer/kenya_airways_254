@@ -86,7 +86,6 @@ export default function FlightsAdminPage() {
       await load();
     } else {
       console.error(await res.text());
-        basePrice: route.basePrice,
     }
     setCreating(false);
   }
@@ -163,6 +162,7 @@ export default function FlightsAdminPage() {
       routeKey: route.key,
       origin: route.origin,
       destination: route.destination,
+      basePrice: route.basePrice,
       price_economy: form.price_economy || route.basePrice,
       aircraft: form.aircraft || route.aircraft,
       terminal: form.terminal || route.terminal,
