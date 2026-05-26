@@ -22,6 +22,10 @@ export interface Flight {
   stops: number;
   aircraft: string;
   terminal?: string;
+  routeTitle?: string;
+  routeImage?: string;
+  originCity?: string;
+  destinationCity?: string;
   basePrice: number; // in USD
   currency?: string;
   seatsAvailable: Record<SeatClass, number>;

@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
+import type { Prisma, SeatClass } from "@prisma/client";
 import { prisma } from "../../../lib/prisma";
 import { getClassCapacitySummary } from "../../../lib/seats";
 import { REQUIRED_TRAVEL_CLASSES } from "../../../lib/travel-classes";
 import { AIRPORTS } from "../../../lib/airports";
 import { convertUsdToKes } from "../../../lib/currency";
+import { getAirportByCode, getRouteConfig } from "../../../lib/route-config";
 
-type FlightWithMetaAndRoute = Awaited<ReturnType<typeof prisma.flight.findMany>>[number];
+type FlightWithMetaAndRoute = Prisma.FlightGetPayload<{
+  include: { meta: true; route: true };
+}>;
 
 function normalizeAirportQuery(value: string | null) {
   const raw = (value || "").trim();
@@ -35,6 +39,17 @@ function parseBoolean(value: string | null) {
   return value === "true" || value === "1" || value === "on";
 }
 
+function getBodyString(body: Record<string, unknown>, key: string) {
+  const value = body[key];
+  return typeof value === "string" ? value : "";
+}
+
+function getBodyNumber(body: Record<string, unknown>, key: string) {
+  const value = body[key];
+  const parsed = typeof value === "number" || typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const q = url.searchParams.get("q") || undefined;
@@ -54,18 +69,22 @@ export async function GET(request: Request) {
 
     const csv = [headers.join(",")]
       .concat(
-        rows.map((r: any) =>
+        rows.map((r) =>
           headers
             .map((h) => {
-              const key =
+              const value =
                 h === "flight_number"
-                  ? "flightNumber"
+                  ? r.flightNumber
                   : h === "departure_time"
-                    ? "departureTime"
+                    ? r.departureTime
                     : h === "arrival_time"
-                      ? "arrivalTime"
-                      : h;
-              return JSON.stringify(r[key] ?? "");
+                      ? r.arrivalTime
+                      : h === "id"
+                        ? r.id
+                        : h === "origin"
+                          ? r.origin
+                          : r.destination;
+              return JSON.stringify(value ?? "");
             })
             .join(","),
         ),
@@ -78,11 +97,9 @@ export async function GET(request: Request) {
     });
   }
 
-  const where: any = {
-    AND: [],
-  };
+  const andFilters: Prisma.FlightWhereInput[] = [];
   if (q) {
-    where.AND.push({
+    andFilters.push({
       OR: [
         { flightNumber: { contains: q, mode: "insensitive" } },
         { origin: { contains: q, mode: "insensitive" } },
@@ -92,7 +109,7 @@ export async function GET(request: Request) {
   }
 
   if (origin) {
-    where.AND.push({
+    andFilters.push({
       OR: [
         { origin: { equals: origin.iata || origin.raw, mode: "insensitive" } },
         { origin: { contains: origin.city || origin.raw, mode: "insensitive" } },
@@ -102,7 +119,7 @@ export async function GET(request: Request) {
   }
 
   if (destination) {
-    where.AND.push({
+    andFilters.push({
       OR: [
         { destination: { equals: destination.iata || destination.raw, mode: "insensitive" } },
         { destination: { contains: destination.city || destination.raw, mode: "insensitive" } },
@@ -115,11 +132,11 @@ export async function GET(request: Request) {
     const start = new Date(`${departDate}T00:00:00.000Z`);
     const end = new Date(`${departDate}T23:59:59.999Z`);
     if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
-      where.AND.push({ departureTime: { gte: start, lte: end } });
+      andFilters.push({ departureTime: { gte: start, lte: end } });
     }
   }
 
-  if (where.AND.length === 0) delete where.AND;
+  const where: Prisma.FlightWhereInput = andFilters.length > 0 ? { AND: andFilters } : {};
 
   const flights = await prisma.flight.findMany({
     where,
@@ -129,20 +146,29 @@ export async function GET(request: Request) {
 
   const mapFlight = async (f: FlightWithMetaAndRoute) => {
     const classCapacity = await getClassCapacitySummary(f.id);
-    const meta = (f.meta?.data || {}) as Record<string, any>;
-    const basePrice = Number(meta.basePrice || f.route?.basePrice || 220);
+    const meta = (f.meta?.data || {}) as Record<string, unknown>;
+    const routeConfig = getRouteConfig(f.origin, f.destination);
+    const basePrice = Number(meta.basePrice || f.route?.basePrice || routeConfig?.basePrice || 220);
     const departAt = f.departureTime?.toISOString();
     const arriveAt = f.arrivalTime?.toISOString();
+    const originAirport = getAirportByCode(f.origin);
+    const destinationAirport = getAirportByCode(f.destination);
     return {
       ...f,
       flight_number: f.flightNumber,
       flightNumber: f.flightNumber,
       departAt,
       arriveAt,
-      airline: meta.airline || "KQ",
+      airline: typeof meta.airline === "string" ? meta.airline : "KQ",
       stops: Number(meta.stops || 0),
-      aircraft: meta.aircraft || f.aircraftId || "Boeing 787 Dreamliner",
-      terminal: meta.terminal || "1",
+      aircraft:
+        typeof meta.aircraft === "string" ? meta.aircraft : f.aircraftId || routeConfig?.aircraft || "Boeing 787 Dreamliner",
+      terminal: typeof meta.terminal === "string" ? meta.terminal : routeConfig?.terminal || "1",
+      routeTitle:
+        typeof meta.routeTitle === "string" ? meta.routeTitle : routeConfig?.title || `${f.origin || ""} to ${f.destination || ""}`,
+      routeImage: typeof meta.routeImage === "string" ? meta.routeImage : routeConfig?.image || "/images/hero_banner.png",
+      originCity: originAirport?.city || f.origin,
+      destinationCity: destinationAirport?.city || f.destination,
       durationMinutes:
         f.departureTime && f.arrivalTime
           ? Math.max(0, Math.round((f.arrivalTime.getTime() - f.departureTime.getTime()) / 60000))
@@ -183,8 +209,8 @@ export async function GET(request: Request) {
   const baggageIncluded = parseBoolean(url.searchParams.get("baggageIncluded"));
 
   const priceField = currency === "KES" ? "priceKES" : "basePrice";
-  if (priceMin !== undefined) results = results.filter((flight) => Number((flight as any)[priceField]) >= priceMin);
-  if (priceMax !== undefined) results = results.filter((flight) => Number((flight as any)[priceField]) <= priceMax);
+  if (priceMin !== undefined) results = results.filter((flight) => Number(flight[priceField]) >= priceMin);
+  if (priceMax !== undefined) results = results.filter((flight) => Number(flight[priceField]) <= priceMax);
   if (durationMax !== undefined) results = results.filter((flight) => flight.durationMinutes <= durationMax);
   if (directOnly) results = results.filter((flight) => Number(flight.stops || 0) === 0);
   if (seatsMin !== undefined)
@@ -197,7 +223,7 @@ export async function GET(request: Request) {
   if (baggageIncluded !== undefined) results = results.filter((flight) => flight.baggageIncluded === baggageIncluded);
 
   if (sort === "price") {
-    results.sort((a, b) => Number((a as any)[priceField]) - Number((b as any)[priceField]));
+    results.sort((a, b) => Number(a[priceField]) - Number(b[priceField]));
   } else if (sort === "duration") {
     results.sort((a, b) => a.durationMinutes - b.durationMinutes);
   }
@@ -206,8 +232,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({}));
-  const { flight_number, origin, destination, departure_time, arrival_time } = body;
+  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const flight_number = getBodyString(body, "flight_number");
+  const origin = getBodyString(body, "origin");
+  const destination = getBodyString(body, "destination");
+  const departure_time = getBodyString(body, "departure_time");
+  const arrival_time = getBodyString(body, "arrival_time");
+  const aircraft = getBodyString(body, "aircraft");
+  const terminal = getBodyString(body, "terminal");
 
   if (!flight_number || !origin || !destination || !departure_time || !arrival_time) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
@@ -217,16 +249,41 @@ export async function POST(request: Request) {
   // but for simplicity we'll just store the flight and meta.
   // Note: price_economy, etc. were in old SQLite schema. In new Prisma schema, they belong to Route or we just ignore for now if missing from Flight model.
 
+  const routeConfig = getRouteConfig(origin, destination);
+  const basePrice = getBodyNumber(body, "basePrice") || getBodyNumber(body, "price_economy") || routeConfig?.basePrice || 220;
+  const route = await prisma.route.upsert({
+    where: {
+      id: `${origin.toUpperCase()}-${destination.toUpperCase()}`,
+    },
+    update: { basePrice },
+    create: {
+      id: `${origin.toUpperCase()}-${destination.toUpperCase()}`,
+      origin: origin.toUpperCase(),
+      destination: destination.toUpperCase(),
+      basePrice,
+    },
+  });
+
   const flight = await prisma.flight.create({
     data: {
       flightNumber: flight_number,
-      origin,
-      destination,
+      routeId: route.id,
+      origin: origin.toUpperCase(),
+      destination: destination.toUpperCase(),
       departureTime: new Date(departure_time),
       arrivalTime: new Date(arrival_time),
+      aircraftId: aircraft || routeConfig?.aircraft || null,
       meta: {
         create: {
-          data: { is_active: 1, is_archived: 0 },
+          data: {
+            is_active: 1,
+            is_archived: 0,
+            basePrice,
+            aircraft: aircraft || routeConfig?.aircraft || "Boeing 787 Dreamliner",
+            terminal: terminal || routeConfig?.terminal || "1",
+            routeTitle: routeConfig?.title || `${origin.toUpperCase()} to ${destination.toUpperCase()}`,
+            routeImage: routeConfig?.image || "/images/hero_banner.png",
+          },
         },
       },
     },
@@ -242,7 +299,7 @@ export async function POST(request: Request) {
     data: seatPlan.flatMap((plan) =>
       Array.from({ length: plan.count }, (_, index) => ({
         flightId: flight.id,
-        seatClass: plan.seatClass as any,
+        seatClass: plan.seatClass as SeatClass,
         seatNumber: `${plan.prefix}${index + 1}`,
       })),
     ),

@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { AIRPORTS } from "@/lib/airports";
+import { ROUTE_CONFIGS, getRouteConfig } from "@/lib/route-config";
 
 type Flight = {
   id: string;
@@ -15,15 +17,32 @@ type Flight = {
   price_economy?: number | null;
   price_business?: number | null;
   price_first?: number | null;
+  routeImage?: string | null;
+  routeTitle?: string | null;
+  aircraft?: string | null;
   is_active?: number;
   is_archived?: number;
+};
+
+type FlightForm = {
+  routeKey?: string;
+  flight_number?: string;
+  origin?: string;
+  destination?: string;
+  departure_time?: string;
+  arrival_time?: string;
+  price_economy?: number;
+  price_business?: number;
+  price_first?: number;
+  aircraft?: string;
+  terminal?: string;
 };
 
 export default function FlightsAdminPage() {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState<any>({});
+  const [form, setForm] = useState<FlightForm>({});
 
   async function load() {
     setLoading(true);
@@ -34,6 +53,7 @@ export default function FlightsAdminPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, []);
 
@@ -72,6 +92,24 @@ export default function FlightsAdminPage() {
     const amount = Number(value);
     return Number.isFinite(amount) ? amount.toLocaleString() : "—";
   };
+  const selectedRoute = getRouteConfig(form.origin, form.destination);
+
+  function applyRoute(key: string) {
+    const route = ROUTE_CONFIGS.find((item) => item.key === key);
+    if (!route) {
+      setForm({ ...form, routeKey: "" });
+      return;
+    }
+    setForm({
+      ...form,
+      routeKey: route.key,
+      origin: route.origin,
+      destination: route.destination,
+      price_economy: form.price_economy || route.basePrice,
+      aircraft: form.aircraft || route.aircraft,
+      terminal: form.terminal || route.terminal,
+    });
+  }
 
   return (
     <div className="text-[#1A1A1A]">
@@ -100,6 +138,50 @@ export default function FlightsAdminPage() {
           </div>
 
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mt-2">
+            <div className="md:col-span-2 xl:col-span-4 grid lg:grid-cols-[1fr_280px] gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
+                  Configured Route
+                </label>
+                <select
+                  value={form.routeKey || selectedRoute?.key || ""}
+                  onChange={(e) => applyRoute(e.target.value)}
+                  className="w-full bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm"
+                >
+                  <option value="">Choose a route template</option>
+                  {ROUTE_CONFIGS.map((route) => (
+                    <option key={route.key} value={route.key}>
+                      {route.title} ({route.key})
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs font-medium text-[#5e3f3c]">
+                  Edit route templates and images in <code>lib/route-config.ts</code>.
+                </p>
+              </div>
+              <div className="overflow-hidden rounded-2xl border border-[#e5e2e1] bg-[#fcf9f8] min-h-[112px]">
+                {selectedRoute ? (
+                  <div className="relative h-full min-h-[112px]">
+                    <img
+                      src={selectedRoute.image}
+                      alt={selectedRoute.title}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/35" />
+                    <div className="absolute left-4 right-4 bottom-3">
+                      <div className="text-xs font-black uppercase tracking-widest text-white/75">
+                        {selectedRoute.key}
+                      </div>
+                      <div className="text-lg font-black text-white">{selectedRoute.title}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-full min-h-[112px] items-center justify-center px-4 text-center text-sm font-semibold text-[#5e3f3c]">
+                    Route image preview
+                  </div>
+                )}
+              </div>
+            </div>
             <div>
               <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
                 Flight Number
@@ -113,23 +195,35 @@ export default function FlightsAdminPage() {
             </div>
             <div>
               <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">Origin</label>
-              <input
+              <select
                 value={form.origin || ""}
-                onChange={(e) => setForm({ ...form, origin: e.target.value })}
-                placeholder="IATA Code (e.g. NBO)"
+                onChange={(e) => setForm({ ...form, origin: e.target.value, routeKey: "" })}
                 className="w-full bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm uppercase"
-              />
+              >
+                <option value="">Select origin</option>
+                {AIRPORTS.map((airport) => (
+                  <option key={airport.iata} value={airport.iata}>
+                    {airport.city} ({airport.iata})
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
                 Destination
               </label>
-              <input
+              <select
                 value={form.destination || ""}
-                onChange={(e) => setForm({ ...form, destination: e.target.value })}
-                placeholder="IATA Code (e.g. LHR)"
+                onChange={(e) => setForm({ ...form, destination: e.target.value, routeKey: "" })}
                 className="w-full bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm uppercase"
-              />
+              >
+                <option value="">Select destination</option>
+                {AIRPORTS.map((airport) => (
+                  <option key={airport.iata} value={airport.iata}>
+                    {airport.city} ({airport.iata})
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
@@ -186,6 +280,28 @@ export default function FlightsAdminPage() {
                 value={form.price_first || ""}
                 onChange={(e) => setForm({ ...form, price_first: Number(e.target.value) })}
                 placeholder="Amount in KES"
+                className="w-full bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
+                Aircraft
+              </label>
+              <input
+                value={form.aircraft || selectedRoute?.aircraft || ""}
+                onChange={(e) => setForm({ ...form, aircraft: e.target.value })}
+                placeholder="Boeing 787 Dreamliner"
+                className="w-full bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
+                Terminal
+              </label>
+              <input
+                value={form.terminal || selectedRoute?.terminal || ""}
+                onChange={(e) => setForm({ ...form, terminal: e.target.value })}
+                placeholder="1A"
                 className="w-full bg-[#fcf9f8] border border-[#e5e2e1] rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm"
               />
             </div>
@@ -265,10 +381,22 @@ export default function FlightsAdminPage() {
                         </Link>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 font-mono text-[#1A1A1A]">
-                          <span className="font-bold">{f.origin}</span>
-                          <span className="material-symbols-outlined text-[#5e3f3c] text-[16px]">arrow_forward</span>
-                          <span className="font-bold">{f.destination}</span>
+                        <div className="flex items-center gap-3">
+                          {f.routeImage && (
+                            <img
+                              src={f.routeImage}
+                              alt={f.routeTitle || `${f.origin} to ${f.destination}`}
+                              className="h-12 w-16 rounded-lg object-cover border border-[#e5e2e1]"
+                            />
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2 font-mono text-[#1A1A1A]">
+                              <span className="font-bold">{f.origin}</span>
+                              <span className="material-symbols-outlined text-[#5e3f3c] text-[16px]">arrow_forward</span>
+                              <span className="font-bold">{f.destination}</span>
+                            </div>
+                            {f.routeTitle && <div className="mt-1 text-xs font-semibold text-[#5e3f3c]">{f.routeTitle}</div>}
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">

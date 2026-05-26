@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useState } from "react";
 import FlightCard from "./components/FlightCard";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AIRPORTS } from "@/lib/airports";
+import { getDestinationImage, getRouteConfig } from "@/lib/route-config";
 
 type SearchParams = {
   origin?: string;
@@ -24,9 +25,14 @@ type SearchParams = {
   baggageIncluded?: string;
 };
 
+type SearchFlight = React.ComponentProps<typeof FlightCard>["flight"] & {
+  priceKES?: number;
+  classCapacity?: Array<{ code: string; label: string; available: number }>;
+};
+
 function SearchContent() {
   const [params, setParams] = useState<SearchParams>({ currency: "USD", tripType: "return", passengers: "1" });
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<SearchFlight[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState("");
@@ -55,7 +61,7 @@ function SearchContent() {
       // Keep URL in sync with params
       try {
         router.replace(`/search?${qs.toString()}`, { scroll: false });
-      } catch (e) {
+      } catch {
         /* ignore in environments without router support */
       }
 
@@ -64,9 +70,9 @@ function SearchContent() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Search failed");
         setResults(data.results || []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         setResults([]);
-        setError(err.message || "We couldn't load flights right now. Please try again.");
+        setError(err instanceof Error ? err.message : "We couldn't load flights right now. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -77,12 +83,16 @@ function SearchContent() {
   useEffect(() => {
     try {
       const sp = Object.fromEntries(searchParamsHook?.entries() || []);
-      setParams({ currency: "USD", passengers: "1", tripType: "return", ...sp } as any);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setParams({ currency: "USD", passengers: "1", tripType: "return", ...sp } as SearchParams);
       setInitialized(true);
-    } catch (e) {
+    } catch {
       setInitialized(true);
     }
   }, [searchParamsHook]);
+
+  const heroRoute = getRouteConfig(params.origin, params.destination);
+  const heroImage = heroRoute?.image || getDestinationImage(params.destination);
 
   return (
     <div className="min-h-screen bg-[#fcf9f8] font-sans selection:bg-[#e71520] selection:text-white">
@@ -90,7 +100,7 @@ function SearchContent() {
       <header className="bg-[#410001] relative py-20 md:py-28 overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src="/images/dest_nairobi.svg"
+            src={heroImage}
             alt="Search flights background"
             className="w-full h-full object-cover opacity-20 mix-blend-overlay"
           />
@@ -122,7 +132,7 @@ function SearchContent() {
                 onSubmit={(e) => {
                   e.preventDefault();
                   const form = new FormData(e.currentTarget as HTMLFormElement);
-                  const next: any = {
+                  const next: SearchParams = {
                     ...params, // Preserve existing params like tripType, origin, destination
                     departDate: String(form.get("departDate") || ""),
                     returnDate: String(form.get("returnDate") || ""),
@@ -518,7 +528,7 @@ function SearchContent() {
                 </div>
                 <h3 className="text-2xl font-bold text-[#1A1A1A] mb-3">No flights found</h3>
                 <p className="text-[#5e3f3c] max-w-md mx-auto text-lg">
-                  We couldn't find any flights matching your exact criteria. Try adjusting your dates, filters, or
+                  We could not find any flights matching your exact criteria. Try adjusting your dates, filters, or
                   trying a different route.
                 </p>
                 <button
@@ -532,7 +542,7 @@ function SearchContent() {
 
             {!loading && results.length > 0 && (
               <div className="space-y-5">
-                {results.map((f: any) => (
+                {results.map((f) => (
                   <FlightCard key={f.id} flight={f} currency={params.currency} />
                 ))}
               </div>
