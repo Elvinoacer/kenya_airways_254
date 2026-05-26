@@ -5,6 +5,8 @@ import { REQUIRED_TRAVEL_CLASSES } from "../../../lib/travel-classes";
 import { AIRPORTS } from "../../../lib/airports";
 import { convertUsdToKes } from "../../../lib/currency";
 
+type FlightWithMetaAndRoute = Awaited<ReturnType<typeof prisma.flight.findMany>>[number];
+
 function normalizeAirportQuery(value: string | null) {
   const raw = (value || "").trim();
   if (!raw) return null;
@@ -42,32 +44,34 @@ export async function GET(request: Request) {
   const cabin = url.searchParams.get("cabin");
   const sort = url.searchParams.get("sort") || "depart";
   const currency = url.searchParams.get("currency") === "KES" ? "KES" : "USD";
-  
+
   if (url.searchParams.get("export") === "csv") {
     const rows = await prisma.flight.findMany({
-      orderBy: { departureTime: "asc" }
+      orderBy: { departureTime: "asc" },
     });
-    
-    const headers = [
-      "id",
-      "flight_number",
-      "origin",
-      "destination",
-      "departure_time",
-      "arrival_time",
-    ];
-    
+
+    const headers = ["id", "flight_number", "origin", "destination", "departure_time", "arrival_time"];
+
     const csv = [headers.join(",")]
       .concat(
         rows.map((r: any) =>
-          headers.map((h) => {
-            const key = h === 'flight_number' ? 'flightNumber' : h === 'departure_time' ? 'departureTime' : h === 'arrival_time' ? 'arrivalTime' : h;
-            return JSON.stringify(r[key] ?? "");
-          }).join(","),
+          headers
+            .map((h) => {
+              const key =
+                h === "flight_number"
+                  ? "flightNumber"
+                  : h === "departure_time"
+                    ? "departureTime"
+                    : h === "arrival_time"
+                      ? "arrivalTime"
+                      : h;
+              return JSON.stringify(r[key] ?? "");
+            })
+            .join(","),
         ),
       )
       .join("\n");
-      
+
     return new NextResponse(csv, {
       status: 200,
       headers: { "Content-Type": "text/csv" },
@@ -80,9 +84,9 @@ export async function GET(request: Request) {
   if (q) {
     where.AND.push({
       OR: [
-      { flightNumber: { contains: q, mode: 'insensitive' } },
-      { origin: { contains: q, mode: 'insensitive' } },
-      { destination: { contains: q, mode: 'insensitive' } },
+        { flightNumber: { contains: q, mode: "insensitive" } },
+        { origin: { contains: q, mode: "insensitive" } },
+        { destination: { contains: q, mode: "insensitive" } },
       ],
     });
   }
@@ -116,14 +120,14 @@ export async function GET(request: Request) {
   }
 
   if (where.AND.length === 0) delete where.AND;
-  
+
   const flights = await prisma.flight.findMany({
     where,
     include: { meta: true, route: true },
-    orderBy: { departureTime: "asc" }
+    orderBy: { departureTime: "asc" },
   });
-  
-  const mapped = await Promise.all(flights.map(async (f) => {
+
+  const mapFlight = async (f: FlightWithMetaAndRoute) => {
     const classCapacity = await getClassCapacitySummary(f.id);
     const meta = (f.meta?.data || {}) as Record<string, any>;
     const basePrice = Number(meta.basePrice || f.route?.basePrice || 220);
@@ -150,21 +154,22 @@ export async function GET(request: Request) {
       is_active: meta.is_active ?? 1,
       is_archived: meta.is_archived ?? 0,
       classCapacity,
-      seatsAvailable: Object.fromEntries(
-        classCapacity.map((entry) => [entry.code, entry.available]),
-      ),
+      seatsAvailable: Object.fromEntries(classCapacity.map((entry) => [entry.code, entry.available])),
       refundable: Boolean(meta.refundable ?? true),
       baggageIncluded: Boolean(meta.baggageIncluded ?? true),
       mealIncluded: Boolean(meta.mealIncluded ?? false),
       wifiAvailable: Boolean(meta.wifiAvailable ?? false),
     };
-  }));
+  };
+
+  type MappedFlight = Awaited<ReturnType<typeof mapFlight>>;
+  const mapped: MappedFlight[] = await Promise.all(flights.map(mapFlight));
 
   let results = mapped.filter((flight) => flight.is_archived !== 1);
   if (cabin) {
     results = results.filter((flight) =>
       flight.classCapacity.some(
-        (entry) => entry.code === cabin && Number(entry.available || 0) > 0,
+        (entry: { code: string; available: number }) => entry.code === cabin && Number(entry.available || 0) > 0,
       ),
     );
   }
@@ -178,56 +183,40 @@ export async function GET(request: Request) {
   const baggageIncluded = parseBoolean(url.searchParams.get("baggageIncluded"));
 
   const priceField = currency === "KES" ? "priceKES" : "basePrice";
-  if (priceMin !== undefined)
-    results = results.filter((flight) => Number((flight as any)[priceField]) >= priceMin);
-  if (priceMax !== undefined)
-    results = results.filter((flight) => Number((flight as any)[priceField]) <= priceMax);
-  if (durationMax !== undefined)
-    results = results.filter((flight) => flight.durationMinutes <= durationMax);
-  if (directOnly)
-    results = results.filter((flight) => Number(flight.stops || 0) === 0);
+  if (priceMin !== undefined) results = results.filter((flight) => Number((flight as any)[priceField]) >= priceMin);
+  if (priceMax !== undefined) results = results.filter((flight) => Number((flight as any)[priceField]) <= priceMax);
+  if (durationMax !== undefined) results = results.filter((flight) => flight.durationMinutes <= durationMax);
+  if (directOnly) results = results.filter((flight) => Number(flight.stops || 0) === 0);
   if (seatsMin !== undefined)
     results = results.filter((flight) =>
-      flight.classCapacity.some((entry) => Number(entry.available || 0) >= seatsMin),
+      flight.classCapacity.some(
+        (entry: { code: string; available: number }) => Number(entry.available || 0) >= seatsMin,
+      ),
     );
-  if (refundable !== undefined)
-    results = results.filter((flight) => flight.refundable === refundable);
-  if (baggageIncluded !== undefined)
-    results = results.filter((flight) => flight.baggageIncluded === baggageIncluded);
+  if (refundable !== undefined) results = results.filter((flight) => flight.refundable === refundable);
+  if (baggageIncluded !== undefined) results = results.filter((flight) => flight.baggageIncluded === baggageIncluded);
 
   if (sort === "price") {
     results.sort((a, b) => Number((a as any)[priceField]) - Number((b as any)[priceField]));
   } else if (sort === "duration") {
     results.sort((a, b) => a.durationMinutes - b.durationMinutes);
   }
-  
+
   return NextResponse.json({ flights: results, results, total: results.length });
 }
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const {
-    flight_number,
-    origin,
-    destination,
-    departure_time,
-    arrival_time,
-  } = body;
-  
-  if (
-    !flight_number ||
-    !origin ||
-    !destination ||
-    !departure_time ||
-    !arrival_time
-  ) {
+  const { flight_number, origin, destination, departure_time, arrival_time } = body;
+
+  if (!flight_number || !origin || !destination || !departure_time || !arrival_time) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
-  
-  // Create flight and associated base route if needed, 
+
+  // Create flight and associated base route if needed,
   // but for simplicity we'll just store the flight and meta.
   // Note: price_economy, etc. were in old SQLite schema. In new Prisma schema, they belong to Route or we just ignore for now if missing from Flight model.
-  
+
   const flight = await prisma.flight.create({
     data: {
       flightNumber: flight_number,
@@ -237,11 +226,11 @@ export async function POST(request: Request) {
       arrivalTime: new Date(arrival_time),
       meta: {
         create: {
-          data: { is_active: 1, is_archived: 0 }
-        }
-      }
+          data: { is_active: 1, is_archived: 0 },
+        },
+      },
     },
-    include: { meta: true }
+    include: { meta: true },
   });
 
   const seatPlan = [
@@ -259,15 +248,18 @@ export async function POST(request: Request) {
     ),
     skipDuplicates: true,
   });
-  
-  return NextResponse.json({ 
-    flight: {
-      ...flight,
-      flight_number: flight.flightNumber,
-      departure_time: flight.departureTime,
-      arrival_time: flight.arrivalTime,
-      is_active: 1,
-      classCapacity: REQUIRED_TRAVEL_CLASSES,
-    } 
-  }, { status: 201 });
+
+  return NextResponse.json(
+    {
+      flight: {
+        ...flight,
+        flight_number: flight.flightNumber,
+        departure_time: flight.departureTime,
+        arrival_time: flight.arrivalTime,
+        is_active: 1,
+        classCapacity: REQUIRED_TRAVEL_CLASSES,
+      },
+    },
+    { status: 201 },
+  );
 }

@@ -1,37 +1,25 @@
-import crypto from 'node:crypto';
-import { prisma } from './prisma';
-import {
-  signData,
-  verifyData,
-  verifySessionCookie,
-  generateSessionCookie,
-  SessionPayload
-} from './session-cookie';
+import crypto from "node:crypto";
+import { prisma } from "./prisma";
+import { signData, verifyData, verifySessionCookie, generateSessionCookie, SessionPayload } from "./session-cookie";
 
-export {
-  signData,
-  verifyData,
-  verifySessionCookie,
-  generateSessionCookie,
-  type SessionPayload
-};
+export { signData, verifyData, verifySessionCookie, generateSessionCookie, type SessionPayload };
 
-const COOKIE_NAME = 'kq_session';
+const COOKIE_NAME = "kq_session";
 
 // ─────────────────────────────────────────
 // Cryptography: Password Hashing (PBKDF2)
 // ─────────────────────────────────────────
 
 export function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, "sha512").toString("hex");
   return `${salt}:${hash}`;
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
   try {
-    const [salt, hash] = stored.split(':');
-    const checkHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+    const [salt, hash] = stored.split(":");
+    const checkHash = crypto.pbkdf2Sync(password, salt, 10000, 64, "sha512").toString("hex");
     return hash === checkHash;
   } catch {
     return false;
@@ -47,7 +35,7 @@ export async function createDbSession(
   role: string,
   ipAddress: string | null,
   userAgent: string | null,
-  rememberMe: boolean
+  rememberMe: boolean,
 ): Promise<{ sessionId: string; expiresAt: Date; cookieValue: string }> {
   const sessionId = crypto.randomUUID();
   const duration = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 30 days or 24 hours
@@ -55,11 +43,11 @@ export async function createDbSession(
 
   // Check onboarding status
   const passenger = await prisma.passenger.findUnique({
-    where: { userId }
+    where: { userId },
   });
-  
+
   // Passenger role requires onboarding, STAFF/ADMIN bypass onboarding
-  const onboardingCompleted = role !== 'PASSENGER' || !!passenger;
+  const onboardingCompleted = role !== "PASSENGER" || !!passenger;
 
   // Insert session
   await prisma.session.create({
@@ -71,7 +59,7 @@ export async function createDbSession(
       userAgent,
       expiresAt,
       isValid: true,
-    }
+    },
   });
 
   const payload: SessionPayload = {
@@ -91,7 +79,7 @@ export async function createDbSession(
 export async function revokeSession(sessionId: string): Promise<void> {
   await prisma.session.update({
     where: { id: sessionId },
-    data: { isValid: false }
+    data: { isValid: false },
   });
 }
 
@@ -99,7 +87,7 @@ export async function revokeSession(sessionId: string): Promise<void> {
 export async function revokeAllUserSessions(userId: string): Promise<void> {
   await prisma.session.updateMany({
     where: { userId },
-    data: { isValid: false }
+    data: { isValid: false },
   });
 }
 
@@ -107,11 +95,11 @@ export async function revokeAllUserSessions(userId: string): Promise<void> {
 export async function isSessionActiveInDb(sessionId: string): Promise<boolean> {
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
-    select: { isValid: true, expiresAt: true }
+    select: { isValid: true, expiresAt: true },
   });
   if (!session) return false;
   if (!session.isValid) return false;
-  
+
   return session.expiresAt.getTime() > Date.now();
 }
 
@@ -147,12 +135,12 @@ export async function handleFailedLogin(user: any): Promise<{ lockedUntil: strin
     lockedUntilDate = new Date(Date.now() + 15 * 60 * 1000); // 15 mins lock
     await prisma.user.update({
       where: { id: user.id },
-      data: { failedAttempts: attempts, lockedUntil: lockedUntilDate }
+      data: { failedAttempts: attempts, lockedUntil: lockedUntilDate },
     });
   } else {
     await prisma.user.update({
       where: { id: user.id },
-      data: { failedAttempts: attempts }
+      data: { failedAttempts: attempts },
     });
   }
 
@@ -166,7 +154,7 @@ export async function handleFailedLogin(user: any): Promise<{ lockedUntil: strin
 export async function resetFailedLoginAttempts(userId: string): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
-    data: { failedAttempts: 0, lockedUntil: null }
+    data: { failedAttempts: 0, lockedUntil: null },
   });
 }
 
@@ -174,21 +162,25 @@ export async function resetFailedLoginAttempts(userId: string): Promise<void> {
 export async function checkSuspiciousLogin(
   userId: string,
   ipAddress: string | null,
-  userAgent: string | null
+  userAgent: string | null,
 ): Promise<boolean> {
   if (!ipAddress || !userAgent) return false;
 
   const previousSessions = await prisma.session.findMany({
     where: { userId, isValid: true },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
     take: 5,
-    select: { ipAddress: true, userAgent: true }
+    select: { ipAddress: true, userAgent: true },
   });
 
   if (previousSessions.length === 0) return false;
 
-  const ipMatched = previousSessions.some((s) => s.ipAddress === ipAddress);
-  const uaMatched = previousSessions.some((s) => s.userAgent === userAgent);
+  const ipMatched = previousSessions.some(
+    (s: { ipAddress: string | null; userAgent: string | null }) => s.ipAddress === ipAddress,
+  );
+  const uaMatched = previousSessions.some(
+    (s: { ipAddress: string | null; userAgent: string | null }) => s.userAgent === userAgent,
+  );
 
   if (!ipMatched && !uaMatched) {
     await prisma.suspiciousAlert.create({
@@ -206,17 +198,17 @@ export async function checkSuspiciousLogin(
 
 export async function createVerificationToken(
   email: string,
-  type: 'EMAIL_VERIFICATION' | 'PASSWORD_RESET' | 'MFA_CODE',
-  expiresInMs: number = 24 * 60 * 60 * 1000 // 24 hours default
+  type: "EMAIL_VERIFICATION" | "PASSWORD_RESET" | "MFA_CODE",
+  expiresInMs: number = 24 * 60 * 60 * 1000, // 24 hours default
 ): Promise<{ token: string; code: string }> {
-  const token = crypto.randomBytes(32).toString('hex');
+  const token = crypto.randomBytes(32).toString("hex");
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = new Date(Date.now() + expiresInMs);
 
   // Prisma doesn't have a direct upsert that handles clearing previous tokens easily without a unique key,
   // but we can delete and insert since type is an enum.
   await prisma.verificationToken.deleteMany({
-    where: { email, type }
+    where: { email, type },
   });
 
   await prisma.verificationToken.create({
@@ -225,8 +217,8 @@ export async function createVerificationToken(
       token,
       code,
       type,
-      expiresAt
-    }
+      expiresAt,
+    },
   });
 
   return { token, code };
@@ -234,11 +226,11 @@ export async function createVerificationToken(
 
 export async function verifyEmailToken(token: string): Promise<string | null> {
   const row = await prisma.verificationToken.findFirst({
-    where: { token, type: 'EMAIL_VERIFICATION' }
+    where: { token, type: "EMAIL_VERIFICATION" },
   });
 
   if (!row) return null;
-  
+
   if (row.expiresAt.getTime() < Date.now()) {
     await prisma.verificationToken.delete({ where: { token } });
     return null;
@@ -246,7 +238,7 @@ export async function verifyEmailToken(token: string): Promise<string | null> {
 
   await prisma.user.update({
     where: { email: row.email },
-    data: { emailVerified: true }
+    data: { emailVerified: true },
   });
 
   await prisma.verificationToken.delete({ where: { token } });
@@ -256,7 +248,7 @@ export async function verifyEmailToken(token: string): Promise<string | null> {
 
 export async function verifyPasswordResetToken(token: string): Promise<string | null> {
   const row = await prisma.verificationToken.findFirst({
-    where: { token, type: 'PASSWORD_RESET' }
+    where: { token, type: "PASSWORD_RESET" },
   });
 
   if (!row) return null;

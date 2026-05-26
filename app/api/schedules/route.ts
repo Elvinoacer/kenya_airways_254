@@ -1,29 +1,31 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 
+type FlightScheduleRow = Awaited<ReturnType<typeof prisma.flightSchedule.findMany>>[number];
+
 export async function GET(request: Request) {
   const rows = await prisma.flightSchedule.findMany({
     include: {
       flight: {
-        select: { flightNumber: true }
+        select: { flightNumber: true },
       },
       aircraft: {
-        select: { registration: true }
+        select: { registration: true },
       },
       gate: {
-        select: { gateCode: true }
-      }
+        select: { gateCode: true },
+      },
     },
-    orderBy: { departureTime: "asc" }
+    orderBy: { departureTime: "asc" },
   });
-  
-  const mapped = rows.map(s => ({
+
+  const mapped = rows.map((s: FlightScheduleRow) => ({
     ...s,
     flight_number: s.flight?.flightNumber,
     aircraft_registration: s.aircraft?.registration,
     gate_code: s.gate?.gateCode,
   }));
-  
+
   return NextResponse.json({ schedules: mapped });
 }
 
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
     aircraft_id,
     gate_id,
   } = body;
-  
+
   if (!flight_id || !departure_time || !arrival_time)
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
 
@@ -54,14 +56,17 @@ export async function POST(request: Request) {
       status: "SCHEDULED",
     },
     include: {
-      flight: { select: { flightNumber: true } }
-    }
+      flight: { select: { flightNumber: true } },
+    },
   });
 
-  return NextResponse.json({ 
-    schedule: {
-      ...schedule,
-      flight_number: schedule.flight?.flightNumber
-    } 
-  }, { status: 201 });
+  return NextResponse.json(
+    {
+      schedule: {
+        ...schedule,
+        flight_number: schedule.flight?.flightNumber,
+      },
+    },
+    { status: 201 },
+  );
 }

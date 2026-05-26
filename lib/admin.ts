@@ -1,11 +1,11 @@
 import { prisma } from "./prisma";
 import messaging from "./messaging";
 
+type UserExportRow = Awaited<ReturnType<typeof prisma.user.findMany>>[number];
+
 function makeId(prefix = "a-") {
   return (
-    prefix +
-    ((globalThis as any).crypto?.randomUUID?.() ||
-      String(Date.now()) + Math.random().toString(36).slice(2))
+    prefix + ((globalThis as any).crypto?.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2))
   );
 }
 
@@ -66,11 +66,7 @@ export async function listFeatureToggles() {
   return prisma.featureToggle.findMany({ orderBy: { name: "asc" } });
 }
 
-export async function setFeatureToggle(
-  name: string,
-  enabled: boolean,
-  description?: string,
-) {
+export async function setFeatureToggle(name: string, enabled: boolean, description?: string) {
   const t = await prisma.featureToggle.findUnique({ where: { name } });
   if (t) {
     await prisma.featureToggle.update({
@@ -105,7 +101,7 @@ export async function exportUsersCsv() {
   });
   const header = ["id", "email", "name", "role", "created_at"].join(",") + "\n";
   const body = rows
-    .map((r) =>
+    .map((r: UserExportRow) =>
       [r.id, r.email, r.name || "", r.role, r.createdAt.toISOString()]
         .map((c) => String(c).replace(/\n/g, " "))
         .join(","),
@@ -115,11 +111,7 @@ export async function exportUsersCsv() {
 }
 
 export async function enableMaintenanceMode(enabled: boolean) {
-  await setSetting(
-    "maintenance_mode",
-    enabled ? "1" : "0",
-    "Toggle maintenance mode",
-  );
+  await setSetting("maintenance_mode", enabled ? "1" : "0", "Toggle maintenance mode");
   await prisma.auditLog.create({
     data: {
       action: "maintenance_mode",
@@ -129,11 +121,7 @@ export async function enableMaintenanceMode(enabled: boolean) {
   return { ok: true };
 }
 
-export async function announceGlobal(
-  subject: string | null,
-  message: string,
-  actor?: string,
-) {
+export async function announceGlobal(subject: string | null, message: string, actor?: string) {
   const res = await messaging.broadcastAnnouncement({
     from: actor,
     message,

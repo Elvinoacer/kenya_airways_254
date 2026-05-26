@@ -1,15 +1,8 @@
 import { prisma } from "./prisma";
 
 export type EmployeeStatus = "ACTIVE" | "ON_LEAVE" | "SUSPENDED" | "INACTIVE";
-export type EmployeeScheduleStatus =
-  | "SCHEDULED"
-  | "COMPLETED"
-  | "CANCELLED"
-  | "NO_SHOW";
-export type EmployeeAvailabilityStatus =
-  | "AVAILABLE"
-  | "UNAVAILABLE"
-  | "LIMITED";
+export type EmployeeScheduleStatus = "SCHEDULED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+export type EmployeeAvailabilityStatus = "AVAILABLE" | "UNAVAILABLE" | "LIMITED";
 
 export type DepartmentInput = {
   code?: string;
@@ -67,9 +60,7 @@ function parseJsonArray(value: string | null) {
   }
 }
 
-function parseJsonObject<T extends Record<string, any>>(
-  value: string | null,
-): T {
+function parseJsonObject<T extends Record<string, any>>(value: string | null): T {
   if (!value) return {} as T;
   try {
     const parsed = JSON.parse(value);
@@ -83,12 +74,7 @@ function serialize(value: any) {
   return JSON.stringify(value ?? {});
 }
 
-async function logEmployeeActivity(
-  employeeId: string,
-  action: string,
-  details?: Record<string, any>,
-  actor?: string,
-) {
+async function logEmployeeActivity(employeeId: string, action: string, details?: Record<string, any>, actor?: string) {
   await prisma.employeeActivityLog.create({
     data: {
       employeeId,
@@ -114,7 +100,7 @@ export async function createDepartment(input: DepartmentInput) {
       .replace(/[^A-Z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, 20) || `DEP-${Date.now().toString().slice(0, 8).toUpperCase()}`;
-      
+
   const department = await prisma.department.create({
     data: {
       code,
@@ -129,7 +115,7 @@ export async function createDepartment(input: DepartmentInput) {
 export async function updateDepartment(id: string, input: Partial<DepartmentInput>) {
   const current = await getDepartment(id);
   if (!current) throw new Error("Department not found");
-  
+
   const department = await prisma.department.update({
     where: { id },
     data: {
@@ -145,19 +131,19 @@ export async function updateDepartment(id: string, input: Partial<DepartmentInpu
 export async function deleteDepartment(id: string) {
   const department = await getDepartment(id);
   if (!department) throw new Error("Department not found");
-  
+
   await prisma.employee.updateMany({
     where: { departmentId: id },
     data: { departmentId: null },
   });
-  
+
   await prisma.department.delete({ where: { id } });
   return department;
 }
 
 export async function createEmployee(input: EmployeeInput) {
   const employeeNumber = input.employeeNumber || makeEmployeeNumber();
-  
+
   const employee = await prisma.employee.create({
     data: {
       userId: input.userId || null,
@@ -178,7 +164,7 @@ export async function createEmployee(input: EmployeeInput) {
       managerEmployeeId: input.managerEmployeeId || null,
     },
   });
-  
+
   await logEmployeeActivity(
     employee.id,
     "employee.create",
@@ -189,44 +175,44 @@ export async function createEmployee(input: EmployeeInput) {
     },
     input.actor,
   );
-  
+
   return getEmployee(employee.id);
 }
 
 export async function listEmployees(filters: EmployeeFilterInput = {}) {
   const where: any = {};
-  
+
   if (filters.q) {
     const q = filters.q.trim().toLowerCase();
     where.OR = [
-      { firstName: { contains: q, mode: 'insensitive' } },
-      { lastName: { contains: q, mode: 'insensitive' } },
-      { email: { contains: q, mode: 'insensitive' } },
-      { employeeNumber: { contains: q, mode: 'insensitive' } },
-      { jobTitle: { contains: q, mode: 'insensitive' } },
+      { firstName: { contains: q, mode: "insensitive" } },
+      { lastName: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+      { employeeNumber: { contains: q, mode: "insensitive" } },
+      { jobTitle: { contains: q, mode: "insensitive" } },
     ];
   }
-  
+
   if (filters.departmentId) {
     where.departmentId = filters.departmentId;
   }
-  
+
   if (filters.role) {
     where.employeeRole = filters.role;
   }
-  
+
   if (filters.status) {
     where.status = filters.status;
   }
-  
+
   if (filters.availabilityDate) {
     where.availability = {
       some: {
         OR: [
           { availabilityDate: filters.availabilityDate },
-          { dayOfWeek: new Date(filters.availabilityDate).getDay() }
-        ]
-      }
+          { dayOfWeek: new Date(filters.availabilityDate).getDay() },
+        ],
+      },
     };
   }
 
@@ -235,20 +221,20 @@ export async function listEmployees(filters: EmployeeFilterInput = {}) {
     include: {
       department: true,
       _count: {
-        select: { schedules: true, availability: true, activityLogs: true }
-      }
+        select: { schedules: true, availability: true, activityLogs: true },
+      },
     },
-    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }]
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
   });
-  
-  return employees.map(e => ({
+
+  return employees.map((e: any) => ({
     ...e,
     department_name: e.department?.name,
     department_code: e.department?.code,
     schedule_count: e._count.schedules,
     availability_count: e._count.availability,
     activity_count: e._count.activityLogs,
-    ...attachEmployeeComputedFields(e)
+    ...attachEmployeeComputedFields(e),
   }));
 }
 
@@ -258,32 +244,32 @@ export async function getEmployee(id: string) {
     include: {
       department: true,
       schedules: {
-        orderBy: [{ scheduleDate: "desc" }, { shiftStart: "desc" }]
+        orderBy: [{ scheduleDate: "desc" }, { shiftStart: "desc" }],
       },
       availability: {
-        orderBy: [{ availabilityDate: "desc" }, { dayOfWeek: "asc" }]
+        orderBy: [{ availabilityDate: "desc" }, { dayOfWeek: "asc" }],
       },
       activityLogs: {
-        orderBy: { createdAt: "desc" }
-      }
-    }
+        orderBy: { createdAt: "desc" },
+      },
+    },
   });
-  
+
   if (!employee) return null;
-  
+
   return {
     ...employee,
     department_name: employee.department?.name,
     department_code: employee.department?.code,
     activity: employee.activityLogs,
-    ...attachEmployeeComputedFields(employee)
+    ...attachEmployeeComputedFields(employee),
   };
 }
 
 export async function updateEmployee(id: string, input: Partial<EmployeeInput>) {
   const current = await prisma.employee.findUnique({ where: { id } });
   if (!current) throw new Error("Employee not found");
-  
+
   await prisma.employee.update({
     where: { id },
     data: {
@@ -297,14 +283,15 @@ export async function updateEmployee(id: string, input: Partial<EmployeeInput>) 
       departmentId: input.departmentId === undefined ? current.departmentId : input.departmentId,
       employmentType: input.employmentType === undefined ? current.employmentType : input.employmentType,
       status: input.status === undefined ? current.status : input.status,
-      permissionsJson: input.permissions === undefined ? current.permissionsJson : JSON.stringify(input.permissions || []),
+      permissionsJson:
+        input.permissions === undefined ? current.permissionsJson : JSON.stringify(input.permissions || []),
       profileJson: input.profile === undefined ? current.profileJson : serialize(input.profile || {}),
       notes: input.notes === undefined ? current.notes : normalizeText(input.notes),
       hiredAt: input.hiredAt === undefined ? current.hiredAt : input.hiredAt,
       managerEmployeeId: input.managerEmployeeId === undefined ? current.managerEmployeeId : input.managerEmployeeId,
     },
   });
-  
+
   await logEmployeeActivity(id, "employee.update", { changes: input }, input.actor);
   return getEmployee(id);
 }
@@ -312,40 +299,26 @@ export async function updateEmployee(id: string, input: Partial<EmployeeInput>) 
 export async function deleteEmployee(id: string, actor?: string) {
   const employee = await getEmployee(id);
   if (!employee) throw new Error("Employee not found");
-  
+
   await prisma.employee.update({
     where: { id },
     data: { status: "INACTIVE" },
   });
-  
-  await logEmployeeActivity(
-    id,
-    "employee.delete",
-    { employeeNumber: employee.employeeNumber },
-    actor,
-  );
+
+  await logEmployeeActivity(id, "employee.delete", { employeeNumber: employee.employeeNumber }, actor);
   return getEmployee(id);
 }
 
-export async function setEmployeePermissions(
-  id: string,
-  permissions: string[],
-  actor?: string,
-) {
+export async function setEmployeePermissions(id: string, permissions: string[], actor?: string) {
   const employee = await prisma.employee.findUnique({ where: { id } });
   if (!employee) throw new Error("Employee not found");
-  
+
   await prisma.employee.update({
     where: { id },
     data: { permissionsJson: JSON.stringify(permissions || []) },
   });
-  
-  await logEmployeeActivity(
-    id,
-    "employee.permissions.update",
-    { permissions },
-    actor,
-  );
+
+  await logEmployeeActivity(id, "employee.permissions.update", { permissions }, actor);
   return getEmployee(id);
 }
 
@@ -364,7 +337,7 @@ export async function addEmployeeSchedule(
 ) {
   const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
   if (!employee) throw new Error("Employee not found");
-  
+
   const schedule = await prisma.employeeSchedule.create({
     data: {
       employeeId,
@@ -377,13 +350,8 @@ export async function addEmployeeSchedule(
       notes: normalizeText(input.notes),
     },
   });
-  
-  await logEmployeeActivity(
-    employeeId,
-    "employee.schedule.create",
-    { scheduleId: schedule.id, ...input },
-    actor,
-  );
+
+  await logEmployeeActivity(employeeId, "employee.schedule.create", { scheduleId: schedule.id, ...input }, actor);
   return schedule;
 }
 
@@ -409,7 +377,7 @@ export async function addEmployeeAvailability(
 ) {
   const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
   if (!employee) throw new Error("Employee not found");
-  
+
   const availability = await prisma.employeeAvailability.create({
     data: {
       employeeId,
@@ -422,7 +390,7 @@ export async function addEmployeeAvailability(
       notes: normalizeText(input.notes),
     },
   });
-  
+
   await logEmployeeActivity(
     employeeId,
     "employee.availability.create",
@@ -446,21 +414,25 @@ export async function listEmployeeActivity(employeeId?: string) {
       orderBy: { createdAt: "desc" },
     });
   }
-  
-  return prisma.employeeActivityLog.findMany({
-    include: {
-      employee: {
-        select: { firstName: true, lastName: true, employeeNumber: true }
-      }
-    },
-    orderBy: { createdAt: "desc" },
-    take: 250,
-  }).then(logs => logs.map(l => ({
-    ...l,
-    first_name: l.employee.firstName,
-    last_name: l.employee.lastName,
-    employee_number: l.employee.employeeNumber
-  })));
+
+  return prisma.employeeActivityLog
+    .findMany({
+      include: {
+        employee: {
+          select: { firstName: true, lastName: true, employeeNumber: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 250,
+    })
+    .then((logs: any[]) =>
+      logs.map((l: any) => ({
+        ...l,
+        first_name: l.employee.firstName,
+        last_name: l.employee.lastName,
+        employee_number: l.employee.employeeNumber,
+      })),
+    );
 }
 
 export async function getEmployeeDashboard(employeeId?: string) {

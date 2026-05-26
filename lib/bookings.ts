@@ -3,12 +3,12 @@ import { cacheDel, cacheGet, cacheSet } from "./cache";
 import { getFlightById } from "./flights";
 import { prisma } from "./prisma";
 import realtime from "./realtime";
-import {
-  getClassAvailability,
-  summarizeRequiredClassFromSeatClass,
-} from "./seats";
+import { getClassAvailability, summarizeRequiredClassFromSeatClass } from "./seats";
 import { normalizeTravelClass } from "./travel-classes";
 import type { Passenger } from "../types/booking";
+
+type PassengerProfileRow = Awaited<ReturnType<typeof prisma.passenger.findMany>>[number];
+type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 const BOOKING_HOLD_KEY = (id: string) => `hold:${id}`;
 const DEFAULT_HOLD_TTL = 900;
@@ -82,7 +82,7 @@ async function resolvePassengers(input: CreateHoldInput) {
       })
     : [];
 
-  const profilePassengers = profiles.map((profile) => ({
+  const profilePassengers = profiles.map((profile: PassengerProfileRow) => ({
     id: profile.id,
     profileId: profile.id,
     firstName: profile.firstName,
@@ -101,18 +101,12 @@ function classAdjustedPrice(basePrice: number, requestedClass?: string | null) {
   return Math.round(basePrice * travelClass.fareMultiplier * 100) / 100;
 }
 
-export function calculateFare(
-  basePrice: number,
-  seats: number,
-  promoCode?: string,
-  requestedClass?: string | null,
-) {
+export function calculateFare(basePrice: number, seats: number, promoCode?: string, requestedClass?: string | null) {
   const classPrice = classAdjustedPrice(basePrice, requestedClass);
   const baseFare = Math.round(classPrice * seats * 100) / 100;
   const taxes = Math.round(baseFare * 0.16 * 100) / 100;
   const fees = 10 * seats;
-  const discount =
-    promoCode === "PROMO10" ? Math.round(baseFare * 0.1 * 100) / 100 : 0;
+  const discount = promoCode === "PROMO10" ? Math.round(baseFare * 0.1 * 100) / 100 : 0;
   const total = Math.round((baseFare + taxes + fees - discount) * 100) / 100;
   return { baseFare, taxes, fees, discount, total };
 }
@@ -139,12 +133,7 @@ export async function createHold(input: CreateHoldInput) {
     };
   }
 
-  const fare = calculateFare(
-    flight.basePrice,
-    seats,
-    input.promoCode,
-    travelClass.code,
-  );
+  const fare = calculateFare(flight.basePrice, seats, input.promoCode, travelClass.code);
   const holdId = crypto.randomUUID();
   const expiresAt = Date.now() + DEFAULT_HOLD_TTL * 1000;
   const hold = {
@@ -184,7 +173,7 @@ export async function confirmBooking(holdId: string, paymentInfo?: any) {
   }
 
   const reference = bookingReference();
-  const booking = await prisma.$transaction(async (tx) => {
+  const booking = await prisma.$transaction(async (tx: PrismaTx) => {
     const created = await tx.booking.create({
       data: {
         bookingReference: reference,
@@ -264,10 +253,7 @@ export async function getBooking(idOrReference: string) {
     reference: b.bookingReference,
     flightId: b.flightId,
     flightNumber: b.flight?.flightNumber || null,
-    route:
-      b.flight?.origin && b.flight?.destination
-        ? `${b.flight.origin} to ${b.flight.destination}`
-        : null,
+    route: b.flight?.origin && b.flight?.destination ? `${b.flight.origin} to ${b.flight.destination}` : null,
     departureTime: b.flight?.departureTime?.toISOString() || null,
     status: b.status,
     seatClass: b.seatClass,
@@ -275,7 +261,7 @@ export async function getBooking(idOrReference: string) {
     seats: b.passengers.length,
     fare: { total: b.totalAmount },
     paymentStatus: b.payments[0]?.status || null,
-    passengers: b.passengers.map((p) => ({
+    passengers: b.passengers.map((p: any) => ({
       id: p.id,
       firstName: p.firstName,
       lastName: p.lastName,
@@ -290,11 +276,7 @@ export async function getBooking(idOrReference: string) {
   };
 }
 
-export async function previewCancellation(
-  bookingId: string,
-  passengerIds?: string[],
-  forceRefund?: boolean,
-) {
+export async function previewCancellation(bookingId: string, passengerIds?: string[], forceRefund?: boolean) {
   const b = await getBooking(bookingId);
   if (!b) throw new Error("Booking not found");
   const selectedCount = passengerIds?.length || b.passengers.length;
@@ -318,11 +300,7 @@ export async function cancelBooking(bookingId: string, input: any = {}) {
     include: { passengers: true },
   });
   if (!current) throw new Error("Booking not found");
-  const preview = await previewCancellation(
-    current.id,
-    input.passengerIds,
-    input.forceRefund,
-  );
+  const preview = await previewCancellation(current.id, input.passengerIds, input.forceRefund);
   const booking = await prisma.booking.update({
     where: { id: preview.bookingId },
     data: {
@@ -351,9 +329,7 @@ export async function cancelBooking(bookingId: string, input: any = {}) {
       flightId: booking.flightId,
       seatClass: booking.seatClass,
       seatNumber: {
-        in: current.passengers
-          .map((passenger) => passenger.seatAssignment)
-          .filter(Boolean) as string[],
+        in: current.passengers.map((passenger: any) => passenger.seatAssignment).filter(Boolean) as string[],
       },
     },
     data: { isOccupied: false },
@@ -374,9 +350,8 @@ export async function modifyBooking(bookingId: string, changes: any = {}, actor?
   if (!current) throw new Error("Booking not found");
   if (current.status === "CANCELLED") throw new Error("Cancelled bookings cannot be changed");
 
-  const travelClass = changes.travelClass || changes.seatClass
-    ? normalizeTravelClass(changes.travelClass || changes.seatClass)
-    : null;
+  const travelClass =
+    changes.travelClass || changes.seatClass ? normalizeTravelClass(changes.travelClass || changes.seatClass) : null;
   const nextSeatClass = travelClass?.seatClass || current.seatClass;
   const nextPassengerCount =
     Array.isArray(changes.passengers) && changes.passengers.length
@@ -403,7 +378,7 @@ export async function modifyBooking(bookingId: string, changes: any = {}, actor?
     travelClass?.code || current.seatClass,
   );
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx: PrismaTx) => {
     if (Array.isArray(changes.passengers)) {
       await tx.bookingPassenger.deleteMany({ where: { bookingId: current.id } });
     }
@@ -413,14 +388,8 @@ export async function modifyBooking(bookingId: string, changes: any = {}, actor?
       data: {
         seatClass: nextSeatClass as any,
         totalAmount: fare.total,
-        contactEmail:
-          changes.contactEmail === undefined
-            ? current.contactEmail
-            : changes.contactEmail || null,
-        contactPhone:
-          changes.contactPhone === undefined
-            ? current.contactPhone
-            : changes.contactPhone || null,
+        contactEmail: changes.contactEmail === undefined ? current.contactEmail : changes.contactEmail || null,
+        contactPhone: changes.contactPhone === undefined ? current.contactPhone : changes.contactPhone || null,
         passengers: Array.isArray(changes.passengers)
           ? {
               create: changes.passengers.map((p: any) => ({
