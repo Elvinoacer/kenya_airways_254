@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   logoutAction,
   logoutAllDevicesAction,
   updateProfileSettingsAction,
   toggle2FAAction,
   changePasswordAction,
-  revokeActiveSessionAction
-} from '../actions/auth-actions';
+  revokeActiveSessionAction,
+} from "../actions/auth-actions";
 
 interface DashboardClientProps {
   initialData: {
@@ -17,18 +17,21 @@ interface DashboardClientProps {
       id: string;
       email: string;
       name: string | null;
-      role: 'PASSENGER' | 'STAFF' | 'ADMIN';
+      role: "PASSENGER" | "STAFF" | "ADMIN";
       twoFactorEnabled: boolean;
       avatarUrl: string | null;
     };
     passenger?: {
       id: string;
-      first_name: string;
-      last_name: string;
+      firstName: string;
+      lastName: string;
       phone: string | null;
-      passport_no: string | null;
+      passportNumber: string | null;
       nationality: string | null;
-      date_of_birth: string | null;
+      dateOfBirth: string | null;
+      frequentFlyerNo?: string | null;
+      createdAt: string;
+      updatedAt: string;
     };
     activeSessions: Array<{
       id: string;
@@ -44,49 +47,55 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
   const router = useRouter();
   const { user, passenger, activeSessions } = initialData;
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'security'>('overview');
+  const [activeTab, setActiveTab] = useState<"overview" | "profile" | "security">("overview");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   // Form states
-  const [name, setName] = useState(user.name || '');
-  const [avatar, setAvatar] = useState(user.avatarUrl || '');
-  
+  const [name, setName] = useState(user.name || "");
+  const [avatar, setAvatar] = useState(user.avatarUrl || "");
+
   // Passenger form states
-  const [firstName, setFirstName] = useState(passenger?.first_name || '');
-  const [lastName, setLastName] = useState(passenger?.last_name || '');
-  const [phone, setPhone] = useState(passenger?.phone || '');
-  const [passportNo, setPassportNo] = useState(passenger?.passport_no || '');
-  const [nationality, setNationality] = useState(passenger?.nationality || '');
-  const [dateOfBirth, setDateOfBirth] = useState(passenger?.date_of_birth || '');
+  const [firstName, setFirstName] = useState(passenger?.firstName || "");
+  const [lastName, setLastName] = useState(passenger?.lastName || "");
+  const [phone, setPhone] = useState(passenger?.phone || "");
+  const [passportNo, setPassportNo] = useState(passenger?.passportNumber || "");
+  const [nationality, setNationality] = useState(passenger?.nationality || "");
+  const [dateOfBirth, setDateOfBirth] = useState(passenger?.dateOfBirth || "");
 
   // Password change states
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // 2FA state
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(user.twoFactorEnabled);
 
   // Clear messages helper
   const clearMessages = () => {
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
+  };
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
   };
 
   const handleLogout = async () => {
     setLoading(true);
     await logoutAction();
-    router.push('/login');
+    router.push("/login");
     router.refresh();
   };
 
   const handleLogoutAllDevices = async () => {
-    if (confirm('Are you sure you want to sign out from all devices?')) {
+    if (confirm("Are you sure you want to sign out from all devices?")) {
       setLoading(true);
       await logoutAllDevicesAction();
-      router.push('/login');
+      router.push("/login");
       router.refresh();
     }
   };
@@ -105,17 +114,17 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         passportNo,
         nationality,
         dateOfBirth,
-        avatar
+        avatar,
       );
 
       if (res.success) {
-        setSuccess(res.message || 'Profile updated successfully.');
+        setSuccess(res.message || "Profile updated successfully.");
         router.refresh();
       } else {
-        setError(res.error || 'Failed to update profile.');
+        setError(res.error || "Failed to update profile.");
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred.');
+      setError(err.message || "An error occurred.");
     } finally {
       setLoading(false);
     }
@@ -130,13 +139,13 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
       const res = await toggle2FAAction(nextState);
       if (res.success) {
         setTwoFactorEnabled(nextState);
-        setSuccess(res.message || '2FA settings updated.');
+        setSuccess(res.message || "2FA settings updated.");
         router.refresh();
       } else {
-        setError(res.error || 'Failed to toggle 2FA.');
+        setError(res.error || "Failed to toggle 2FA.");
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred.');
+      setError(err.message || "An error occurred.");
     } finally {
       setLoading(false);
     }
@@ -145,25 +154,25 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setError('New passwords do not match.');
+      setError("New passwords do not match.");
       return;
     }
-    
+
     setLoading(true);
     clearMessages();
 
     try {
       const res = await changePasswordAction(currentPassword, newPassword);
       if (res.success) {
-        setSuccess(res.message || 'Password updated successfully.');
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
+        setSuccess(res.message || "Password updated successfully.");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
       } else {
-        setError(res.error || 'Failed to update password.');
+        setError(res.error || "Failed to update password.");
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred.');
+      setError(err.message || "An error occurred.");
     } finally {
       setLoading(false);
     }
@@ -176,13 +185,13 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     try {
       const res = await revokeActiveSessionAction(sessionId);
       if (res.success) {
-        setSuccess(res.message || 'Session terminated.');
+        setSuccess(res.message || "Session terminated.");
         router.refresh();
       } else {
-        setError(res.error || 'Failed to terminate session.');
+        setError(res.error || "Failed to terminate session.");
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred.');
+      setError(err.message || "An error occurred.");
     } finally {
       setLoading(false);
     }
@@ -233,23 +242,29 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           {/* Navigation Sidebar */}
           <div className="md:col-span-1 space-y-2">
             <button
-              onClick={() => { setActiveTab('overview'); clearMessages(); }}
+              onClick={() => {
+                setActiveTab("overview");
+                clearMessages();
+              }}
               className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-3 cursor-pointer ${
-                activeTab === 'overview'
-                  ? 'bg-primary text-white shadow-md'
-                  : 'bg-white text-[#5e3f3c] hover:bg-[#f6f3f2] border border-[#e5e2e1]'
+                activeTab === "overview"
+                  ? "bg-primary text-white shadow-md"
+                  : "bg-white text-[#5e3f3c] hover:bg-[#f6f3f2] border border-[#e5e2e1]"
               }`}
             >
               Overview
             </button>
 
-            {user.role === 'PASSENGER' && (
+            {user.role === "PASSENGER" && (
               <button
-                onClick={() => { setActiveTab('profile'); clearMessages(); }}
+                onClick={() => {
+                  setActiveTab("profile");
+                  clearMessages();
+                }}
                 className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-3 cursor-pointer ${
-                  activeTab === 'profile'
-                    ? 'bg-primary text-white shadow-md'
-                    : 'bg-white text-[#5e3f3c] hover:bg-[#f6f3f2] border border-[#e5e2e1]'
+                  activeTab === "profile"
+                    ? "bg-primary text-white shadow-md"
+                    : "bg-white text-[#5e3f3c] hover:bg-[#f6f3f2] border border-[#e5e2e1]"
                 }`}
               >
                 Passenger Profile
@@ -257,11 +272,14 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             )}
 
             <button
-              onClick={() => { setActiveTab('security'); clearMessages(); }}
+              onClick={() => {
+                setActiveTab("security");
+                clearMessages();
+              }}
               className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-3 cursor-pointer ${
-                activeTab === 'security'
-                  ? 'bg-primary text-white shadow-md'
-                  : 'bg-white text-[#5e3f3c] hover:bg-[#f6f3f2] border border-[#e5e2e1]'
+                activeTab === "security"
+                  ? "bg-primary text-white shadow-md"
+                  : "bg-white text-[#5e3f3c] hover:bg-[#f6f3f2] border border-[#e5e2e1]"
               }`}
             >
               Security & Sessions
@@ -293,10 +311,10 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             )}
 
             {/* TAB: OVERVIEW */}
-            {activeTab === 'overview' && (
+            {activeTab === "overview" && (
               <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-[#e5e2e1] space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#1A1A1A]">Welcome back, {user.name || 'Traveler'}!</h2>
+                  <h2 className="text-2xl font-bold text-[#1A1A1A]">Welcome back, {user.name || "Traveler"}!</h2>
                   <p className="text-[#5e3f3c] text-sm">Review your flight portal credentials and basic settings.</p>
                 </div>
 
@@ -305,15 +323,36 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                     {avatar || user.name?.[0] || user.email[0].toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg text-[#1A1A1A]">{user.name || 'Not set'}</h3>
+                    <h3 className="font-bold text-lg text-[#1A1A1A]">{user.name || "Not set"}</h3>
                     <p className="text-[#5e3f3c] text-sm">{user.email}</p>
-                    <p className="text-xs text-[#5e3f3c] mt-1">User ID: {user.id}</p>
                   </div>
                 </div>
 
+                {passenger ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {[
+                      ["Passenger ID", passenger.id],
+                      ["Passport Number", passenger.passportNumber || "N/A"],
+                      ["Nationality", passenger.nationality || "N/A"],
+                      ["Phone", passenger.phone || "N/A"],
+                      ["Date of Birth", formatDate(passenger.dateOfBirth)],
+                      ["Frequent Flyer No.", passenger.frequentFlyerNo || "N/A"],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-xl border border-[#e5e2e1] bg-white p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[#5e3f3c]">{label}</p>
+                        <p className="mt-1 text-sm font-bold text-[#1A1A1A] break-words">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-[#e5e2e1] bg-[#fcf9f8] p-4 text-sm text-[#5e3f3c]">
+                    No passenger profile has been saved yet. Complete onboarding to store your travel details.
+                  </div>
+                )}
+
                 <form onSubmit={handleUpdateProfile} className="space-y-4">
                   <h3 className="text-lg font-bold text-[#1A1A1A]">Edit Display Profile</h3>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="name-input" className="block text-sm font-medium text-[#5e3f3c] mb-1">
@@ -328,19 +367,19 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                         placeholder="John Doe"
                       />
                     </div>
-                    
+
                     <div>
-                      <span className="block text-sm font-medium text-[#5e3f3c] mb-2">
-                        Select Avatar Emoji
-                      </span>
+                      <span className="block text-sm font-medium text-[#5e3f3c] mb-2">Select Avatar Emoji</span>
                       <div className="flex gap-2">
-                        {['✈️', '🌍', '🦁', '🐆', '🐘', '🌅'].map((emoji) => (
+                        {["✈️", "🌍", "🦁", "🐆", "🐘", "🌅"].map((emoji) => (
                           <button
                             type="button"
                             key={emoji}
                             onClick={() => selectMockAvatar(emoji)}
                             className={`w-10 h-10 rounded-lg text-xl flex items-center justify-center border transition-all cursor-pointer ${
-                              avatar === emoji ? 'border-primary bg-primary/10 scale-110 shadow-sm' : 'border-[#e5e2e1] bg-white hover:bg-[#fcf9f8]'
+                              avatar === emoji
+                                ? "border-primary bg-primary/10 scale-110 shadow-sm"
+                                : "border-[#e5e2e1] bg-white hover:bg-[#fcf9f8]"
                             }`}
                           >
                             {emoji}
@@ -364,11 +403,13 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             )}
 
             {/* TAB: PASSENGER PROFILE */}
-            {activeTab === 'profile' && user.role === 'PASSENGER' && (
+            {activeTab === "profile" && user.role === "PASSENGER" && (
               <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-[#e5e2e1] space-y-6">
                 <div>
                   <h2 className="text-2xl font-bold text-[#1A1A1A]">Passenger flight Profile</h2>
-                  <p className="text-[#5e3f3c] text-sm">International travel document registry for secure booking validation.</p>
+                  <p className="text-[#5e3f3c] text-sm">
+                    International travel document registry for secure booking validation.
+                  </p>
                 </div>
 
                 <form onSubmit={handleUpdateProfile} className="space-y-6">
@@ -450,6 +491,9 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                         type="date"
                         id="dob-input"
                         required
+                        max={
+                          new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split("T")[0]
+                        }
                         value={dateOfBirth}
                         onChange={(e) => setDateOfBirth(e.target.value)}
                         className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A]"
@@ -471,35 +515,40 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             )}
 
             {/* TAB: SECURITY & SESSIONS */}
-            {activeTab === 'security' && (
+            {activeTab === "security" && (
               <div className="space-y-6">
                 {/* 2FA Panel */}
                 <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-[#e5e2e1] space-y-6">
                   <div>
                     <h3 className="text-xl font-bold text-[#1A1A1A]">Two-Factor Authentication (2FA)</h3>
-                    <p className="text-[#5e3f3c] text-sm">Add an extra layer of protection to your passenger profile. A login token will be generated upon login verification.</p>
+                    <p className="text-[#5e3f3c] text-sm">
+                      Add an extra layer of protection to your passenger profile. A login token will be generated upon
+                      login verification.
+                    </p>
                   </div>
 
                   <div className="flex items-center justify-between p-4 bg-[#fcf9f8] rounded-xl border border-[#e5e2e1]">
                     <div className="flex flex-col">
                       <span className="font-semibold text-[#1A1A1A]">
-                        {twoFactorEnabled ? '2FA is Enabled' : '2FA is Disabled'}
+                        {twoFactorEnabled ? "2FA is Enabled" : "2FA is Disabled"}
                       </span>
                       <span className="text-xs text-[#5e3f3c]">
-                        {twoFactorEnabled ? 'Your account is extra secure.' : 'Turn on to require code upon credentials check.'}
+                        {twoFactorEnabled
+                          ? "Your account is extra secure."
+                          : "Turn on to require code upon credentials check."}
                       </span>
                     </div>
-                    
+
                     <button
                       onClick={handleToggle2FA}
                       disabled={loading}
                       className={`px-4 py-2 rounded-lg font-semibold transition-all cursor-pointer ${
                         twoFactorEnabled
-                          ? 'bg-red-50 text-[#c8102e] hover:bg-red-100 border border-red-200'
-                          : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                          ? "bg-red-50 text-[#c8102e] hover:bg-red-100 border border-red-200"
+                          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
                       }`}
                     >
-                      {twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
+                      {twoFactorEnabled ? "Disable 2FA" : "Enable 2FA"}
                     </button>
                   </div>
                 </div>
@@ -527,7 +576,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                           placeholder="••••••••"
                         />
                       </div>
-                      
+
                       <div>
                         <label htmlFor="new-pass" className="block text-sm font-medium text-[#5e3f3c] mb-1">
                           New Password
@@ -583,13 +632,13 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                       <div
                         key={session.id}
                         className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl border transition-all ${
-                          session.isCurrent ? 'bg-primary/10 border-primary/20' : 'bg-[#fcf9f8] border-[#e5e2e1]'
+                          session.isCurrent ? "bg-primary/10 border-primary/20" : "bg-[#fcf9f8] border-[#e5e2e1]"
                         }`}
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-[#1A1A1A] text-sm sm:text-base">
-                              IP: {session.ipAddress || 'unknown'}
+                              IP: {session.ipAddress || "unknown"}
                             </span>
                             {session.isCurrent && (
                               <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
@@ -597,9 +646,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-[#5e3f3c] truncate max-w-md">
-                            {session.userAgent || 'unknown'}
-                          </p>
+                          <p className="text-xs text-[#5e3f3c] truncate max-w-md">{session.userAgent || "unknown"}</p>
                           <p className="text-[10px] text-[#5e3f3c]">
                             Logged in: {new Date(session.createdAt).toLocaleString()}
                           </p>

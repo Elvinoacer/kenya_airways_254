@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifySessionCookie } from "./lib/session-cookie";
-import security from "./lib/security";
 
 // Simple in-memory rate limiter (per IP) — suitable for single-instance/dev only
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
@@ -47,7 +46,7 @@ export async function proxy(
     filtered.push(now);
     ipMap.set(ip, filtered);
     if (filtered.length > RATE_LIMIT_MAX) {
-      security.logSecurityEvent("warning", "rate_limit_exceeded", {
+      console.warn("rate_limit_exceeded", {
         ip,
         count: filtered.length,
       });
@@ -56,12 +55,6 @@ export async function proxy(
         { status: 429, headers: { "content-type": "application/json" } },
       );
     }
-
-    // IP logging to audit
-    security.logAudit(null, null, "request", "ip", ip, {
-      method: req.method,
-      path: req.nextUrl.pathname,
-    });
 
     // CSRF protection for unsafe methods
     const method = req.method.toUpperCase();
@@ -72,7 +65,7 @@ export async function proxy(
       const origin = req.headers.get("origin");
       const sameOrigin = !origin || origin === req.nextUrl.origin;
       if ((!header || !csrfCookie || header !== csrfCookie) && !sameOrigin) {
-        security.logSecurityEvent("warning", "csrf_token_mismatch", {
+        console.warn("csrf_token_mismatch", {
           ip,
           method,
           path: req.nextUrl.pathname,
@@ -179,7 +172,7 @@ export async function proxy(
 
     return ensureCsrfCookie(NextResponse.next(), hasCsrfCookie);
   } catch (e: unknown) {
-    security.logSecurityEvent("critical", "proxy_error", {
+    console.error("proxy_error", {
       error: String(e),
     });
     return NextResponse.next();

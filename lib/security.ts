@@ -26,17 +26,27 @@ export async function logAudit(
   targetId?: string,
   details?: any,
 ) {
-  const entry = await prisma.auditLog.create({
-    data: {
-      actorId: actorId || null,
-      actorRole: actorRole || null,
+  try {
+    const entry = await prisma.auditLog.create({
+      data: {
+        actorId: actorId || null,
+        actorRole: actorRole || null,
+        action,
+        targetType: targetType || null,
+        targetId: targetId || null,
+        detailsJson: JSON.stringify(details || {}),
+      },
+    });
+    return { id: entry.id };
+  } catch (err) {
+    console.warn("audit log skipped", {
       action,
-      targetType: targetType || null,
-      targetId: targetId || null,
-      detailsJson: JSON.stringify(details || {}),
-    },
-  });
-  return { id: entry.id };
+      targetType,
+      targetId,
+      error: String(err),
+    });
+    return { id: null };
+  }
 }
 
 export async function logSecurityEvent(
@@ -44,13 +54,22 @@ export async function logSecurityEvent(
   message: string,
   details?: any,
 ) {
-  const entry = await prisma.auditLog.create({
-    data: {
-      action: `security:${level}`,
-      detailsJson: JSON.stringify({ message, details: details || {} }),
-    },
-  });
-  return { id: entry.id };
+  try {
+    const entry = await prisma.auditLog.create({
+      data: {
+        action: `security:${level}`,
+        detailsJson: JSON.stringify({ message, details: details || {} }),
+      },
+    });
+    return { id: entry.id };
+  } catch (err) {
+    console.warn("security log skipped", {
+      level,
+      message,
+      error: String(err),
+    });
+    return { id: null };
+  }
 }
 
 const ENC_ALGO = "aes-256-gcm";

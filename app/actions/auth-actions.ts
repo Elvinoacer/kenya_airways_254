@@ -25,6 +25,19 @@ import { sendEmail } from "../../lib/notifications";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
 
+function isAtLeast18(dateOfBirthStr: string) {
+  if (!dateOfBirthStr) return false;
+
+  const dateOfBirth = new Date(dateOfBirthStr);
+  if (Number.isNaN(dateOfBirth.getTime())) return false;
+
+  const today = new Date();
+  const eighteenthBirthday = new Date(dateOfBirth);
+  eighteenthBirthday.setFullYear(eighteenthBirthday.getFullYear() + 18);
+
+  return eighteenthBirthday <= today;
+}
+
 // Helper to get active session from cookies
 async function getActiveSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
@@ -41,13 +54,16 @@ async function getActiveSession(): Promise<SessionPayload | null> {
 
 export async function registerAction(email: string, password: string, name: string) {
   try {
-    if (!email || !password || password.length < 8) {
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const normalizedName = typeof name === "string" ? name.trim() : "";
+
+    if (!normalizedEmail || !password || password.length < 8) {
       return { success: false, error: "Email is required and password must be at least 8 characters long." };
     }
 
     // Check if user already exists
     const existing = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
     if (existing) {
       return { success: false, error: "A user with this email address already exists." };
@@ -58,8 +74,8 @@ export async function registerAction(email: string, password: string, name: stri
     // Save user
     const user = await prisma.user.create({
       data: {
-        email,
-        name: name || null,
+        email: normalizedEmail,
+        name: normalizedName || null,
         passwordHash,
         role: "PASSENGER",
         emailVerified: false,
@@ -68,14 +84,14 @@ export async function registerAction(email: string, password: string, name: stri
     });
 
     // Generate email verification token
-    const { token } = await createVerificationToken(email, "EMAIL_VERIFICATION");
+    const { token } = await createVerificationToken(normalizedEmail, "EMAIL_VERIFICATION");
 
     const verificationUrl = `${APP_URL}/verify-email?token=${token}`;
     const emailResult = await sendEmail(
-      email,
+      normalizedEmail,
       "Verify your Kenya Airways account",
       [
-        `Hello ${name || "there"},`,
+        `Hello ${normalizedName || "there"},`,
         "",
         "Welcome to Kenya Airways. Verify your email address to activate your passenger account:",
         verificationUrl,
@@ -168,8 +184,7 @@ export async function loginAction(
     if (!user.emailVerified) {
       return {
         success: false,
-        error:
-          "Please verify your email address before signing in. Check your inbox for the verification link.",
+        error: "Please verify your email address before signing in. Check your inbox for the verification link.",
       };
     }
 
@@ -463,6 +478,10 @@ export async function onboardPassengerAction(
       return { success: false, error: "First name, last name, passport number, and nationality are required." };
     }
 
+    if (!dateOfBirthStr || !isAtLeast18(dateOfBirthStr)) {
+      return { success: false, error: "Passengers must be at least 18 years old to complete onboarding." };
+    }
+
     // Check unique passport
     const existing = await prisma.passenger.findUnique({
       where: { passportNumber: passportNo },
@@ -591,6 +610,10 @@ export async function updateProfileSettingsAction(
     if (session.role === "PASSENGER") {
       if (!firstName || !lastName) {
         return { success: false, error: "First name and last name are required for passengers." };
+      }
+
+      if (dateOfBirth && !isAtLeast18(dateOfBirth)) {
+        return { success: false, error: "Passengers must be at least 18 years old to update their profile." };
       }
 
       // Check passport collision

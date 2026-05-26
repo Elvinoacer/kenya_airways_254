@@ -93,6 +93,10 @@ export async function revokeAllUserSessions(userId: string): Promise<void> {
 
 // Statefully verify session against database
 export async function isSessionActiveInDb(sessionId: string): Promise<boolean> {
+  if (!sessionId || typeof sessionId !== "string") {
+    return false;
+  }
+
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
     select: { isValid: true, expiresAt: true },

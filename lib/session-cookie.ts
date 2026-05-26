@@ -1,5 +1,5 @@
 // Secret key for HMAC signing (shared between middleware and actions)
-const SESSION_SECRET = process.env.NEXTAUTH_SECRET || 'kenya-airways-super-secret-key-32-chars-long-or-more';
+const SESSION_SECRET = process.env.NEXTAUTH_SECRET || "kenya-airways-super-secret-key-32-chars-long-or-more";
 
 export interface SessionPayload {
   sessionId: string;
@@ -15,25 +15,17 @@ export async function signData(message: string): Promise<string> {
   const keyData = encoder.encode(SESSION_SECRET);
   const messageData = encoder.encode(message);
 
-  const cryptoKey = await globalThis.crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
+  const cryptoKey = await globalThis.crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, [
+    "sign",
+  ]);
 
-  const signature = await globalThis.crypto.subtle.sign(
-    'HMAC',
-    cryptoKey,
-    messageData
-  );
+  const signature = await globalThis.crypto.subtle.sign("HMAC", cryptoKey, messageData);
 
   // Return base64url format signature
   return btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
 }
 
 export async function verifyData(message: string, signature: string): Promise<boolean> {
@@ -46,7 +38,7 @@ export async function verifySessionCookie(cookieValue: string | undefined): Prom
   if (!cookieValue) return null;
 
   try {
-    const parts = cookieValue.split('.');
+    const parts = cookieValue.split(".");
     if (parts.length !== 2) return null;
 
     const [payloadBase64, signature] = parts;
@@ -54,13 +46,23 @@ export async function verifySessionCookie(cookieValue: string | undefined): Prom
     if (!isValid) return null;
 
     const payloadStr = atob(payloadBase64);
-    const payload: SessionPayload = JSON.parse(payloadStr);
+    const payload = JSON.parse(payloadStr) as Partial<SessionPayload>;
+
+    if (
+      typeof payload.sessionId !== "string" ||
+      typeof payload.userId !== "string" ||
+      typeof payload.role !== "string" ||
+      typeof payload.onboardingCompleted !== "boolean" ||
+      typeof payload.expiresAt !== "number"
+    ) {
+      return null;
+    }
 
     if (payload.expiresAt < Date.now()) {
       return null; // Expired
     }
 
-    return payload;
+    return payload as SessionPayload;
   } catch {
     return null;
   }
