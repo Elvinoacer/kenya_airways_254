@@ -17,21 +17,21 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await context.params;
-  const profile = getPassengerProfile(id);
+  const profile = await getPassengerProfile(id);
   if (!profile)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
   const action = String(body.action || "BLACKLIST").toUpperCase();
   const reason = body.reason || null;
-  const result =
+  const result = await (
     action === "UNBLACKLIST"
-      ? unblacklistPassengerProfile(id, session.userId)
+      ? unblacklistPassengerProfile(id)
       : blacklistPassengerProfile(
           id,
-          reason || "manual blacklist",
-          session.userId,
-        );
+          reason || "manual blacklist"
+        )
+  );
 
   return NextResponse.json(result);
 }
