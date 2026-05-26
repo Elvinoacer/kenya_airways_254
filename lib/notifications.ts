@@ -86,27 +86,57 @@ export async function sendWebPushToSubscription(sub: any, payload: any) {
 
 export async function sendEmail(to: string, subject: string, body: string) {
   try {
-    const mod = eval("require")("nodemailer");
-    const nodemailer = (mod && mod.default) || mod;
-    if (!nodemailer) throw new Error("nodemailer not installed");
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "",
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: (process.env.SMTP_SECURE || "false") === "true",
-      auth: process.env.SMTP_USER
-        ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-        : undefined,
-    });
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM || "no-reply@example.com",
-      to,
-      subject,
-      text: body,
-    });
-    return { ok: true };
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const resendFrom = process.env.RESEND_FROM || process.env.EMAIL_FROM || "Kenya Airways <no-reply@kenyaairways.com>";
+
+    if (resendApiKey) {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: resendFrom,
+          to: [to],
+          subject,
+          text: body,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(`Resend API error: ${response.status} ${errorText}`);
+      }
+
+      return { ok: true };
+    }
+
+    const smtpHost = process.env.SMTP_HOST;
+    if (smtpHost) {
+      const mod = eval("require")("nodemailer");
+      const nodemailer = (mod && mod.default) || mod;
+      if (!nodemailer) throw new Error("nodemailer not installed");
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: Number(process.env.SMTP_PORT || 587),
+        secure: (process.env.SMTP_SECURE || "false") === "true",
+        auth: process.env.SMTP_USER
+          ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+          : undefined,
+      });
+      await transporter.sendMail({
+        from: process.env.EMAIL_FROM || "no-reply@example.com",
+        to,
+        subject,
+        text: body,
+      });
+      return { ok: true };
+    }
+
+    throw new Error("No email provider configured. Set RESEND_API_KEY or SMTP_HOST.");
   } catch (err) {
-    console.warn("sendEmail failed, falling back to console", String(err));
-    console.log(`[email] to=${to} subject=${subject} body=${body}`);
+    console.warn("sendEmail failed", String(err));
     return { ok: false, error: String(err) };
   }
 }

@@ -21,6 +21,7 @@ import {
   isSessionActiveInDb,
   SessionPayload,
 } from "../../lib/auth-session";
+import { sendEmail } from "../../lib/notifications";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
 
@@ -76,11 +77,26 @@ export async function registerAction(
     // Generate email verification token
     const { token } = await createVerificationToken(email, "EMAIL_VERIFICATION");
 
-    // Simulate sending email by printing to logs
-    console.log("\n=== [MOCK EMAIL] EMAIL VERIFICATION LINK ===");
-    console.log(`To: ${email}`);
-    console.log(`Link: ${APP_URL}/verify-email?token=${token}`);
-    console.log("============================================\n");
+    const verificationUrl = `${APP_URL}/verify-email?token=${token}`;
+    const emailResult = await sendEmail(
+      email,
+      "Verify your Kenya Airways account",
+      [
+        `Hello ${name || "there"},`,
+        "",
+        "Please verify your email address to activate your account:",
+        verificationUrl,
+        "",
+        "If you did not request this, you can ignore this message.",
+      ].join("\n"),
+    );
+
+    if (!emailResult.ok) {
+      return {
+        success: false,
+        error: `Registration succeeded, but verification email could not be sent: ${emailResult.error}`,
+      };
+    }
 
     return { success: true, message: "Registration successful! Please check your email for a verification link." };
   } catch (err: any) {
@@ -164,10 +180,25 @@ export async function loginAction(
       // Generate 2FA Verification Code
       const { code } = await createVerificationToken(email, "MFA_CODE", 5 * 60 * 1000); // 5 mins expiry
 
-      console.log("\n=== [MOCK EMAIL] 2FA LOGIN VERIFICATION CODE ===");
-      console.log(`To: ${email}`);
-      console.log(`Your 2FA Login Code: ${code}`);
-      console.log("================================================\n");
+      const emailResult = await sendEmail(
+        email,
+        "Your Kenya Airways verification code",
+        [
+          `Hello ${user.name || "there"},`,
+          "",
+          `Your verification code is: ${code}`,
+          "",
+          "This code expires in 5 minutes.",
+          "If you did not try to sign in, please ignore this email.",
+        ].join("\n"),
+      );
+
+      if (!emailResult.ok) {
+        return {
+          success: false,
+          error: `2FA code could not be sent: ${emailResult.error}`,
+        };
+      }
 
       return {
         success: true,
@@ -322,10 +353,26 @@ export async function forgotPasswordAction(email: string) {
     if (user) {
       const { token } = await createVerificationToken(email, "PASSWORD_RESET", 30 * 60 * 1000); // 30 mins expiry
 
-      console.log("\n=== [MOCK EMAIL] PASSWORD RESET LINK ===");
-      console.log(`To: ${email}`);
-      console.log(`Link: ${APP_URL}/reset-password?token=${token}`);
-      console.log("========================================\n");
+      const resetUrl = `${APP_URL}/reset-password?token=${token}`;
+      const emailResult = await sendEmail(
+        email,
+        "Reset your Kenya Airways password",
+        [
+          "We received a request to reset your password.",
+          "",
+          "Reset your password here:",
+          resetUrl,
+          "",
+          "If you did not request this, you can ignore this email.",
+        ].join("\n"),
+      );
+
+      if (!emailResult.ok) {
+        return {
+          success: false,
+          error: `Password reset email could not be sent: ${emailResult.error}`,
+        };
+      }
     }
 
     return { success: true, message: "If this email is registered, you will receive a password reset link shortly." };
