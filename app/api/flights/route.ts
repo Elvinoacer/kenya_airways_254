@@ -46,15 +46,36 @@ function getBodyString(body: Record<string, unknown>, key: string) {
 
 function getBodyNumber(body: Record<string, unknown>, key: string) {
   const value = body[key];
-  const parsed = typeof value === "number" || typeof value === "string" ? Number(value) : NaN;
+  const parsed =
+    typeof value === "number" || typeof value === "string"
+      ? Number(value)
+      : NaN;
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function roundPrice(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function getPriceMultiplier(code: "CLASS_A" | "CLASS_B" | "CLASS_C") {
+  return (
+    REQUIRED_TRAVEL_CLASSES.find((item) => item.code === code)
+      ?.fareMultiplier ?? 1
+  );
+}
+
+function resolvePrice(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const q = url.searchParams.get("q") || undefined;
   const origin = normalizeAirportQuery(url.searchParams.get("origin"));
-  const destination = normalizeAirportQuery(url.searchParams.get("destination"));
+  const destination = normalizeAirportQuery(
+    url.searchParams.get("destination"),
+  );
   const departDate = url.searchParams.get("departDate");
   const cabin = url.searchParams.get("cabin");
   const sort = url.searchParams.get("sort") || "depart";
@@ -65,7 +86,14 @@ export async function GET(request: Request) {
       orderBy: { departureTime: "asc" },
     });
 
-    const headers = ["id", "flight_number", "origin", "destination", "departure_time", "arrival_time"];
+    const headers = [
+      "id",
+      "flight_number",
+      "origin",
+      "destination",
+      "departure_time",
+      "arrival_time",
+    ];
 
     const csv = [headers.join(",")]
       .concat(
@@ -112,7 +140,9 @@ export async function GET(request: Request) {
     andFilters.push({
       OR: [
         { origin: { equals: origin.iata || origin.raw, mode: "insensitive" } },
-        { origin: { contains: origin.city || origin.raw, mode: "insensitive" } },
+        {
+          origin: { contains: origin.city || origin.raw, mode: "insensitive" },
+        },
         { origin: { contains: origin.raw, mode: "insensitive" } },
       ],
     });
@@ -121,8 +151,18 @@ export async function GET(request: Request) {
   if (destination) {
     andFilters.push({
       OR: [
-        { destination: { equals: destination.iata || destination.raw, mode: "insensitive" } },
-        { destination: { contains: destination.city || destination.raw, mode: "insensitive" } },
+        {
+          destination: {
+            equals: destination.iata || destination.raw,
+            mode: "insensitive",
+          },
+        },
+        {
+          destination: {
+            contains: destination.city || destination.raw,
+            mode: "insensitive",
+          },
+        },
         { destination: { contains: destination.raw, mode: "insensitive" } },
       ],
     });
@@ -136,7 +176,8 @@ export async function GET(request: Request) {
     }
   }
 
-  const where: Prisma.FlightWhereInput = andFilters.length > 0 ? { AND: andFilters } : {};
+  const where: Prisma.FlightWhereInput =
+    andFilters.length > 0 ? { AND: andFilters } : {};
 
   const flights = await prisma.flight.findMany({
     where,
@@ -148,7 +189,18 @@ export async function GET(request: Request) {
     const classCapacity = await getClassCapacitySummary(f.id);
     const meta = (f.meta?.data || {}) as Record<string, unknown>;
     const routeConfig = getRouteConfig(f.origin, f.destination);
-    const basePrice = Number(meta.basePrice || f.route?.basePrice || routeConfig?.basePrice || 220);
+    const basePrice = Number(
+      meta.basePrice || f.route?.basePrice || routeConfig?.basePrice || 220,
+    );
+    const priceEconomy = resolvePrice(meta.price_economy, basePrice);
+    const priceBusiness = resolvePrice(
+      meta.price_business,
+      roundPrice(basePrice * getPriceMultiplier("CLASS_B")),
+    );
+    const priceFirst = resolvePrice(
+      meta.price_first,
+      roundPrice(basePrice * getPriceMultiplier("CLASS_A")),
+    );
     const departAt = f.departureTime?.toISOString();
     const arriveAt = f.arrivalTime?.toISOString();
     const originAirport = getAirportByCode(f.origin);
@@ -162,25 +214,48 @@ export async function GET(request: Request) {
       airline: typeof meta.airline === "string" ? meta.airline : "KQ",
       stops: Number(meta.stops || 0),
       aircraft:
-        typeof meta.aircraft === "string" ? meta.aircraft : f.aircraftId || routeConfig?.aircraft || "Boeing 787 Dreamliner",
-      terminal: typeof meta.terminal === "string" ? meta.terminal : routeConfig?.terminal || "1",
+        typeof meta.aircraft === "string"
+          ? meta.aircraft
+          : f.aircraftId || routeConfig?.aircraft || "Boeing 787 Dreamliner",
+      terminal:
+        typeof meta.terminal === "string"
+          ? meta.terminal
+          : routeConfig?.terminal || "1",
       routeTitle:
-        typeof meta.routeTitle === "string" ? meta.routeTitle : routeConfig?.title || `${f.origin || ""} to ${f.destination || ""}`,
-      routeImage: typeof meta.routeImage === "string" ? meta.routeImage : routeConfig?.image || "/images/hero_banner.png",
+        typeof meta.routeTitle === "string"
+          ? meta.routeTitle
+          : routeConfig?.title || `${f.origin || ""} to ${f.destination || ""}`,
+      routeImage:
+        typeof meta.routeImage === "string"
+          ? meta.routeImage
+          : routeConfig?.image || "/images/hero_banner.png",
       originCity: originAirport?.city || f.origin,
       destinationCity: destinationAirport?.city || f.destination,
       durationMinutes:
         f.departureTime && f.arrivalTime
-          ? Math.max(0, Math.round((f.arrivalTime.getTime() - f.departureTime.getTime()) / 60000))
+          ? Math.max(
+              0,
+              Math.round(
+                (f.arrivalTime.getTime() - f.departureTime.getTime()) / 60000,
+              ),
+            )
           : 0,
       basePrice,
       priceKES: convertUsdToKes(basePrice),
+      price_economy: priceEconomy,
+      price_business: priceBusiness,
+      price_first: priceFirst,
+      price_economyKES: convertUsdToKes(priceEconomy),
+      price_businessKES: convertUsdToKes(priceBusiness),
+      price_firstKES: convertUsdToKes(priceFirst),
       departure_time: f.departureTime,
       arrival_time: f.arrivalTime,
       is_active: meta.is_active ?? 1,
       is_archived: meta.is_archived ?? 0,
       classCapacity,
-      seatsAvailable: Object.fromEntries(classCapacity.map((entry) => [entry.code, entry.available])),
+      seatsAvailable: Object.fromEntries(
+        classCapacity.map((entry) => [entry.code, entry.available]),
+      ),
       refundable: Boolean(meta.refundable ?? true),
       baggageIncluded: Boolean(meta.baggageIncluded ?? true),
       mealIncluded: Boolean(meta.mealIncluded ?? false),
@@ -195,7 +270,8 @@ export async function GET(request: Request) {
   if (cabin) {
     results = results.filter((flight) =>
       flight.classCapacity.some(
-        (entry: { code: string; available: number }) => entry.code === cabin && Number(entry.available || 0) > 0,
+        (entry: { code: string; available: number }) =>
+          entry.code === cabin && Number(entry.available || 0) > 0,
       ),
     );
   }
@@ -209,18 +285,31 @@ export async function GET(request: Request) {
   const baggageIncluded = parseBoolean(url.searchParams.get("baggageIncluded"));
 
   const priceField = currency === "KES" ? "priceKES" : "basePrice";
-  if (priceMin !== undefined) results = results.filter((flight) => Number(flight[priceField]) >= priceMin);
-  if (priceMax !== undefined) results = results.filter((flight) => Number(flight[priceField]) <= priceMax);
-  if (durationMax !== undefined) results = results.filter((flight) => flight.durationMinutes <= durationMax);
-  if (directOnly) results = results.filter((flight) => Number(flight.stops || 0) === 0);
+  if (priceMin !== undefined)
+    results = results.filter(
+      (flight) => Number(flight[priceField]) >= priceMin,
+    );
+  if (priceMax !== undefined)
+    results = results.filter(
+      (flight) => Number(flight[priceField]) <= priceMax,
+    );
+  if (durationMax !== undefined)
+    results = results.filter((flight) => flight.durationMinutes <= durationMax);
+  if (directOnly)
+    results = results.filter((flight) => Number(flight.stops || 0) === 0);
   if (seatsMin !== undefined)
     results = results.filter((flight) =>
       flight.classCapacity.some(
-        (entry: { code: string; available: number }) => Number(entry.available || 0) >= seatsMin,
+        (entry: { code: string; available: number }) =>
+          Number(entry.available || 0) >= seatsMin,
       ),
     );
-  if (refundable !== undefined) results = results.filter((flight) => flight.refundable === refundable);
-  if (baggageIncluded !== undefined) results = results.filter((flight) => flight.baggageIncluded === baggageIncluded);
+  if (refundable !== undefined)
+    results = results.filter((flight) => flight.refundable === refundable);
+  if (baggageIncluded !== undefined)
+    results = results.filter(
+      (flight) => flight.baggageIncluded === baggageIncluded,
+    );
 
   if (sort === "price") {
     results.sort((a, b) => Number(a[priceField]) - Number(b[priceField]));
@@ -228,11 +317,18 @@ export async function GET(request: Request) {
     results.sort((a, b) => a.durationMinutes - b.durationMinutes);
   }
 
-  return NextResponse.json({ flights: results, results, total: results.length });
+  return NextResponse.json({
+    flights: results,
+    results,
+    total: results.length,
+  });
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = (await request.json().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
   const flight_number = getBodyString(body, "flight_number");
   const origin = getBodyString(body, "origin");
   const destination = getBodyString(body, "destination");
@@ -241,7 +337,13 @@ export async function POST(request: Request) {
   const aircraft = getBodyString(body, "aircraft");
   const terminal = getBodyString(body, "terminal");
 
-  if (!flight_number || !origin || !destination || !departure_time || !arrival_time) {
+  if (
+    !flight_number ||
+    !origin ||
+    !destination ||
+    !departure_time ||
+    !arrival_time
+  ) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
 
@@ -250,7 +352,18 @@ export async function POST(request: Request) {
   // Note: price_economy, etc. were in old SQLite schema. In new Prisma schema, they belong to Route or we just ignore for now if missing from Flight model.
 
   const routeConfig = getRouteConfig(origin, destination);
-  const basePrice = getBodyNumber(body, "basePrice") || getBodyNumber(body, "price_economy") || routeConfig?.basePrice || 220;
+  const basePrice =
+    getBodyNumber(body, "basePrice") ||
+    getBodyNumber(body, "price_economy") ||
+    routeConfig?.basePrice ||
+    220;
+  const priceEconomy = getBodyNumber(body, "price_economy") || basePrice;
+  const priceBusiness =
+    getBodyNumber(body, "price_business") ||
+    roundPrice(priceEconomy * getPriceMultiplier("CLASS_B"));
+  const priceFirst =
+    getBodyNumber(body, "price_first") ||
+    roundPrice(priceEconomy * getPriceMultiplier("CLASS_A"));
   const route = await prisma.route.upsert({
     where: {
       id: `${origin.toUpperCase()}-${destination.toUpperCase()}`,
@@ -279,9 +392,15 @@ export async function POST(request: Request) {
             is_active: 1,
             is_archived: 0,
             basePrice,
-            aircraft: aircraft || routeConfig?.aircraft || "Boeing 787 Dreamliner",
+            price_economy: priceEconomy,
+            price_business: priceBusiness,
+            price_first: priceFirst,
+            aircraft:
+              aircraft || routeConfig?.aircraft || "Boeing 787 Dreamliner",
             terminal: terminal || routeConfig?.terminal || "1",
-            routeTitle: routeConfig?.title || `${origin.toUpperCase()} to ${destination.toUpperCase()}`,
+            routeTitle:
+              routeConfig?.title ||
+              `${origin.toUpperCase()} to ${destination.toUpperCase()}`,
             routeImage: routeConfig?.image || "/images/hero_banner.png",
           },
         },
