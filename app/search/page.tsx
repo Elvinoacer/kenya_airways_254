@@ -501,9 +501,20 @@ function SearchContent() {
             {!loading && !error && results.length === 0 && initialized && (
               <div className="flex flex-col items-center justify-center py-28 bg-white rounded-3xl border border-[#e5e2e1] shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-center px-6">
                 <div className="w-20 h-20 bg-[#fcf9f8] rounded-full flex items-center justify-center mb-6">
-                  <span className="material-symbols-outlined text-4xl text-[#5e3f3c]" aria-hidden="true">
-                    flight_off
-                  </span>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 48 48"
+                    className="w-10 h-10 text-[#5e3f3c]"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M6 28.5l14.4-4.2 6.7-11.1 4.1 1.4-4 10.1 9.8-2.9c1.3-.4 2.6.4 3 1.7.4 1.3-.2 2.7-1.4 3.2l-10.4 4.6 2.8 7.6-3.8 1.2-4.7-6.4-12 5.3-2.5-3.5 10.5-8.1-8.8-2.1z" />
+                    <path d="M10 10l28 28" />
+                    <circle cx="24" cy="24" r="20" opacity="0.18" />
+                  </svg>
                 </div>
                 <h3 className="text-2xl font-bold text-[#1A1A1A] mb-3">No flights found</h3>
                 <p className="text-[#5e3f3c] max-w-md mx-auto text-lg">
