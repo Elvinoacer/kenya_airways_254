@@ -37,11 +37,7 @@ export async function markNotificationRead(id: string) {
   return true;
 }
 
-export async function savePushSubscription(
-  userId: string,
-  endpoint: string,
-  keys: any,
-) {
+export async function savePushSubscription(userId: string, endpoint: string, keys: any) {
   const existing = await prisma.pushSubscription.findUnique({
     where: { userId_endpoint: { userId, endpoint } },
   });
@@ -67,8 +63,7 @@ export async function sendWebPushToSubscription(sub: any, payload: any) {
   try {
     const mod = eval("require")("web-push");
     const webpush = (mod && mod.default) || mod;
-    const VAPID_SUBJECT =
-      process.env.VAPID_SUBJECT || "mailto:admin@example.com";
+    const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@example.com";
     const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || "";
     const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || "";
     if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
@@ -121,9 +116,7 @@ export async function sendEmail(to: string, subject: string, body: string) {
         host: smtpHost,
         port: Number(process.env.SMTP_PORT || 587),
         secure: (process.env.SMTP_SECURE || "false") === "true",
-        auth: process.env.SMTP_USER
-          ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-          : undefined,
+        auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
       });
       await transporter.sendMail({
         from: process.env.EMAIL_FROM || "no-reply@example.com",
@@ -143,18 +136,11 @@ export async function sendEmail(to: string, subject: string, body: string) {
 
 export async function sendSms(to: string, message: string) {
   try {
-    if (
-      process.env.TWILIO_ACCOUNT_SID &&
-      process.env.TWILIO_AUTH_TOKEN &&
-      process.env.TWILIO_FROM
-    ) {
+    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM) {
       const mod = eval("require")("twilio");
       const Twilio = (mod && mod.default) || mod;
       if (!Twilio) throw new Error("twilio not installed");
-      const client = Twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN,
-      );
+      const client = Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
       await client.messages.create({
         body: message,
         to,
@@ -209,10 +195,7 @@ export async function notifyPassengersForFlight(
       );
     }
     if (b.contactPhone) {
-      await sendSms(
-        b.contactPhone,
-        `Flight ${flightId} update: ${update.status}. ${update.note || ""}`,
-      );
+      await sendSms(b.contactPhone, `Flight ${flightId} update: ${update.status}. ${update.note || ""}`);
     }
     notified += 1;
   }
@@ -249,22 +232,13 @@ export async function processDueReminders() {
       const params = r.paramsJson ? JSON.parse(r.paramsJson) : {};
       const user = r.userId ? await prisma.user.findUnique({ where: { id: r.userId } }) : null;
       if (user?.email) {
-        await sendEmail(
-          user.email,
-          `Reminder: ${r.type}`,
-          params.message || "Reminder from airline",
-        );
+        await sendEmail(user.email, `Reminder: ${r.type}`, params.message || "Reminder from airline");
       }
       if (user?.phone) {
         await sendSms(user.phone, params.message || "Reminder from airline");
       }
       if (r.userId) {
-        await createInAppNotification(
-          r.userId,
-          r.type,
-          params.title || "Reminder",
-          params.message || "Reminder",
-        );
+        await createInAppNotification(r.userId, r.type, params.title || "Reminder", params.message || "Reminder");
       }
       await prisma.scheduledReminder.update({
         where: { id: r.id },
