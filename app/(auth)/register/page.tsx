@@ -65,9 +65,6 @@ export default function RegisterPage() {
       </div>
 
       {/* Right side - Form */}
-      <p className="text-sm text-[#5e3f3c]">
-        Passenger accounts are created here. Staff and admin access is assigned separately.
-      </p>
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-16">
         <div className="w-full max-w-md space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
           <div>
@@ -84,6 +81,9 @@ export default function RegisterPage() {
               <Link href="/login" className="font-semibold text-primary hover:text-[#e71520] transition-colors">
                 Sign in
               </Link>
+            </p>
+            <p className="mt-3 text-sm text-[#5e3f3c]">
+              Passenger accounts are created here. Staff and admin access is assigned separately.
             </p>
           </div>
 
