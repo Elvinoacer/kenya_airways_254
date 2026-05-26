@@ -20,36 +20,67 @@ function getNumber(value: unknown) {
 }
 
 export async function GET(request: Request, context: any) {
-  const id = context?.params?.id;
-  const flight = await prisma.flight.findUnique({
-    where: { id },
-    include: { meta: true },
-  });
+  try {
+    // Resolve id from context params or URL path
+    const url = new URL(request.url);
+    const pathMatch = url.pathname.match(/\/api\/flights\/([^\/]+)/);
+    const id =
+      context?.params?.id ?? pathMatch?.[1] ?? url.searchParams.get("id");
 
-  if (!flight)
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
+    if (!id) return NextResponse.json({ error: "missing_id" }, { status: 400 });
 
-  const metaData = (flight.meta?.data as any) || {};
-  return NextResponse.json({
-    flight: {
-      ...flight,
-      flight_number: flight.flightNumber,
-      departure_time: flight.departureTime,
-      arrival_time: flight.arrivalTime,
-      is_active: metaData.is_active ?? 1,
-      is_archived: metaData.is_archived ?? 0,
-    },
-  });
+    const flight = await prisma.flight.findUnique({
+      where: { id },
+      include: { meta: true },
+    });
+
+    if (!flight)
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+    const metaData = (flight.meta?.data as any) || {};
+    return NextResponse.json({
+      flight: {
+        ...flight,
+        flight_number: flight.flightNumber,
+        departure_time: flight.departureTime,
+        arrival_time: flight.arrivalTime,
+        is_active: metaData.is_active ?? 1,
+        is_archived: metaData.is_archived ?? 0,
+      },
+    });
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.error("GET /api/flights/:id error", err?.stack || err);
+    return NextResponse.json(
+      { error: "internal_server_error", message: err?.message ?? String(err) },
+      { status: 500 },
+    );
+  }
 }
 
 export async function PUT(request: Request, context: any) {
-  const id = context?.params?.id;
   try {
     const body: any = await request.json().catch(() => ({}));
+    // Resolve id robustly: context params, body.id, or URL path segment
+    const url = new URL(request.url);
+    const pathMatch = url.pathname.match(/\/api\/flights\/([^\/]+)/);
+    const resolvedId = context?.params?.id ?? body.id ?? pathMatch?.[1];
+
+    if (!resolvedId) {
+      // eslint-disable-next-line no-console
+      console.error("PUT /api/flights/:id missing id", {
+        body,
+        url: request.url,
+      });
+      return NextResponse.json(
+        { error: "missing_id", message: "Missing flight id in URL or body" },
+        { status: 400 },
+      );
+    }
+
     // Temporary debug logging to help trace admin update payloads
-    // Remove or lower log level when debugging is complete.
     // eslint-disable-next-line no-console
-    console.debug("PUT /api/flights/:id received", { id, body });
+    console.debug("PUT /api/flights/:id received", { id: resolvedId, body });
 
     const data: any = {};
     if (body.flight_number !== undefined)
@@ -113,7 +144,7 @@ export async function PUT(request: Request, context: any) {
 
     if (Object.keys(data).length > 0) {
       await prisma.flight.update({
-        where: { id },
+        where: { id: resolvedId },
         data,
       });
     }
@@ -151,16 +182,16 @@ export async function PUT(request: Request, context: any) {
       // eslint-disable-next-line no-console
       console.debug("Updating flightMeta for", id, { nextData });
       // eslint-disable-next-line no-console
-      console.debug("Updating flightMeta for", id, { nextData });
+      console.debug("Updating flightMeta for", resolvedId, { nextData });
       await prisma.flightMeta.upsert({
-        where: { flightId: id },
-        create: { flightId: id, data: nextData },
+        where: { flightId: resolvedId },
+        create: { flightId: resolvedId, data: nextData },
         update: { data: nextData },
       });
     }
 
     const updated = await prisma.flight.findUnique({
-      where: { id },
+      where: { id: resolvedId },
       include: { meta: true, route: true },
     });
 

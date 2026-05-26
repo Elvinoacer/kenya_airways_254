@@ -54,6 +54,7 @@ export default function FlightsAdminPage() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editingFlightId, setEditingFlightId] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [form, setForm] = useState<FlightForm>({});
 
   async function load() {
@@ -83,9 +84,20 @@ export default function FlightsAdminPage() {
         headers: { "Content-Type": "application/json" },
       });
       if (res.ok) {
+        // Try to update the local row when editing, otherwise reload list after create
+        const payload = await res.json().catch(() => null);
+        if (editingFlightId && payload?.flight) {
+          setFlights((prev) =>
+            prev.map((f) => (f.id === payload.flight.id ? payload.flight : f)),
+          );
+        } else {
+          await load();
+        }
         setForm({});
         setEditingFlightId(null);
-        await load();
+        // show success toast
+        setSuccessMsg(editingFlightId ? "Flight updated" : "Flight created");
+        window.setTimeout(() => setSuccessMsg(null), 3000);
       } else {
         const txt = await res.text().catch(() => "<no body>");
         console.error("Flight save failed:", res.status, txt);
@@ -182,6 +194,13 @@ export default function FlightsAdminPage() {
 
   return (
     <div className="text-[#1A1A1A]">
+      {successMsg && (
+        <div className="fixed right-6 top-6 z-50">
+          <div className="bg-green-600 text-white px-4 py-2 rounded-lg shadow">
+            {successMsg}
+          </div>
+        </div>
+      )}
       <header className="bg-white border-b border-[#e5e2e1] sticky top-0 z-10">
         <div className="flex items-center justify-between px-6 py-6 lg:px-8">
           <div>
