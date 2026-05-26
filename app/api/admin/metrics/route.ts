@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { MetricsRum } from "@prisma/client";
 
 export async function GET() {
   const metrics = await prisma.metricsRum.findMany({
@@ -7,7 +8,7 @@ export async function GET() {
     take: 1000,
   });
   
-  const mapped = metrics.map(m => ({
+  const mapped = metrics.map((m: MetricsRum) => ({
     id: m.id,
     url: m.url,
     payload_json: m.payloadJson,
