@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
 
 const connectionString = `${process.env.DATABASE_URL}`;
 
@@ -12,6 +13,7 @@ if (globalForPrisma.prisma) {
   prismaInstance = globalForPrisma.prisma;
 } else {
   prismaInstance = new PrismaClient({
+    adapter: new PrismaPg(connectionString),
     log: ["error", "warn"],
   });
 
