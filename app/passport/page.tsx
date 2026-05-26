@@ -14,9 +14,10 @@
  *   (all logic is already client-side; no changes needed beyond that)
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import WorkflowShell from "../components/WorkflowShell";
 import { generateKenyanPassportNumber } from "@/lib/passport";
+import { getProfileInfo } from "../actions/auth-actions";
 
 // ─── MRZ Utilities ───────────────────────────────────────────────────────────
 const MRZ_ALPHA = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -544,12 +545,47 @@ export default function PassportGenerator() {
     dateOfExpiry: fmt(expiry),
     passportNumber: genPN(),
   });
+  const [loadedFromProfile, setLoadedFromProfile] = useState(false);
+  const [profilePrefillError, setProfilePrefillError] = useState("");
   const [photo, setPhoto] = useState(null);
   const [exporting, setExp] = useState(false);
   const [tab, setTab] = useState("cover"); // 'cover' | 'data'
 
   const coverRef = useRef(null);
   const dataRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateFromProfile = async () => {
+      try {
+        const profile = await getProfileInfo();
+        if (cancelled || !profile?.passenger) return;
+
+        const passenger = profile.passenger;
+
+        setForm((prev) => ({
+          ...prev,
+          surname: passenger.lastName || prev.surname,
+          givenNames: passenger.firstName || prev.givenNames,
+          nationality: passenger.nationality || prev.nationality,
+          dateOfBirth: passenger.dateOfBirth || prev.dateOfBirth,
+          passportNumber: passenger.passportNumber || prev.passportNumber,
+        }));
+        setLoadedFromProfile(true);
+      } catch {
+        if (!cancelled) {
+          setProfilePrefillError("Could not load your saved passport details right now.");
+        }
+      }
+    };
+
+    hydrateFromProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
@@ -677,6 +713,16 @@ export default function PassportGenerator() {
         <p style={{ margin: 0, fontSize: "14px", opacity: 0.8, color: "#5e3f3c" }}>
           Generate Kenyan-format mock passport details for the booking flow.
         </p>
+        {loadedFromProfile && (
+          <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#1f6d3f" }}>
+            Saved passport details loaded from your profile.
+          </p>
+        )}
+        {profilePrefillError && (
+          <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#bb0013" }}>
+            {profilePrefillError}
+          </p>
+        )}
       </div>
 
       <div
