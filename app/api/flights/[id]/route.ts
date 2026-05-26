@@ -113,7 +113,7 @@ export async function PUT(request: Request, context: any) {
 
     if (nextBasePrice !== undefined) {
       const existing = await prisma.flight.findUnique({
-        where: { id },
+        where: { id: resolvedId },
         select: { origin: true, destination: true, routeId: true, meta: true },
       });
       const nextOrigin = (body.origin ?? existing?.origin ?? "")
@@ -160,7 +160,7 @@ export async function PUT(request: Request, context: any) {
       body.recurrence_rule !== undefined
     ) {
       const flightMeta = await prisma.flightMeta.findUnique({
-        where: { flightId: id },
+        where: { flightId: resolvedId },
       });
       const currentData = (flightMeta?.data as any) || {};
 
@@ -179,8 +179,6 @@ export async function PUT(request: Request, context: any) {
       if (body.recurrence_rule !== undefined)
         nextData.recurrence_rule = body.recurrence_rule;
 
-      // eslint-disable-next-line no-console
-      console.debug("Updating flightMeta for", id, { nextData });
       // eslint-disable-next-line no-console
       console.debug("Updating flightMeta for", resolvedId, { nextData });
       await prisma.flightMeta.upsert({
