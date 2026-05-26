@@ -2,6 +2,7 @@
 import React from "react";
 import type { Flight } from "../../../types/flight";
 import { formatCurrency, formatFlightTime } from "../../../lib/currency";
+import Link from "next/link";
 
 export default function FlightCard({
   flight,
@@ -14,6 +15,13 @@ export default function FlightCard({
     currency === "KES" && (flight as any).priceKES
       ? (flight as any).priceKES
       : flight.basePrice;
+  const capacities =
+    (flight as any).classCapacity ||
+    [
+      { code: "CLASS_A", label: "Class A", available: flight.seatsAvailable?.FIRST || 0 },
+      { code: "CLASS_B", label: "Class B", available: flight.seatsAvailable?.BUSINESS || 0 },
+      { code: "CLASS_C", label: "Class C", available: flight.seatsAvailable?.ECONOMY || 0 },
+    ];
   return (
     <div className="bg-white border border-[#e5e2e1] rounded-2xl p-6 mb-4 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-[#e5e2e1] pb-4 mb-4">
@@ -35,7 +43,7 @@ export default function FlightCard({
             {formatCurrency(price, currency === "KES" ? "KES" : "USD")}
           </div>
           <div className="text-sm font-semibold text-[#5e3f3c] bg-[#fcf9f8] inline-block px-2 py-0.5 rounded-full mt-1 border border-[#e5e2e1]">
-            {flight.seatsAvailable.ECONOMY} seats left
+            {capacities.reduce((sum: number, item: any) => sum + Number(item.available || 0), 0)} seats left
           </div>
         </div>
       </div>
@@ -63,12 +71,22 @@ export default function FlightCard({
           <span className="text-[#5e3f3c] ml-2">T-{flight.terminal}</span>
         </div>
       </div>
+      <div className="mt-5 grid gap-2 md:grid-cols-3">
+        {capacities.map((entry: any) => (
+          <div key={entry.code} className="rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-2 text-sm">
+            <span className="font-bold text-[#1A1A1A]">{entry.label}</span>
+            <span className={`ml-2 font-black ${Number(entry.available) > 0 ? "text-emerald-700" : "text-[#c8102e]"}`}>
+              {entry.available || 0}
+            </span>
+          </div>
+        ))}
+      </div>
       
       <div className="mt-6 pt-4 border-t border-[#e5e2e1] flex justify-end">
-        <button className="bg-primary text-white font-semibold py-2 px-6 rounded-lg hover:bg-[#e71520] transition-colors flex items-center gap-2">
+        <Link href={`/bookings?flightId=${encodeURIComponent(flight.id)}`} className="bg-primary text-white font-semibold py-2 px-6 rounded-lg hover:bg-[#e71520] transition-colors flex items-center gap-2">
           Select Flight
           <span className="material-symbols-outlined text-sm">arrow_forward</span>
-        </button>
+        </Link>
       </div>
     </div>
   );

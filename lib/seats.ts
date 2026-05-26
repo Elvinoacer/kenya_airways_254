@@ -1,5 +1,16 @@
 import { prisma } from "./prisma";
 import realtime from "./realtime";
+import {
+  REQUIRED_TRAVEL_CLASSES,
+  normalizeTravelClass,
+  travelClassFromSeatClass,
+} from "./travel-classes";
+
+const DEFAULT_CLASS_CAPACITY: Record<string, number> = {
+  CLASS_A: 20,
+  CLASS_B: 60,
+  CLASS_C: 120,
+};
 
 export async function getSeatsForFlight(flightId: string) {
   const seats = await prisma.seat.findMany({
@@ -31,6 +42,124 @@ export async function getSeatOccupancySummary(flightId: string) {
     occupied,
     locked,
     available: total - occupied - locked,
+  };
+}
+
+export async function getClassCapacitySummary(flightId: string) {
+  const rows = await Promise.all(
+    REQUIRED_TRAVEL_CLASSES.map(async (travelClass) => {
+      const seatClass = travelClass.seatClass as any;
+      const physicalCapacity = await prisma.seat.count({
+        where: { flightId, seatClass },
+      });
+      const occupiedSeats = await prisma.seat.count({
+        where: { flightId, seatClass, isOccupied: true },
+      });
+      const bookedPassengers = await prisma.bookingPassenger.count({
+        where: {
+          booking: {
+            flightId,
+            seatClass,
+            status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
+          },
+        },
+      });
+      const classSeats = await prisma.seat.findMany({
+        where: { flightId, seatClass },
+        select: { id: true },
+      });
+      const locked = classSeats.length
+        ? await prisma.seatLock.count({
+            where: {
+              flightId,
+              expiresAt: { gt: new Date() },
+              seatId: { in: classSeats.map((seat) => seat.id) },
+            },
+          })
+        : 0;
+      const capacity = physicalCapacity || DEFAULT_CLASS_CAPACITY[travelClass.code];
+      const used = Math.max(occupiedSeats, bookedPassengers);
+      const available = Math.max(0, capacity - used - locked);
+      return {
+        code: travelClass.code,
+        shortCode: travelClass.shortCode,
+        label: travelClass.label,
+        description: travelClass.description,
+        seatClass: travelClass.seatClass,
+        capacity,
+        occupied: used,
+        locked,
+        available,
+        isFull: available <= 0,
+      };
+    }),
+  );
+
+  return rows;
+}
+
+export async function getClassAvailability(
+  flightId: string,
+  requestedClass?: string | null,
+) {
+  const travelClass = normalizeTravelClass(requestedClass);
+  const classes = await getClassCapacitySummary(flightId);
+  const selected = classes.find((entry) => entry.code === travelClass.code) || classes[2];
+  const nextAvailable = selected.available > 0
+    ? null
+    : await findNextAvailableFlightForClass(flightId, travelClass.code);
+
+  return { selected, classes, nextAvailable };
+}
+
+export async function findNextAvailableFlightForClass(
+  flightId: string,
+  requestedClass?: string | null,
+) {
+  const travelClass = normalizeTravelClass(requestedClass);
+  const current = await prisma.flight.findUnique({ where: { id: flightId } });
+  if (!current) return null;
+
+  const candidates = await prisma.flight.findMany({
+    where: {
+      id: { not: flightId },
+      origin: current.origin,
+      destination: current.destination,
+      status: { not: "CANCELLED" },
+      departureTime: current.departureTime
+        ? { gt: current.departureTime }
+        : { gt: new Date() },
+    },
+    orderBy: { departureTime: "asc" },
+    take: 20,
+  });
+
+  for (const candidate of candidates) {
+    const capacity = await getClassCapacitySummary(candidate.id);
+    const selected = capacity.find((entry) => entry.code === travelClass.code);
+    if (selected && selected.available > 0) {
+      return {
+        flightId: candidate.id,
+        flightNumber: candidate.flightNumber,
+        origin: candidate.origin,
+        destination: candidate.destination,
+        departureTime: candidate.departureTime?.toISOString() || null,
+        arrivalTime: candidate.arrivalTime?.toISOString() || null,
+        class: selected,
+      };
+    }
+  }
+
+  return null;
+}
+
+export function summarizeRequiredClassFromSeatClass(seatClass?: string | null) {
+  const travelClass = travelClassFromSeatClass(seatClass);
+  return {
+    code: travelClass.code,
+    shortCode: travelClass.shortCode,
+    label: travelClass.label,
+    description: travelClass.description,
   };
 }
 

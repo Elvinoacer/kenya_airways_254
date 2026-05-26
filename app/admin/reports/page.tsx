@@ -4,6 +4,7 @@ import React, { useState } from "react";
 
 const REPORT_TYPES = [
   { value: "booking", label: "Booking reports", icon: "book_online" },
+  { value: "tickets", label: "Ticket reports", icon: "airplane_ticket" },
   { value: "revenue", label: "Revenue reports", icon: "payments" },
   { value: "occupancy", label: "Occupancy reports", icon: "airline_seat_recline_normal" },
   { value: "manifest", label: "Passenger manifests", icon: "group" },
@@ -12,6 +13,7 @@ const REPORT_TYPES = [
   { value: "refunds", label: "Refund reports", icon: "currency_exchange" },
   { value: "payments", label: "Payment reports", icon: "receipt_long" },
   { value: "assignments", label: "Assignment reports", icon: "assignment_ind" },
+  { value: "matches", label: "Successful matches report", icon: "how_to_reg" },
   { value: "staff_performance", label: "Staff performance reports", icon: "assessment" },
   { value: "shift", label: "Shift reports", icon: "work_history" },
   { value: "crew_utilization", label: "Crew utilization reports", icon: "groups" },

@@ -3,7 +3,7 @@ import { createEmployee, listEmployees } from "../../../lib/employees";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const employees = listEmployees({
+  const employees = await listEmployees({
     q: url.searchParams.get("q") || undefined,
     departmentId: url.searchParams.get("departmentId") || undefined,
     role: url.searchParams.get("role") || undefined,
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   if (!body.firstName || !body.lastName || !body.employeeRole) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
-  const employee = createEmployee({
+  const employee = await createEmployee({
     userId: body.userId,
     employeeNumber: body.employeeNumber,
     firstName: body.firstName,

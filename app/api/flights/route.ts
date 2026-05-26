@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
+import { getClassCapacitySummary } from "../../../lib/seats";
+import { REQUIRED_TRAVEL_CLASSES } from "../../../lib/travel-classes";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -51,16 +53,35 @@ export async function GET(request: Request) {
     orderBy: { departureTime: "asc" }
   });
   
-  const mapped = flights.map(f => ({
-    ...f,
-    flight_number: f.flightNumber,
-    departure_time: f.departureTime,
-    arrival_time: f.arrivalTime,
-    is_active: f.meta?.data ? (f.meta.data as any).is_active ?? 1 : 1,
-    is_archived: f.meta?.data ? (f.meta.data as any).is_archived ?? 0 : 0
+  const mapped = await Promise.all(flights.map(async (f) => {
+    const classCapacity = await getClassCapacitySummary(f.id);
+    return {
+      ...f,
+      flight_number: f.flightNumber,
+      flightNumber: f.flightNumber,
+      departAt: f.departureTime?.toISOString(),
+      arriveAt: f.arrivalTime?.toISOString(),
+      airline: "KQ",
+      stops: 0,
+      aircraft: "Kenya Airways",
+      terminal: "1",
+      durationMinutes:
+        f.departureTime && f.arrivalTime
+          ? Math.max(0, Math.round((f.arrivalTime.getTime() - f.departureTime.getTime()) / 60000))
+          : 0,
+      basePrice: 22000,
+      departure_time: f.departureTime,
+      arrival_time: f.arrivalTime,
+      is_active: f.meta?.data ? (f.meta.data as any).is_active ?? 1 : 1,
+      is_archived: f.meta?.data ? (f.meta.data as any).is_archived ?? 0 : 0,
+      classCapacity,
+      seatsAvailable: Object.fromEntries(
+        classCapacity.map((entry) => [entry.code, entry.available]),
+      ),
+    };
   }));
   
-  return NextResponse.json({ flights: mapped });
+  return NextResponse.json({ flights: mapped, results: mapped });
 }
 
 export async function POST(request: Request) {
@@ -71,9 +92,6 @@ export async function POST(request: Request) {
     destination,
     departure_time,
     arrival_time,
-    price_economy = 0,
-    price_business = 0,
-    price_first = 0,
   } = body;
   
   if (
@@ -105,6 +123,22 @@ export async function POST(request: Request) {
     },
     include: { meta: true }
   });
+
+  const seatPlan = [
+    { seatClass: "FIRST", prefix: "A", count: 20 },
+    { seatClass: "BUSINESS", prefix: "B", count: 60 },
+    { seatClass: "ECONOMY", prefix: "C", count: 120 },
+  ];
+  await prisma.seat.createMany({
+    data: seatPlan.flatMap((plan) =>
+      Array.from({ length: plan.count }, (_, index) => ({
+        flightId: flight.id,
+        seatClass: plan.seatClass as any,
+        seatNumber: `${plan.prefix}${index + 1}`,
+      })),
+    ),
+    skipDuplicates: true,
+  });
   
   return NextResponse.json({ 
     flight: {
@@ -112,7 +146,8 @@ export async function POST(request: Request) {
       flight_number: flight.flightNumber,
       departure_time: flight.departureTime,
       arrival_time: flight.arrivalTime,
-      is_active: 1
+      is_active: 1,
+      classCapacity: REQUIRED_TRAVEL_CLASSES,
     } 
   }, { status: 201 });
 }

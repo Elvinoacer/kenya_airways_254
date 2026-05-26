@@ -34,16 +34,22 @@ type Flight = {
   destination: string;
   departAt: string;
   basePrice: number;
+  classCapacity?: any[];
 };
+
+const TRAVEL_CLASSES = [
+  { code: "CLASS_A", shortCode: "A", label: "Class A: Executive" },
+  { code: "CLASS_B", shortCode: "B", label: "Class B: Middle class" },
+  { code: "CLASS_C", shortCode: "C", label: "Class C: Low class" },
+];
 
 export default function BookingPage() {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [profiles, setProfiles] = useState<PassengerProfile[]>([]);
   const [selectedFlightId, setSelectedFlightId] = useState("");
-  const [seatClass, setSeatClass] = useState<
-    "ECONOMY" | "PREMIUM_ECONOMY" | "BUSINESS" | "FIRST"
-  >("ECONOMY");
+  const [seatClass, setSeatClass] = useState<"CLASS_A" | "CLASS_B" | "CLASS_C">("CLASS_C");
   const [seatCount, setSeatCount] = useState(1);
+  const [availability, setAvailability] = useState<any>(null);
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
   const [draftPassengers, setDraftPassengers] = useState<DraftPassenger[]>([]);
   const [draftPassenger, setDraftPassenger] = useState<DraftPassenger>({
@@ -71,6 +77,10 @@ export default function BookingPage() {
   const [contactPhone, setContactPhone] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [hold, setHold] = useState<any>(null);
+  const [confirmed, setConfirmed] = useState<any>(null);
+  const [inquiryRef, setInquiryRef] = useState("");
+  const [inquiryBooking, setInquiryBooking] = useState<any>(null);
+  const [inquiryMessage, setInquiryMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -84,13 +94,32 @@ export default function BookingPage() {
       const passengerData = await passengerRes.json();
       setFlights(flightsData.results || []);
       setProfiles(passengerData.passengers || []);
-      if (!selectedFlightId && flightsData.results?.[0]?.id)
+      const requestedFlightId =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("flightId")
+          : null;
+      if (!selectedFlightId && requestedFlightId) {
+        setSelectedFlightId(requestedFlightId);
+      } else if (!selectedFlightId && flightsData.results?.[0]?.id) {
         setSelectedFlightId(flightsData.results[0].id);
+      }
     }
     load().catch((err) =>
       setError(err.message || "Failed to load booking data"),
     );
   }, []);
+
+  useEffect(() => {
+    async function loadAvailability() {
+      if (!selectedFlightId) return;
+      const res = await fetch(
+        `/api/seats/availability?flightId=${encodeURIComponent(selectedFlightId)}&class=${encodeURIComponent(seatClass)}`,
+      );
+      const data = await res.json();
+      setAvailability(data.classAvailability || null);
+    }
+    loadAvailability().catch(() => setAvailability(null));
+  }, [selectedFlightId, seatClass, hold, confirmed]);
 
   const selectedProfiles = useMemo(
     () => profiles.filter((profile) => selectedProfileIds.includes(profile.id)),
@@ -168,7 +197,7 @@ export default function BookingPage() {
       const passengerCount = selectedProfileIds.length + draftPassengers.length;
       const payload = {
         flightId: selectedFlightId,
-        seatClass,
+        travelClass: seatClass,
         seats: passengerCount > 0 ? passengerCount : seatCount,
         passengerProfileIds: selectedProfileIds,
         passengers: draftPassengers.map((passenger, index) => ({
@@ -197,12 +226,93 @@ export default function BookingPage() {
       const data = await res.json();
       if (!res.ok)
         throw new Error(data.error || "Failed to create booking hold");
+      if (data.ok === false) {
+        setAvailability(data.availability || null);
+        throw new Error(data.message || "Selected class is full.");
+      }
       setHold(data);
     } catch (err: any) {
       setError(err.message || "Failed to create booking hold");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function confirmHold() {
+    if (!hold?.holdId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/bookings/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          holdId: hold.holdId,
+          payment: { provider: "ONLINE", transactionId: `PAY-${Date.now()}` },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to confirm booking");
+      setConfirmed(data);
+      setHold(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to confirm booking");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function lookupBooking() {
+    if (!inquiryRef.trim()) return;
+    setInquiryMessage("");
+    const res = await fetch(`/api/bookings/${encodeURIComponent(inquiryRef.trim())}`);
+    const data = await res.json();
+    if (!res.ok) {
+      setInquiryBooking(null);
+      setInquiryMessage(data.error || "Booking not found");
+      return;
+    }
+    setInquiryBooking(data.booking);
+  }
+
+  async function changeInquiryBooking(nextClass: string) {
+    if (!inquiryBooking?.id) return;
+    const res = await fetch("/api/bookings/modify", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookingId: inquiryBooking.id,
+        changes: { travelClass: nextClass },
+        actor: "passenger",
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.ok === false) {
+      setInquiryMessage(data.message || data.error || "Could not change booking");
+      return;
+    }
+    setInquiryBooking(data.booking);
+    setInquiryMessage("Booking changed successfully.");
+  }
+
+  async function deleteInquiryBooking() {
+    if (!inquiryBooking?.id) return;
+    const res = await fetch("/api/bookings/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookingId: inquiryBooking.id,
+        reason: "Deleted from booking inquiry",
+        actor: "passenger",
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setInquiryMessage(data.error || "Could not delete booking");
+      return;
+    }
+    setInquiryBooking(data);
+    setInquiryMessage("Booking deleted/cancelled successfully.");
   }
 
   return (
@@ -234,16 +344,15 @@ export default function BookingPage() {
         </label>
 
         <label className="space-y-2">
-          <span className="block text-sm font-semibold text-[#5e3f3c]">Seat Class</span>
+          <span className="block text-sm font-semibold text-[#5e3f3c]">Booking Class</span>
           <select
             className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
             value={seatClass}
             onChange={(e) => setSeatClass(e.target.value as any)}
           >
-            <option value="ECONOMY">Economy</option>
-            <option value="PREMIUM_ECONOMY">Premium Economy</option>
-            <option value="BUSINESS">Business</option>
-            <option value="FIRST">First</option>
+            {TRAVEL_CLASSES.map((entry) => (
+              <option key={entry.code} value={entry.code}>{entry.label}</option>
+            ))}
           </select>
         </label>
 
@@ -288,6 +397,34 @@ export default function BookingPage() {
           />
         </label>
       </div>
+
+      <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
+        <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Seat Capacity by Class</h2>
+        <div className="grid gap-4 md:grid-cols-3" aria-live="polite">
+          {(availability?.classes || []).map((entry: any) => (
+            <div
+              key={entry.code}
+              className={`rounded-xl border p-4 ${entry.isFull ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50"}`}
+            >
+              <div className="text-sm font-bold text-[#1A1A1A]">{entry.label}</div>
+              <div className="mt-2 text-2xl font-black">{entry.available}/{entry.capacity}</div>
+              <div className="text-xs font-semibold text-[#5e3f3c] mt-1">
+                {entry.isFull ? "FULL" : "seats available"}
+              </div>
+            </div>
+          ))}
+        </div>
+        {availability?.selected?.isFull ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+            This class is full.
+            {availability.nextAvailable ? (
+              <span> Next available: {availability.nextAvailable.flightNumber} on {new Date(availability.nextAvailable.departureTime).toLocaleString()}.</span>
+            ) : (
+              <span> No later available flight was found for this route.</span>
+            )}
+          </div>
+        ) : null}
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
@@ -584,8 +721,10 @@ export default function BookingPage() {
             <span className="font-semibold text-[#1A1A1A]">{selectedFlightId || "none selected"}</span>
           </div>
           <div>
-            <span className="block text-xs text-[#5e3f3c] uppercase tracking-wider mb-1">Seat Class</span>
-            <span className="font-semibold text-[#1A1A1A] capitalize">{seatClass.toLowerCase().replace('_', ' ')}</span>
+            <span className="block text-xs text-[#5e3f3c] uppercase tracking-wider mb-1">Booking Class</span>
+            <span className="font-semibold text-[#1A1A1A]">
+              {TRAVEL_CLASSES.find((entry) => entry.code === seatClass)?.label}
+            </span>
           </div>
           <div>
             <span className="block text-xs text-[#5e3f3c] uppercase tracking-wider mb-1">Seat Count</span>
@@ -601,7 +740,7 @@ export default function BookingPage() {
         
         <button
           type="button"
-          disabled={loading || (!selectedFlightId)}
+          disabled={loading || (!selectedFlightId) || availability?.selected?.isFull}
           className="w-full sm:w-auto px-8 py-3 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer shadow-sm"
           onClick={createHold}
         >
@@ -628,6 +767,67 @@ export default function BookingPage() {
               <p><span className="font-medium">Hold ID:</span> {hold.holdId}</p>
               <p><span className="font-medium">Expires:</span> {new Date(hold.expiresAt).toLocaleString()}</p>
               <p><span className="font-medium">Total:</span> {hold.fare?.total ?? "n/a"}</p>
+            </div>
+            <button
+              type="button"
+              className="mt-4 px-6 py-3 rounded-lg bg-emerald-700 text-white font-bold hover:bg-emerald-800"
+              onClick={confirmHold}
+              disabled={loading}
+            >
+              Process Payment & Print Ticket
+            </button>
+          </div>
+        ) : null}
+        {confirmed ? (
+          <div className="mt-6 rounded-xl border border-[#d8c36a] bg-[#fff9d8] p-6">
+            <p className="font-bold text-[#1A1A1A] text-lg">Ticket Processed Successfully</p>
+            <p className="text-sm text-[#5e3f3c] mt-2">
+              Reference: <span className="font-mono font-bold">{confirmed.receipt?.reference}</span>
+            </p>
+            <button className="mt-4 px-6 py-3 rounded-lg bg-[#1A1A1A] text-white font-bold" onClick={() => window.print()}>
+              Print Ticket Report
+            </button>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
+        <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Booking Inquiry</h2>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input
+            className="flex-1 px-4 py-3 rounded-lg border border-[#e5e2e1] text-[#1A1A1A]"
+            placeholder="Enter booking reference or ID"
+            value={inquiryRef}
+            onChange={(e) => setInquiryRef(e.target.value)}
+          />
+          <button className="px-6 py-3 rounded-lg bg-[#1A1A1A] text-white font-bold" onClick={lookupBooking}>
+            Add booking inquiry
+          </button>
+        </div>
+        {inquiryMessage ? <p className="mt-3 text-sm font-semibold text-primary">{inquiryMessage}</p> : null}
+        {inquiryBooking ? (
+          <div className="mt-5 rounded-xl border border-[#e5e2e1] bg-[#fcf9f8] p-5">
+            <div className="grid gap-2 md:grid-cols-3 text-sm">
+              <p><span className="font-bold">Reference:</span> {inquiryBooking.reference}</p>
+              <p><span className="font-bold">Status:</span> {inquiryBooking.status}</p>
+              <p><span className="font-bold">Class:</span> {inquiryBooking.travelClass?.label}</p>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {TRAVEL_CLASSES.map((entry) => (
+                <button
+                  key={entry.code}
+                  className="px-4 py-2 rounded-lg border border-[#e5e2e1] bg-white text-sm font-bold"
+                  onClick={() => changeInquiryBooking(entry.code)}
+                >
+                  Change booking to {entry.shortCode || entry.label}
+                </button>
+              ))}
+              <button
+                className="px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-[#c8102e] text-sm font-bold"
+                onClick={deleteInquiryBooking}
+              >
+                Delete booking
+              </button>
             </div>
           </div>
         ) : null}

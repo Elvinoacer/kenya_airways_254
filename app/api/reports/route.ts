@@ -36,6 +36,10 @@ export async function GET(req: Request) {
       case "booking":
         rows = await reports.getBookingReport({ from, to });
         break;
+      case "tickets":
+      case "ticket":
+        rows = await reports.getTicketReport({ from, to });
+        break;
       case "revenue":
         rows = await reports.getRevenueReport({ from, to });
         break;
@@ -56,6 +60,10 @@ export async function GET(req: Request) {
         break;
       case "assignments":
         rows = await reports.getAssignmentReport({ from, to });
+        break;
+      case "matches":
+      case "successful_matches":
+        rows = await reports.getSuccessfulMatchesReport({ from, to });
         break;
       case "staff_performance":
         rows = await reports.getStaffPerformanceReport({

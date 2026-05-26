@@ -73,6 +73,7 @@ export async function createPassengerProfile(input: any, actor?: string): Promis
       userId: input.ownerUserId || null,
       firstName: input.firstName,
       lastName: input.lastName,
+      phone: input.phone,
       passportNumber: input.passportNo,
       nationality: input.nationality,
       dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
@@ -88,6 +89,7 @@ export async function updatePassengerProfile(passengerId: string, input: any, ac
     data: {
       firstName: input.firstName,
       lastName: input.lastName,
+      phone: input.phone,
       passportNumber: input.passportNo,
       nationality: input.nationality,
       dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : undefined,

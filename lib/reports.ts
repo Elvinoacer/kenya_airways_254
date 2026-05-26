@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { getAssignmentReport, listAssignments } from "./staff-assignments";
 
 function isoDate(date?: string | Date) {
   if (!date) return null;
@@ -189,11 +190,63 @@ export function rowsToCsv(rows: any[]) {
   return headers + "\n" + body;
 }
 
+export async function generateTicketReport({
+  from,
+  to,
+}: {
+  from?: string;
+  to?: string;
+}) {
+  const fromIso = isoDate(from) || "1970-01-01T00:00:00.000Z";
+  const toIso = isoDate(to) || new Date().toISOString();
+  const rows = await prisma.booking.findMany({
+    where: {
+      createdAt: { gte: new Date(fromIso), lte: new Date(toIso) },
+      status: { in: ["CONFIRMED", "COMPLETED"] },
+    },
+    include: { flight: true, passengers: true, payments: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return rows.map((booking) => ({
+    ticket_reference: booking.bookingReference,
+    flight_number: booking.flight.flightNumber,
+    route: `${booking.flight.origin || ""} to ${booking.flight.destination || ""}`,
+    departure_time: booking.flight.departureTime,
+    class: booking.seatClass,
+    passenger_count: booking.passengers.length,
+    passengers: booking.passengers
+      .map((passenger) => `${passenger.firstName} ${passenger.lastName}`)
+      .join("; "),
+    amount: booking.totalAmount,
+    payment_status: booking.payments[0]?.status || "PENDING",
+    issued_at: booking.createdAt,
+  }));
+}
+
+export async function generateSuccessfulMatchesReport(_params: any = {}) {
+  const rows = await listAssignments({});
+  return rows
+    .filter((row: any) => ["ASSIGNED", "APPROVED", "COMPLETED"].includes(row.status))
+    .map((row: any) => ({
+      flight_number: row.flight_number,
+      departure_time: row.departure_time,
+      role: row.assignment_role,
+      employee: row.first_name ? `${row.first_name} ${row.last_name}` : "Unassigned",
+      status: row.status,
+      match_score: row.match_score,
+      match_reason: row.match_reason || row.source,
+      matched_at: row.updated_at,
+    }));
+}
+
 export default {
   getBookingReport: generateBookingReport,
   getRevenueReport: generateRevenueReport,
   getPassengerManifest: generatePassengerManifest,
   getFlightPerformanceReport: generateFlightPerformanceReport,
+  getTicketReport: generateTicketReport,
+  getSuccessfulMatchesReport: generateSuccessfulMatchesReport,
   generateBookingReport,
   generateRevenueReport,
   generateFlightPerformanceReport,
@@ -201,7 +254,10 @@ export default {
   getFlightSummary: async (params: any) => [],
   getCancellationReport: async (params: any) => [],
   getRefundReport: async (params: any) => [],
-  getAssignmentReport: async (params: any) => [],
+  getAssignmentReport: async (params: any) => {
+    const report = await getAssignmentReport();
+    return report.rows || [];
+  },
   getStaffPerformanceReport: async (params: any) => [],
   getShiftReport: async (params: any) => [],
   getCrewUtilizationReport: async (params: any) => [],
