@@ -116,12 +116,14 @@ function SearchContent() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 -mt-16 relative z-10">
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-          {/* Form Sidebar (Takes 4 columns on large screens) */}
-          <div className="xl:col-span-4">
-            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#e5e2e1]">
-              <h2 className="text-2xl font-bold text-[#1A1A1A] mb-6 flex items-center gap-2">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 -mt-16 relative z-10 w-full overflow-hidden">
+        {/* FIX: Improved Grid layout breakpoints so Sidebar doesn't crush the cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-8">
+          
+          {/* Form Sidebar: Changed to span 4 on lg, and 3 on xl to give cards more room */}
+          <div className="lg:col-span-4 xl:col-span-3">
+            <div className="bg-white p-5 md:p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#e5e2e1]">
+              <h2 className="text-xl font-bold text-[#1A1A1A] mb-6 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#e71520]" aria-hidden="true">
                   travel_explore
                 </span>
@@ -133,7 +135,7 @@ function SearchContent() {
                   e.preventDefault();
                   const form = new FormData(e.currentTarget as HTMLFormElement);
                   const next: SearchParams = {
-                    ...params, // Preserve existing params like tripType, origin, destination
+                    ...params, 
                     departDate: String(form.get("departDate") || ""),
                     returnDate: String(form.get("returnDate") || ""),
                     cabin: String(form.get("cabin") || ""),
@@ -141,13 +143,10 @@ function SearchContent() {
                     currency: String(form.get("currency") || "USD") as "USD" | "KES",
                   };
 
-                  // Text input filters
                   const priceMin = form.get("priceMin");
                   const priceMax = form.get("priceMax");
                   const durationMax = form.get("durationMax");
                   const seatsMin = form.get("seatsMin");
-
-                  // Checkbox filters
                   const directOnly = form.get("directOnly");
                   const refundable = form.get("refundable");
                   const baggageIncluded = form.get("baggageIncluded");
@@ -173,7 +172,7 @@ function SearchContent() {
                   <button
                     type="button"
                     onClick={() => setParams((prev) => ({ ...prev, tripType: "return" }))}
-                    className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                    className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
                       params.tripType === "return"
                         ? "bg-white text-[#1A1A1A] shadow-sm ring-1 ring-black/5"
                         : "text-[#5e3f3c] hover:text-[#1A1A1A]"
@@ -184,7 +183,7 @@ function SearchContent() {
                   <button
                     type="button"
                     onClick={() => setParams((prev) => ({ ...prev, tripType: "oneway", returnDate: "" }))}
-                    className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                    className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
                       params.tripType === "oneway"
                         ? "bg-white text-[#1A1A1A] shadow-sm ring-1 ring-black/5"
                         : "text-[#5e3f3c] hover:text-[#1A1A1A]"
@@ -201,10 +200,7 @@ function SearchContent() {
                       From
                     </label>
                     <div className="relative">
-                      <span
-                        className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none"
-                        aria-hidden="true"
-                      >
+                      <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none" aria-hidden="true">
                         flight_takeoff
                       </span>
                       <select
@@ -212,7 +208,7 @@ function SearchContent() {
                         name="origin"
                         value={params.origin || ""}
                         onChange={(e) => setParams((current) => ({ ...current, origin: e.target.value }))}
-                        className="w-full pl-11 pr-4 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow appearance-none"
+                        className="w-full pl-11 pr-4 py-2.5 text-sm rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] appearance-none"
                       >
                         <option value="">Any origin</option>
                         {AIRPORTS.map((airport) => (
@@ -224,13 +220,12 @@ function SearchContent() {
                     </div>
                   </div>
 
-                  {/* Swap Button */}
-                  <div className="absolute right-4 top-[45%] -translate-y-1/2 z-10 hidden sm:block xl:hidden 2xl:block">
+                  <div className="absolute right-4 top-[45%] -translate-y-1/2 z-10 hidden sm:block lg:hidden xl:block">
                     <button
                       type="button"
                       onClick={handleSwapRoute}
                       aria-label="Swap origin and destination"
-                      className="bg-white border border-[#e5e2e1] p-2 rounded-full shadow-sm text-[#5e3f3c] hover:text-[#e71520] hover:border-[#e71520] transition-colors focus:outline-none focus:ring-2 focus:ring-[#e71520]"
+                      className="bg-white border border-[#e5e2e1] p-1.5 rounded-full shadow-sm text-[#5e3f3c] hover:text-[#e71520] hover:border-[#e71520] transition-colors focus:outline-none focus:ring-2 focus:ring-[#e71520]"
                     >
                       <span className="material-symbols-outlined text-sm" aria-hidden="true">
                         swap_vert
@@ -243,10 +238,7 @@ function SearchContent() {
                       To
                     </label>
                     <div className="relative">
-                      <span
-                        className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none"
-                        aria-hidden="true"
-                      >
+                      <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none" aria-hidden="true">
                         flight_land
                       </span>
                       <select
@@ -254,7 +246,7 @@ function SearchContent() {
                         name="destination"
                         value={params.destination || ""}
                         onChange={(e) => setParams((current) => ({ ...current, destination: e.target.value }))}
-                        className="w-full pl-11 pr-4 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow appearance-none"
+                        className="w-full pl-11 pr-4 py-2.5 text-sm rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] appearance-none"
                       >
                         <option value="">Any destination</option>
                         {AIRPORTS.map((airport) => (
@@ -268,112 +260,77 @@ function SearchContent() {
                 </div>
 
                 {/* 3. Dates */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="departDate" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">
-                      Depart
-                    </label>
+                    <label htmlFor="departDate" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">Depart</label>
                     <div className="relative">
-                      <span
-                        className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none text-[20px]"
-                        aria-hidden="true"
-                      >
-                        calendar_month
-                      </span>
                       <input
                         id="departDate"
                         name="departDate"
                         defaultValue={params.departDate || ""}
                         type="date"
-                        className="w-full pl-10 pr-3 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow"
+                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520]"
                       />
                     </div>
                   </div>
                   <div className={`${params.tripType === "oneway" ? "opacity-50 pointer-events-none" : ""}`}>
-                    <label htmlFor="returnDate" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">
-                      Return
-                    </label>
+                    <label htmlFor="returnDate" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">Return</label>
                     <div className="relative">
-                      <span
-                        className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none text-[20px]"
-                        aria-hidden="true"
-                      >
-                        calendar_month
-                      </span>
                       <input
                         id="returnDate"
                         name="returnDate"
                         defaultValue={params.returnDate || ""}
                         type="date"
                         disabled={params.tripType === "oneway"}
-                        className="w-full pl-10 pr-3 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow"
+                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520]"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* 4. Passengers & Cabin */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="passengers" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">
-                      Passengers
-                    </label>
+                    <label htmlFor="passengers" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">Passengers</label>
                     <div className="relative">
-                      <span
-                        className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none text-[20px]"
-                        aria-hidden="true"
-                      >
-                        person
-                      </span>
                       <input
                         id="passengers"
                         name="passengers"
                         defaultValue={params.passengers || "1"}
-                        min="1"
-                        max="9"
-                        type="number"
-                        className="w-full pl-10 pr-3 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow"
+                        min="1" max="9" type="number"
+                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520]"
                       />
                     </div>
                   </div>
                   <div>
-                    <label htmlFor="cabin" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">
-                      Cabin
-                    </label>
+                    <label htmlFor="cabin" className="block text-sm font-medium text-[#5e3f3c] mb-1.5">Cabin</label>
                     <div className="relative">
-                      <span
-                        className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#5e3f3c]/60 pointer-events-none text-[20px]"
-                        aria-hidden="true"
-                      >
-                        airline_seat_recline_extra
-                      </span>
                       <select
                         id="cabin"
                         name="cabin"
                         defaultValue={params.cabin || ""}
-                        className="w-full pl-10 pr-3 py-3 rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] focus:border-transparent transition-shadow appearance-none"
+                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-[#e5e2e1] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] appearance-none"
                       >
-                        <option value="">Any cabin</option>
+                        <option value="">Any</option>
                         <option value="CLASS_A">Executive</option>
-                        <option value="CLASS_B">Middle class</option>
-                        <option value="CLASS_C">Low class</option>
+                        <option value="CLASS_B">Middle</option>
+                        <option value="CLASS_C">Low</option>
                       </select>
                     </div>
                   </div>
                 </div>
 
-                {/* Separator */}
                 <hr className="border-[#e5e2e1]" />
 
-                {/* 5. Filters & Preferences */}
+                {/* 5. Filters */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-[#1A1A1A] text-lg">Filters</h3>
+                    <h3 className="font-bold text-[#1A1A1A] text-base">Filters</h3>
                     <select
-                      aria-label="Currency Selection"
+                      aria-label="Currency"
                       name="currency"
                       defaultValue={params.currency || "USD"}
-                      className="text-sm font-medium rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-3 py-1.5 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520]"
+                      className="text-xs font-medium rounded-lg border border-[#e5e2e1] bg-[#fcf9f8] px-2.5 py-1 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520]"
                     >
                       <option value="USD">USD ($)</option>
                       <option value="KES">KES (KSh)</option>
@@ -386,80 +343,44 @@ function SearchContent() {
                       { id: "refundable", label: "Fully Refundable" },
                       { id: "baggageIncluded", label: "Baggage Included" },
                     ].map((checkbox) => (
-                      <label
-                        key={checkbox.id}
-                        htmlFor={checkbox.id}
-                        className="flex items-center gap-3 cursor-pointer group"
-                      >
+                      <label key={checkbox.id} htmlFor={checkbox.id} className="flex items-center gap-3 cursor-pointer group">
                         <input
                           id={checkbox.id}
                           name={checkbox.id}
                           type="checkbox"
                           defaultChecked={params[checkbox.id as keyof SearchParams] === "true"}
-                          className="w-5 h-5 text-[#e71520] bg-white border-[#e5e2e1] rounded focus:ring-[#e71520] focus:ring-offset-1 transition-all"
+                          className="w-4 h-4 text-[#e71520] bg-white border-[#e5e2e1] rounded focus:ring-[#e71520]"
                         />
-                        <span className="text-sm font-medium text-[#5e3f3c] group-hover:text-[#1A1A1A] transition-colors">
-                          {checkbox.label}
-                        </span>
+                        <span className="text-sm font-medium text-[#5e3f3c] group-hover:text-[#1A1A1A]">{checkbox.label}</span>
                       </label>
                     ))}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <input
-                      name="priceMin"
-                      aria-label="Minimum Price"
-                      defaultValue={params.priceMin || ""}
-                      placeholder="Min price"
-                      type="number"
-                      className="w-full px-4 py-2.5 rounded-xl border border-[#e5e2e1] text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] placeholder-[#5e3f3c]/50"
-                    />
-                    <input
-                      name="priceMax"
-                      aria-label="Maximum Price"
-                      defaultValue={params.priceMax || ""}
-                      placeholder="Max price"
-                      type="number"
-                      className="w-full px-4 py-2.5 rounded-xl border border-[#e5e2e1] text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] placeholder-[#5e3f3c]/50"
-                    />
-                    <input
-                      name="durationMax"
-                      aria-label="Maximum Duration (Minutes)"
-                      defaultValue={params.durationMax || ""}
-                      placeholder="Max duration (min)"
-                      type="number"
-                      className="w-full px-4 py-2.5 rounded-xl border border-[#e5e2e1] text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] placeholder-[#5e3f3c]/50"
-                    />
-                    <input
-                      name="seatsMin"
-                      aria-label="Minimum Seats Required"
-                      defaultValue={params.seatsMin || ""}
-                      placeholder="Min seats"
-                      type="number"
-                      className="w-full px-4 py-2.5 rounded-xl border border-[#e5e2e1] text-sm text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] placeholder-[#5e3f3c]/50"
-                    />
+                    <input name="priceMin" defaultValue={params.priceMin || ""} placeholder="Min $" type="number" className="w-full px-3 py-2 text-sm rounded-lg border border-[#e5e2e1]" />
+                    <input name="priceMax" defaultValue={params.priceMax || ""} placeholder="Max $" type="number" className="w-full px-3 py-2 text-sm rounded-lg border border-[#e5e2e1]" />
+                    <input name="durationMax" defaultValue={params.durationMax || ""} placeholder="Max mins" type="number" className="w-full px-3 py-2 text-sm rounded-lg border border-[#e5e2e1]" />
+                    <input name="seatsMin" defaultValue={params.seatsMin || ""} placeholder="Min seats" type="number" className="w-full px-3 py-2 text-sm rounded-lg border border-[#e5e2e1]" />
                   </div>
                 </div>
 
-                {/* Submit Button */}
                 <div className="pt-2">
                   <button
                     type="submit"
-                    className="w-full py-4 px-6 rounded-xl bg-[#e71520] text-white font-bold text-lg hover:bg-[#c9121a] shadow-lg shadow-[#e71520]/25 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-4 focus:ring-[#e71520]/30 flex justify-center items-center gap-2"
+                    className="w-full py-3.5 px-6 rounded-xl bg-[#e71520] text-white font-bold text-base hover:bg-[#c9121a] shadow-lg shadow-[#e71520]/25 transition-all flex justify-center items-center gap-2"
                   >
                     Search Flights
-                    <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
-                      arrow_forward
-                    </span>
+                    <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span>
                   </button>
                 </div>
               </form>
             </div>
           </div>
 
-          {/* Results Area (Takes 8 columns on large screens) */}
-          <div className="xl:col-span-8">
-            {/* Premium Header for Results */}
+          {/* Results Area: Changed to span 8 on lg, and 9 on xl for massive breathing room */}
+          <div className="lg:col-span-8 xl:col-span-9 min-w-0">
+            
+            {/* Header */}
             <div className="mb-6 bg-white p-4 rounded-2xl shadow-sm border border-[#e5e2e1] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h2 className="text-xl font-bold text-[#1A1A1A]">Available Flights</h2>
@@ -468,39 +389,32 @@ function SearchContent() {
                 </p>
               </div>
 
-              {/* Sort Dropdown Moved Here for Better UX */}
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                <span className="material-symbols-outlined text-[#5e3f3c] text-sm" aria-hidden="true">
-                  sort
-                </span>
+                <span className="material-symbols-outlined text-[#5e3f3c] text-sm" aria-hidden="true">sort</span>
                 <select
                   id="sortResults"
                   name="sort"
                   value={params.sort || "depart"}
                   onChange={(e) => setParams((current) => ({ ...current, sort: e.target.value }))}
-                  className="w-full sm:w-auto text-sm font-medium rounded-xl border border-[#e5e2e1] bg-[#fcf9f8] px-4 py-2.5 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] appearance-none cursor-pointer"
+                  className="w-full sm:w-auto text-sm font-medium rounded-xl border border-[#e5e2e1] bg-[#fcf9f8] px-4 py-2 text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#e71520] appearance-none"
                 >
-                  <option value="depart">Sort by: Earliest Depart</option>
-                  <option value="price">Sort by: Lowest Price</option>
-                  <option value="duration">Sort by: Shortest Flight</option>
+                  <option value="depart">Sort: Earliest Depart</option>
+                  <option value="price">Sort: Lowest Price</option>
+                  <option value="duration">Sort: Shortest Flight</option>
                 </select>
               </div>
             </div>
 
-            {/* States: Loading, Error, Empty, Results */}
             {loading && (
-              <div className="flex flex-col items-center justify-center py-32 bg-white rounded-3xl border border-[#e5e2e1] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+              <div className="flex flex-col items-center justify-center py-32 bg-white rounded-3xl border border-[#e5e2e1]">
                 <div className="w-14 h-14 border-4 border-[#fcf9f8] border-t-[#e71520] rounded-full animate-spin mb-6" />
-                <h3 className="text-xl font-bold text-[#1A1A1A] mb-2">Finding best routes...</h3>
-                <p className="text-[#5e3f3c] font-medium">Searching hundreds of flights for you.</p>
+                <h3 className="text-xl font-bold text-[#1A1A1A]">Finding best routes...</h3>
               </div>
             )}
 
             {!loading && error && (
-              <div className="mb-4 rounded-2xl border-l-4 border-[#e71520] bg-[#fff5f5] p-6 shadow-sm flex items-start gap-4">
-                <span className="material-symbols-outlined text-[#e71520] text-2xl" aria-hidden="true">
-                  error
-                </span>
+              <div className="mb-4 rounded-2xl border-l-4 border-[#e71520] bg-[#fff5f5] p-6 flex items-start gap-4">
+                <span className="material-symbols-outlined text-[#e71520] text-2xl" aria-hidden="true">error</span>
                 <div>
                   <h3 className="font-bold text-[#e71520] mb-1">We hit a snag</h3>
                   <p className="text-sm font-medium text-[#5e3f3c]">{error}</p>
@@ -509,34 +423,12 @@ function SearchContent() {
             )}
 
             {!loading && !error && results.length === 0 && initialized && (
-              <div className="flex flex-col items-center justify-center py-28 bg-white rounded-3xl border border-[#e5e2e1] shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-center px-6">
-                <div className="w-20 h-20 bg-[#fcf9f8] rounded-full flex items-center justify-center mb-6">
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 48 48"
-                    className="w-10 h-10 text-[#5e3f3c]"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M6 28.5l14.4-4.2 6.7-11.1 4.1 1.4-4 10.1 9.8-2.9c1.3-.4 2.6.4 3 1.7.4 1.3-.2 2.7-1.4 3.2l-10.4 4.6 2.8 7.6-3.8 1.2-4.7-6.4-12 5.3-2.5-3.5 10.5-8.1-8.8-2.1z" />
-                    <path d="M10 10l28 28" />
-                    <circle cx="24" cy="24" r="20" opacity="0.18" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-[#1A1A1A] mb-3">No flights found</h3>
-                <p className="text-[#5e3f3c] max-w-md mx-auto text-lg">
-                  We could not find any flights matching your exact criteria. Try adjusting your dates, filters, or
-                  trying a different route.
-                </p>
-                <button
-                  onClick={() => setParams({ currency: "USD", tripType: "return", passengers: "1" })}
-                  className="mt-8 px-6 py-2.5 rounded-lg border-2 border-[#e5e2e1] text-[#1A1A1A] font-semibold hover:border-[#1A1A1A] transition-colors"
-                >
-                  Clear all filters
-                </button>
+              <div className="flex flex-col items-center justify-center py-28 bg-white rounded-3xl border border-[#e5e2e1] text-center px-6">
+                 <h3 className="text-2xl font-bold text-[#1A1A1A] mb-3">No flights found</h3>
+                 <p className="text-[#5e3f3c] max-w-md mx-auto">Try adjusting your filters or route.</p>
+                 <button onClick={() => setParams({ currency: "USD", tripType: "return", passengers: "1" })} className="mt-6 px-6 py-2.5 rounded-lg border-2 border-[#e5e2e1] font-semibold">
+                   Clear filters
+                 </button>
               </div>
             )}
 
@@ -556,13 +448,7 @@ function SearchContent() {
 
 export default function SearchPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#fcf9f8]">
-          <div className="w-12 h-12 border-4 border-gray-200 border-t-[#e71520] rounded-full animate-spin" />
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#fcf9f8]"><div className="w-12 h-12 border-4 border-gray-200 border-t-[#e71520] rounded-full animate-spin" /></div>}>
       <SearchContent />
     </Suspense>
   );
