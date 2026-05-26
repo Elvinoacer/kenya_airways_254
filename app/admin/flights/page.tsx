@@ -8,11 +8,13 @@ type Flight = {
   flight_number: string;
   origin: string;
   destination: string;
-  departure_time: string;
-  arrival_time: string;
-  price_economy: number;
-  price_business: number;
-  price_first: number;
+  departure_time: string | Date | null;
+  arrival_time: string | Date | null;
+  basePrice?: number | null;
+  priceKES?: number | null;
+  price_economy?: number | null;
+  price_business?: number | null;
+  price_first?: number | null;
   is_active?: number;
   is_archived?: number;
 };
@@ -60,17 +62,24 @@ export default function FlightsAdminPage() {
     if (res.ok) await load();
   }
 
+  const formatDateTime = (value: string | Date | null | undefined) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
+  };
+
+  const formatPrice = (value: number | string | null | undefined) => {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? amount.toLocaleString() : "—";
+  };
+
   return (
     <div className="text-[#1A1A1A]">
       <header className="bg-white border-b border-[#e5e2e1] sticky top-0 z-10">
         <div className="flex items-center justify-between px-6 py-6 lg:px-8">
           <div>
-            <div className="text-xs font-bold uppercase tracking-widest text-primary mb-1">
-              Flight Operations
-            </div>
-            <h1 className="text-3xl font-black text-[#1A1A1A]">
-              Manage Flights
-            </h1>
+            <div className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Flight Operations</div>
+            <h1 className="text-3xl font-black text-[#1A1A1A]">Manage Flights</h1>
             <p className="text-sm text-[#5e3f3c] mt-2 max-w-2xl">
               Create new flights, adjust schedules, set pricing, and manage fleet assignments.
             </p>
@@ -89,10 +98,12 @@ export default function FlightsAdminPage() {
               <p className="text-sm text-[#5e3f3c]">Enter flight details and pricing information.</p>
             </div>
           </div>
-          
+
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mt-2">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">Flight Number</label>
+              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
+                Flight Number
+              </label>
               <input
                 value={form.flight_number || ""}
                 onChange={(e) => setForm({ ...form, flight_number: e.target.value })}
@@ -110,7 +121,9 @@ export default function FlightsAdminPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">Destination</label>
+              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
+                Destination
+              </label>
               <input
                 value={form.destination || ""}
                 onChange={(e) => setForm({ ...form, destination: e.target.value })}
@@ -119,7 +132,9 @@ export default function FlightsAdminPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">Departure Time</label>
+              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
+                Departure Time
+              </label>
               <input
                 type="datetime-local"
                 value={form.departure_time || ""}
@@ -128,7 +143,9 @@ export default function FlightsAdminPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">Arrival Time</label>
+              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
+                Arrival Time
+              </label>
               <input
                 type="datetime-local"
                 value={form.arrival_time || ""}
@@ -137,7 +154,9 @@ export default function FlightsAdminPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">Economy Price</label>
+              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
+                Economy Price
+              </label>
               <input
                 type="number"
                 value={form.price_economy || ""}
@@ -147,7 +166,9 @@ export default function FlightsAdminPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">Business Price</label>
+              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
+                Business Price
+              </label>
               <input
                 type="number"
                 value={form.price_business || ""}
@@ -157,7 +178,9 @@ export default function FlightsAdminPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">First Class Price</label>
+              <label className="block text-xs font-bold uppercase tracking-widest text-[#5e3f3c] mb-1">
+                First Class Price
+              </label>
               <input
                 type="number"
                 value={form.price_first || ""}
@@ -204,7 +227,7 @@ export default function FlightsAdminPage() {
               {flights.length} total
             </div>
           </div>
-          
+
           {loading ? (
             <div className="flex items-center justify-center p-12">
               <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -233,7 +256,10 @@ export default function FlightsAdminPage() {
                     <tr key={f.id} className="hover:bg-[#fcf9f8] transition-colors group">
                       <td className="px-6 py-4">
                         <div className="font-bold text-[#1A1A1A] text-base">{f.flight_number}</div>
-                        <Link href={`/admin/flights/${f.id}/seats`} className="text-xs font-bold text-primary hover:underline mt-1 flex items-center gap-1">
+                        <Link
+                          href={`/admin/flights/${f.id}/seats`}
+                          className="text-xs font-bold text-primary hover:underline mt-1 flex items-center gap-1"
+                        >
                           <span className="material-symbols-outlined text-[14px]">airline_seat_recline_normal</span>
                           Seat Map
                         </Link>
@@ -246,27 +272,38 @@ export default function FlightsAdminPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-[#1A1A1A] font-medium">{new Date(f.departure_time).toLocaleString()}</div>
-                        <div className="text-[#5e3f3c] text-xs mt-1">{new Date(f.arrival_time).toLocaleString()}</div>
+                        <div className="text-[#1A1A1A] font-medium">{formatDateTime(f.departure_time)}</div>
+                        <div className="text-[#5e3f3c] text-xs mt-1">{formatDateTime(f.arrival_time)}</div>
                       </td>
                       <td className="px-6 py-4 font-mono text-xs text-[#5e3f3c] space-y-1">
-                        <div><span className="font-bold text-[#1A1A1A]">E:</span> {f.price_economy.toLocaleString()}</div>
-                        <div><span className="font-bold text-[#1A1A1A]">B:</span> {f.price_business.toLocaleString()}</div>
-                        <div><span className="font-bold text-[#1A1A1A]">F:</span> {f.price_first.toLocaleString()}</div>
+                        <div>
+                          <span className="font-bold text-[#1A1A1A]">Base:</span>{" "}
+                          {formatPrice(f.basePrice ?? f.priceKES ?? f.price_economy)}
+                        </div>
+                        <div>
+                          <span className="font-bold text-[#1A1A1A]">E:</span>{" "}
+                          {formatPrice(f.price_economy ?? f.basePrice ?? f.priceKES)}
+                        </div>
+                        <div>
+                          <span className="font-bold text-[#1A1A1A]">B:</span>{" "}
+                          {formatPrice(f.price_business ?? f.basePrice ?? f.priceKES)}
+                        </div>
+                        <div>
+                          <span className="font-bold text-[#1A1A1A]">F:</span>{" "}
+                          {formatPrice(f.price_first ?? f.basePrice ?? f.priceKES)}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border ${
-                          f.is_archived
-                            ? "bg-slate-100 text-slate-600 border-slate-200"
-                            : f.is_active
-                              ? "bg-green-50 text-green-700 border-green-200"
-                              : "bg-red-50 text-[#c8102e] border-red-200"
-                        }`}>
-                          {f.is_archived
-                            ? "Archived"
-                            : f.is_active
-                              ? "Active"
-                              : "Inactive"}
+                        <span
+                          className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border ${
+                            f.is_archived
+                              ? "bg-slate-100 text-slate-600 border-slate-200"
+                              : f.is_active
+                                ? "bg-green-50 text-green-700 border-green-200"
+                                : "bg-red-50 text-[#c8102e] border-red-200"
+                          }`}
+                        >
+                          {f.is_archived ? "Archived" : f.is_active ? "Active" : "Inactive"}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -278,7 +315,7 @@ export default function FlightsAdminPage() {
                           >
                             <span className="material-symbols-outlined text-[18px]">content_copy</span>
                           </button>
-                          
+
                           {!f.is_archived && !f.is_active && (
                             <button
                               className="bg-green-50 border border-green-200 hover:bg-green-100 text-green-700 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer"
@@ -288,7 +325,7 @@ export default function FlightsAdminPage() {
                               <span className="material-symbols-outlined text-[18px]">check_circle</span>
                             </button>
                           )}
-                          
+
                           {!f.is_archived && f.is_active && (
                             <button
                               className="bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-700 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer"
