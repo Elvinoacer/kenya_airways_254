@@ -62,3 +62,16 @@ export async function removeStaffFromSchedule(assignmentId: string, actor?: stri
   
   return { success: true };
 }
+
+export async function getAssignmentDetails(id: string) { return null; }
+export async function listAssignments(filters: any) { return []; }
+export async function createStaffAssignment(data: any) { return null; }
+export async function approveAssignment(id: string, actor: any) { return null; }
+export async function rejectAssignment(id: string, actor: any, reason: string) { return null; }
+export async function assignEmployeeToSchedule(id: string, actor: any, employeeId?: string) { return null; }
+export async function completeAssignment(id: string, actor: any) { return null; }
+export async function cancelAssignment(id: string, actor: any, reason: string) { return null; }
+export async function findAssignmentMatches(scheduleId?: string) { return []; }
+export async function getAssignmentReport() { return []; }
+export async function listFlightStaffingRequirements(scheduleId?: string) { return []; }
+export async function setFlightStaffingRequirements(data: any) { return null; }

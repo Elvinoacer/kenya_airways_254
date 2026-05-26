@@ -17,10 +17,10 @@ export async function GET(
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await context.params;
-  const profile = getPassengerProfile(id);
+  const profile = await getPassengerProfile(id);
   if (!profile)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canAccessPassenger(profile.ownerUserId, session))
+  if (!canAccessPassenger(profile.ownerUserId || "", session))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return NextResponse.json({ passenger: profile });
 }
@@ -33,14 +33,14 @@ export async function PUT(
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await context.params;
-  const profile = getPassengerProfile(id);
+  const profile = await getPassengerProfile(id);
   if (!profile)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canAccessPassenger(profile.ownerUserId, session))
+  if (!canAccessPassenger(profile.ownerUserId || "", session))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const result = updatePassengerProfile(id, body, session.userId);
+  const result = await updatePassengerProfile(id, body, session.userId);
   if ((result as any).duplicate)
     return NextResponse.json(result, { status: 409 });
   return NextResponse.json(result);
@@ -54,12 +54,12 @@ export async function DELETE(
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await context.params;
-  const profile = getPassengerProfile(id);
+  const profile = await getPassengerProfile(id);
   if (!profile)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canAccessPassenger(profile.ownerUserId, session))
+  if (!canAccessPassenger(profile.ownerUserId || "", session))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const result = deletePassengerProfile(id, session.userId);
+  const result = await deletePassengerProfile(id, session.userId);
   return NextResponse.json(result);
 }

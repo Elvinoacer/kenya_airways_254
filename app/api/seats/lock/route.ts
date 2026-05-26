@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   const { seatId, flightId, userId, bookingId, ttlSeconds } = body;
   if (!seatId || !flightId)
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
-  const res = lockSeat({
+  const res = await lockSeat({
     seatId,
     flightId,
     userId,
@@ -22,7 +22,7 @@ export async function DELETE(request: Request) {
   const { lockId } = body;
   if (!lockId)
     return NextResponse.json({ error: "missing_lockId" }, { status: 400 });
-  const res = unlockSeat(lockId);
+  const res = await unlockSeat(lockId);
   if (!res.success) return NextResponse.json(res, { status: 404 });
   return NextResponse.json(res);
 }

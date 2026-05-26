@@ -67,8 +67,8 @@ export async function listTicketsCursor(limit = 50, cursor?: string) {
   }
 }
 
-export function makeCursor(row: { created_at: string; id: string } | { createdAt: Date, id: string }) {
-  const createdAtStr = row.createdAt ? (row.createdAt as Date).toISOString() : (row as any).created_at;
+export function makeCursor(row: { created_at?: string; createdAt?: Date, id: string }) {
+  const createdAtStr = row.createdAt ? row.createdAt.toISOString() : row.created_at;
   return Buffer.from(
     JSON.stringify({ created_at: createdAtStr, id: row.id }),
     "utf8",

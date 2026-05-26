@@ -11,8 +11,8 @@ export async function GET(request: Request) {
   const filter = url.searchParams.get("filter"); // e.g., 'window' or 'aisle' or 'accessible'
   if (!flightId)
     return NextResponse.json({ error: "missing_flightId" }, { status: 400 });
-  let seats: any[] = getSeatsForFlight(flightId);
-  const summary = getSeatOccupancySummary(flightId);
+  let seats: any[] = await getSeatsForFlight(flightId);
+  const summary = await getSeatOccupancySummary(flightId);
   if (seatClass)
     seats = seats.filter((s) => s.seat_class === seatClass.toUpperCase());
   if (filter) {

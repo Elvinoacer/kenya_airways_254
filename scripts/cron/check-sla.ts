@@ -8,15 +8,15 @@ import path from "path";
 import { listTickets, addEvent, updateTicket } from "../../lib/support";
 
 async function run() {
-  const tickets: any[] = listTickets(1000, 0) as any[];
+  const tickets: any[] = await listTickets(1000, 0) as any[];
   const now = new Date();
   for (const t of tickets) {
     if (!t.sla_due_at) continue;
     const slaDate = new Date(t.sla_due_at);
     if (t.status !== "closed" && slaDate < now) {
       // SLA breached — escalate
-      addEvent(t.id, "sla_breached", { sla_due_at: t.sla_due_at });
-      updateTicket(t.id, { escalation_level: (t.escalation_level || 0) + 1 });
+      await addEvent(t.id, "sla_breached", { sla_due_at: t.sla_due_at });
+      await updateTicket(t.id, { escalation_level: (t.escalation_level || 0) + 1 });
     }
   }
 }

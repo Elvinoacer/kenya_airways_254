@@ -16,14 +16,14 @@ export async function GET(req: NextRequest) {
   const includeBlacklisted =
     url.searchParams.get("includeBlacklisted") === "true";
 
-  const list = listPassengerProfiles({
+  const list = await listPassengerProfiles({
     ownerUserId:
       session.role === "STAFF" || session.role === "ADMIN"
         ? ownerUserId
         : session.userId,
     includeDeleted,
     includeBlacklisted,
-  });
+  } as any);
   return NextResponse.json({ passengers: list });
 }
 
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const result = createPassengerProfile(
+  const result = await createPassengerProfile(
     {
       ownerUserId,
       firstName: body.firstName,

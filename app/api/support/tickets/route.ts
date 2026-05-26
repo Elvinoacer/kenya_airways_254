@@ -7,9 +7,9 @@ export async function GET(request: Request) {
   const cursor = url.searchParams.get("cursor") || undefined;
   let tickets;
   if (cursor) {
-    tickets = support.listTicketsCursor(limit, cursor);
+    tickets = await support.listTicketsCursor(limit, cursor);
   } else {
-    tickets = support.listTickets(limit, 0);
+    tickets = await support.listTickets(limit, 0);
   }
   // compute nextCursor if there are results
   const tks = tickets as any[];
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const { name, email, subject, message, context } = body || {};
     if (!email || !message)
       return NextResponse.json({ error: "missing_fields" }, { status: 400 });
-    const created = support.createTicket({
+    const created = await support.createTicket({
       name,
       email,
       subject,

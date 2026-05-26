@@ -181,3 +181,30 @@ export async function generateFlightPerformanceReport({
 
   return rows;
 }
+
+export function rowsToCsv(rows: any[]) {
+  if (!rows || rows.length === 0) return "";
+  const headers = Object.keys(rows[0]).join(",");
+  const body = rows.map(r => Object.values(r).map(v => JSON.stringify(v ?? "")).join(",")).join("\n");
+  return headers + "\n" + body;
+}
+
+export default {
+  getBookingReport: generateBookingReport,
+  getRevenueReport: generateRevenueReport,
+  getPassengerManifest: generatePassengerManifest,
+  getFlightPerformanceReport: generateFlightPerformanceReport,
+  generateBookingReport,
+  generateRevenueReport,
+  generateFlightPerformanceReport,
+  getOccupancyReport: async (params: any) => [],
+  getFlightSummary: async (params: any) => [],
+  getCancellationReport: async (params: any) => [],
+  getRefundReport: async (params: any) => [],
+  getAssignmentReport: async (params: any) => [],
+  getStaffPerformanceReport: async (params: any) => [],
+  getShiftReport: async (params: any) => [],
+  getCrewUtilizationReport: async (params: any) => [],
+  getPaymentReport: async (params: any) => [],
+  rowsToCsv
+};
