@@ -23,7 +23,10 @@ import {
 } from "../../lib/auth-session";
 import { sendEmail } from "../../lib/notifications";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.APP_URL ||
+  "http://localhost:3000";
 
 function isAtLeast18(dateOfBirthStr: string) {
   if (!dateOfBirthStr) return false;
@@ -53,11 +56,23 @@ async function getActiveSession(): Promise<SessionPayload | null> {
 }
 
 function authDatabaseErrorMessage(error: unknown) {
-  const err = error as { code?: string; message?: string; cause?: { code?: string; message?: string } };
+  const err = error as {
+    code?: string;
+    message?: string;
+    cause?: { code?: string; message?: string };
+  };
   const code = err.code || err.cause?.code || "";
   const message = `${err.message || ""} ${err.cause?.message || ""}`;
   if (
-    ["ETIMEDOUT", "ECONNRESET", "ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "P1001", "P1002"].includes(code) ||
+    [
+      "ETIMEDOUT",
+      "ECONNRESET",
+      "ECONNREFUSED",
+      "EHOSTUNREACH",
+      "ENETUNREACH",
+      "P1001",
+      "P1002",
+    ].includes(code) ||
     /timeout|timed out|can't reach database|connection/i.test(message)
   ) {
     return "The database connection is temporarily unavailable. Please try again in a moment.";
@@ -69,13 +84,22 @@ function authDatabaseErrorMessage(error: unknown) {
 // 1. User Registration
 // ─────────────────────────────────────────
 
-export async function registerAction(email: string, password: string, name: string) {
+export async function registerAction(
+  email: string,
+  password: string,
+  name: string,
+) {
   try {
-    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const normalizedEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : "";
     const normalizedName = typeof name === "string" ? name.trim() : "";
 
     if (!normalizedEmail || !password || password.length < 8) {
-      return { success: false, error: "Email is required and password must be at least 8 characters long." };
+      return {
+        success: false,
+        error:
+          "Email is required and password must be at least 8 characters long.",
+      };
     }
 
     // Check if user already exists
@@ -83,7 +107,10 @@ export async function registerAction(email: string, password: string, name: stri
       where: { email: normalizedEmail },
     });
     if (existing) {
-      return { success: false, error: "A user with this email address already exists." };
+      return {
+        success: false,
+        error: "A user with this email address already exists.",
+      };
     }
 
     const passwordHash = hashPassword(password);
@@ -101,7 +128,10 @@ export async function registerAction(email: string, password: string, name: stri
     });
 
     // Generate email verification token
-    const { token } = await createVerificationToken(normalizedEmail, "EMAIL_VERIFICATION");
+    const { token } = await createVerificationToken(
+      normalizedEmail,
+      "EMAIL_VERIFICATION",
+    );
 
     const verificationUrl = `${APP_URL}/verify-email?token=${token}`;
     const emailResult = await sendEmail(
@@ -117,7 +147,8 @@ export async function registerAction(email: string, password: string, name: stri
       ].join("\n"),
       {
         eyebrow: "Account verification",
-        preheader: "Confirm your email address and finish setting up your Kenya Airways account.",
+        preheader:
+          "Confirm your email address and finish setting up your Kenya Airways account.",
         cta: { label: "Verify email address", url: verificationUrl },
       },
     );
@@ -129,9 +160,19 @@ export async function registerAction(email: string, password: string, name: stri
       };
     }
 
-    return { success: true, message: "Registration successful! Please check your email for a verification link." };
+    return {
+      success: true,
+      message:
+        "Registration successful! Please check your email for a verification link.",
+    };
   } catch (err: any) {
-    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An unexpected error occurred during registration." };
+    return {
+      success: false,
+      error:
+        authDatabaseErrorMessage(err) ||
+        err.message ||
+        "An unexpected error occurred during registration.",
+    };
   }
 }
 
@@ -155,7 +196,10 @@ export async function loginAction(
 
     // Throttle login check
     if (await isLoginThrottled(email, ip)) {
-      return { success: false, error: "Too many login attempts. Please try again in 5 minutes." };
+      return {
+        success: false,
+        error: "Too many login attempts. Please try again in 5 minutes.",
+      };
     }
 
     // Record login attempt
@@ -172,7 +216,10 @@ export async function loginAction(
       const lockExpiry = new Date(user.lockedUntil).getTime();
       if (lockExpiry > Date.now()) {
         const minutesLeft = Math.ceil((lockExpiry - Date.now()) / 60000);
-        return { success: false, error: `Account is locked. Please try again in ${minutesLeft} minutes.` };
+        return {
+          success: false,
+          error: `Account is locked. Please try again in ${minutesLeft} minutes.`,
+        };
       } else {
         // Lock expired, reset attempts
         await resetFailedLoginAttempts(user.id);
@@ -187,7 +234,11 @@ export async function loginAction(
       // Re-fetch user details for updated lock parameters
       const { lockedUntil, remainingAttempts } = await handleFailedLogin(user);
       if (lockedUntil) {
-        return { success: false, error: "Too many failed attempts. Your account has been locked for 15 minutes." };
+        return {
+          success: false,
+          error:
+            "Too many failed attempts. Your account has been locked for 15 minutes.",
+        };
       }
       return {
         success: false,
@@ -201,14 +252,19 @@ export async function loginAction(
     if (!user.emailVerified) {
       return {
         success: false,
-        error: "Please verify your email address before signing in. Check your inbox for the verification link.",
+        error:
+          "Please verify your email address before signing in. Check your inbox for the verification link.",
       };
     }
 
     // Check if 2FA (Two-Factor Authentication) is enabled
     if (user.twoFactorEnabled) {
       // Generate 2FA Verification Code
-      const { code } = await createVerificationToken(email, "MFA_CODE", 5 * 60 * 1000); // 5 mins expiry
+      const { code } = await createVerificationToken(
+        email,
+        "MFA_CODE",
+        5 * 60 * 1000,
+      ); // 5 mins expiry
 
       const emailResult = await sendEmail(
         email,
@@ -223,7 +279,8 @@ export async function loginAction(
         ].join("\n"),
         {
           eyebrow: "Secure sign in",
-          preheader: "Use this one-time code to complete your Kenya Airways sign in.",
+          preheader:
+            "Use this one-time code to complete your Kenya Airways sign in.",
           code,
         },
       );
@@ -246,11 +303,19 @@ export async function loginAction(
     // Check for suspicious login (IP or UA change)
     const isSuspicious = await checkSuspiciousLogin(user.id, ip, userAgent);
     if (isSuspicious) {
-      console.log(`\n[SECURITY ALERT] Suspicious login detected for user ${email} from IP: ${ip}, UA: ${userAgent}\n`);
+      console.log(
+        `\n[SECURITY ALERT] Suspicious login detected for user ${email} from IP: ${ip}, UA: ${userAgent}\n`,
+      );
     }
 
     // Create session
-    const { expiresAt, cookieValue } = await createDbSession(user.id, user.role, ip, userAgent, rememberMe);
+    const { expiresAt, cookieValue } = await createDbSession(
+      user.id,
+      user.role,
+      ip,
+      userAgent,
+      rememberMe,
+    );
 
     // Set cookie
     const cookieStore = await cookies();
@@ -272,7 +337,82 @@ export async function loginAction(
       },
     };
   } catch (err: any) {
-    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An unexpected error occurred during login." };
+    return {
+      success: false,
+      error:
+        authDatabaseErrorMessage(err) ||
+        err.message ||
+        "An unexpected error occurred during login.",
+    };
+  }
+}
+
+export async function resendVerificationAction(email: string) {
+  try {
+    const normalizedEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : "";
+
+    if (!normalizedEmail) {
+      return { success: false, error: "Email address is required." };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { email: true, name: true, emailVerified: true },
+    });
+
+    if (!user || user.emailVerified) {
+      return {
+        success: true,
+        message:
+          "If an unverified account exists for that email address, a new verification link has been sent.",
+      };
+    }
+
+    const { token } = await createVerificationToken(
+      normalizedEmail,
+      "EMAIL_VERIFICATION",
+    );
+    const verificationUrl = `${APP_URL}/verify-email?token=${token}`;
+
+    const emailResult = await sendEmail(
+      normalizedEmail,
+      "Verify your Kenya Airways account",
+      [
+        `Hello ${user.name || "there"},`,
+        "",
+        "Your new Kenya Airways verification link is below:",
+        verificationUrl,
+        "",
+        "If you did not request this, you can ignore this message.",
+      ].join("\n"),
+      {
+        eyebrow: "Account verification",
+        preheader:
+          "Confirm your email address and finish setting up your Kenya Airways account.",
+        cta: { label: "Verify email address", url: verificationUrl },
+      },
+    );
+
+    if (!emailResult.ok) {
+      return {
+        success: false,
+        error: `Verification email could not be sent: ${emailResult.error}`,
+      };
+    }
+
+    return {
+      success: true,
+      message: "A new verification link has been sent to your email address.",
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error:
+        authDatabaseErrorMessage(err) ||
+        err.message ||
+        "An unexpected error occurred while resending the verification email.",
+    };
   }
 }
 
@@ -285,7 +425,10 @@ export async function verify2FALoginAction(
 ) {
   try {
     if (!email || !code) {
-      return { success: false, error: "Email and verification code are required." };
+      return {
+        success: false,
+        error: "Email and verification code are required.",
+      };
     }
 
     const row = await prisma.verificationToken.findUnique({
@@ -298,7 +441,10 @@ export async function verify2FALoginAction(
 
     if (row.expiresAt.getTime() < Date.now()) {
       await prisma.verificationToken.delete({ where: { id: row.id } });
-      return { success: false, error: "2FA code has expired. Please log in again." };
+      return {
+        success: false,
+        error: "2FA code has expired. Please log in again.",
+      };
     }
 
     // Clean up code
@@ -316,7 +462,13 @@ export async function verify2FALoginAction(
     await checkSuspiciousLogin(user.id, ip, userAgent);
 
     // Create session
-    const { expiresAt, cookieValue } = await createDbSession(user.id, user.role, ip, userAgent, rememberMe);
+    const { expiresAt, cookieValue } = await createDbSession(
+      user.id,
+      user.role,
+      ip,
+      userAgent,
+      rememberMe,
+    );
 
     // Set cookie
     const cookieStore = await cookies();
@@ -338,7 +490,13 @@ export async function verify2FALoginAction(
       },
     };
   } catch (err: any) {
-    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An error occurred during 2FA verification." };
+    return {
+      success: false,
+      error:
+        authDatabaseErrorMessage(err) ||
+        err.message ||
+        "An error occurred during 2FA verification.",
+    };
   }
 }
 
@@ -386,7 +544,11 @@ export async function forgotPasswordAction(email: string) {
 
     // Always return success to prevent email enumeration attacks
     if (user) {
-      const { token } = await createVerificationToken(email, "PASSWORD_RESET", 30 * 60 * 1000); // 30 mins expiry
+      const { token } = await createVerificationToken(
+        email,
+        "PASSWORD_RESET",
+        30 * 60 * 1000,
+      ); // 30 mins expiry
 
       const resetUrl = `${APP_URL}/reset-password?token=${token}`;
       const emailResult = await sendEmail(
@@ -415,22 +577,39 @@ export async function forgotPasswordAction(email: string) {
       }
     }
 
-    return { success: true, message: "If this email is registered, you will receive a password reset link shortly." };
+    return {
+      success: true,
+      message:
+        "If this email is registered, you will receive a password reset link shortly.",
+    };
   } catch (err: any) {
-    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An unexpected error occurred." };
+    return {
+      success: false,
+      error:
+        authDatabaseErrorMessage(err) ||
+        err.message ||
+        "An unexpected error occurred.",
+    };
   }
 }
 
 export async function resetPasswordAction(token: string, passwordStr: string) {
   try {
     if (!token || !passwordStr || passwordStr.length < 8) {
-      return { success: false, error: "Token is required and new password must be at least 8 characters long." };
+      return {
+        success: false,
+        error:
+          "Token is required and new password must be at least 8 characters long.",
+      };
     }
 
     // Verify token
     const email = await verifyPasswordResetToken(token);
     if (!email) {
-      return { success: false, error: "Invalid or expired password reset link." };
+      return {
+        success: false,
+        error: "Invalid or expired password reset link.",
+      };
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
@@ -450,9 +629,18 @@ export async function resetPasswordAction(token: string, passwordStr: string) {
       },
     });
 
-    return { success: true, message: "Password has been reset successfully! You can now log in." };
+    return {
+      success: true,
+      message: "Password has been reset successfully! You can now log in.",
+    };
   } catch (err: any) {
-    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An error occurred during password reset." };
+    return {
+      success: false,
+      error:
+        authDatabaseErrorMessage(err) ||
+        err.message ||
+        "An error occurred during password reset.",
+    };
   }
 }
 
@@ -464,12 +652,24 @@ export async function verifyEmailAction(token: string) {
 
     const email = await verifyEmailToken(token);
     if (!email) {
-      return { success: false, error: "Invalid or expired email verification link." };
+      return {
+        success: false,
+        error: "Invalid or expired email verification link.",
+      };
     }
 
-    return { success: true, message: "Email has been verified successfully! You can now log in." };
+    return {
+      success: true,
+      message: "Email has been verified successfully! You can now log in.",
+    };
   } catch (err: any) {
-    return { success: false, error: authDatabaseErrorMessage(err) || err.message || "An error occurred during email verification." };
+    return {
+      success: false,
+      error:
+        authDatabaseErrorMessage(err) ||
+        err.message ||
+        "An error occurred during email verification.",
+    };
   }
 }
 
@@ -492,11 +692,19 @@ export async function onboardPassengerAction(
     }
 
     if (!firstName || !lastName || !passportNo || !nationality) {
-      return { success: false, error: "First name, last name, passport number, and nationality are required." };
+      return {
+        success: false,
+        error:
+          "First name, last name, passport number, and nationality are required.",
+      };
     }
 
     if (!dateOfBirthStr || !isAtLeast18(dateOfBirthStr)) {
-      return { success: false, error: "Passengers must be at least 18 years old to complete onboarding." };
+      return {
+        success: false,
+        error:
+          "Passengers must be at least 18 years old to complete onboarding.",
+      };
     }
 
     // Check unique passport
@@ -505,7 +713,10 @@ export async function onboardPassengerAction(
     });
 
     if (existing) {
-      return { success: false, error: "A passenger with this passport number is already registered." };
+      return {
+        success: false,
+        error: "A passenger with this passport number is already registered.",
+      };
     }
 
     // Insert passenger record
@@ -542,7 +753,10 @@ export async function onboardPassengerAction(
 
     return { success: true, message: "Onboarding completed successfully!" };
   } catch (err: any) {
-    return { success: false, error: err.message || "An error occurred during onboarding." };
+    return {
+      success: false,
+      error: err.message || "An error occurred during onboarding.",
+    };
   }
 }
 
@@ -603,7 +817,12 @@ export async function getProfileInfo() {
       },
       passenger,
       activeSessions: activeSessions.map(
-        (s: { id: string; ipAddress: string | null; userAgent: string | null; createdAt: Date }) => ({
+        (s: {
+          id: string;
+          ipAddress: string | null;
+          userAgent: string | null;
+          createdAt: Date;
+        }) => ({
           id: s.id,
           ipAddress: s.ipAddress,
           userAgent: s.userAgent,
@@ -644,11 +863,18 @@ export async function updateProfileSettingsAction(
     // Update passenger specific info if PASSENGER
     if (session.role === "PASSENGER") {
       if (!firstName || !lastName) {
-        return { success: false, error: "First name and last name are required for passengers." };
+        return {
+          success: false,
+          error: "First name and last name are required for passengers.",
+        };
       }
 
       if (dateOfBirth && !isAtLeast18(dateOfBirth)) {
-        return { success: false, error: "Passengers must be at least 18 years old to update their profile." };
+        return {
+          success: false,
+          error:
+            "Passengers must be at least 18 years old to update their profile.",
+        };
       }
 
       // Check passport collision
@@ -658,7 +884,11 @@ export async function updateProfileSettingsAction(
         });
 
         if (collision && collision.userId !== session.userId) {
-          return { success: false, error: "Passport number is already registered by another passenger." };
+          return {
+            success: false,
+            error:
+              "Passport number is already registered by another passenger.",
+          };
         }
       }
 
@@ -686,7 +916,10 @@ export async function updateProfileSettingsAction(
 
     return { success: true, message: "Profile updated successfully." };
   } catch (err: any) {
-    return { success: false, error: err.message || "An error occurred while updating profile." };
+    return {
+      success: false,
+      error: err.message || "An error occurred while updating profile.",
+    };
   }
 }
 
@@ -700,19 +933,29 @@ export async function toggle2FAAction(enable: boolean) {
       data: { twoFactorEnabled: enable },
     });
 
-    return { success: true, message: `Two-Factor Authentication has been ${enable ? "enabled" : "disabled"}.` };
+    return {
+      success: true,
+      message: `Two-Factor Authentication has been ${enable ? "enabled" : "disabled"}.`,
+    };
   } catch (err: any) {
     return { success: false, error: err.message || "An error occurred." };
   }
 }
 
-export async function changePasswordAction(currentPasswordStr: string, newPasswordStr: string) {
+export async function changePasswordAction(
+  currentPasswordStr: string,
+  newPasswordStr: string,
+) {
   try {
     const session = await getActiveSession();
     if (!session) return { success: false, error: "Unauthorized." };
 
     if (!currentPasswordStr || !newPasswordStr || newPasswordStr.length < 8) {
-      return { success: false, error: "Passwords are required and new password must be at least 8 characters." };
+      return {
+        success: false,
+        error:
+          "Passwords are required and new password must be at least 8 characters.",
+      };
     }
 
     const user = await prisma.user.findUnique({

@@ -3,7 +3,11 @@
 import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { loginAction, verify2FALoginAction } from "../../actions/auth-actions";
+import {
+  loginAction,
+  resendVerificationAction,
+  verify2FALoginAction,
+} from "../../actions/auth-actions";
 
 function LoginForm() {
   const router = useRouter();
@@ -16,6 +20,8 @@ function LoginForm() {
   // 2FA state
   const [twoFactorRequired, setTwoFactorRequired] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [resendingVerification, setResendingVerification] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -26,6 +32,7 @@ function LoginForm() {
     setLoading(true);
     setError("");
     setSuccess("");
+    setVerificationEmail("");
 
     try {
       if (twoFactorRequired) {
@@ -44,7 +51,9 @@ function LoginForm() {
         if (res.success) {
           if (res.twoFactorRequired) {
             setTwoFactorRequired(true);
-            setSuccess("2FA code sent! Please check your email (or terminal console).");
+            setSuccess(
+              "2FA code sent! Please check your email (or terminal console).",
+            );
           } else {
             setSuccess("Log in successful! Redirecting...");
             setTimeout(() => {
@@ -54,12 +63,46 @@ function LoginForm() {
           }
         } else {
           setError(res.error || "Login failed.");
+          if (
+            res.error &&
+            /verify your email address|verification link|email verification/i.test(
+              res.error,
+            )
+          ) {
+            setVerificationEmail(email);
+          }
         }
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    const targetEmail = (verificationEmail || email).trim();
+    if (!targetEmail) {
+      setError("Enter your email address first.");
+      return;
+    }
+
+    setResendingVerification(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const res = await resendVerificationAction(targetEmail);
+      if (res.success) {
+        setSuccess(res.message || "A new verification link has been sent.");
+        setVerificationEmail(targetEmail);
+      } else {
+        setError(res.error || "Could not resend the verification email.");
+      }
+    } catch (err: any) {
+      setError(err.message || "Could not resend the verification email.");
+    } finally {
+      setResendingVerification(false);
     }
   };
 
@@ -85,7 +128,8 @@ function LoginForm() {
             of Africa.
           </h2>
           <p className="text-white/80 text-lg max-w-md">
-            Connect to the world with award-winning hospitality and world-class service.
+            Connect to the world with award-winning hospitality and world-class
+            service.
           </p>
         </div>
       </div>
@@ -107,7 +151,10 @@ function LoginForm() {
             {!twoFactorRequired && (
               <p className="text-[#5e3f3c]">
                 New to Kenya Airways?{" "}
-                <Link href="/register" className="font-semibold text-primary hover:text-[#e71520] transition-colors">
+                <Link
+                  href="/register"
+                  className="font-semibold text-primary hover:text-[#e71520] transition-colors"
+                >
                   Create an account
                 </Link>
               </p>
@@ -126,19 +173,48 @@ function LoginForm() {
             </div>
           )}
 
+          {verificationEmail && !twoFactorRequired && (
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg space-y-3">
+              <p className="text-sm text-amber-800 font-medium">
+                Your account still needs email verification.
+              </p>
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={resendingVerification}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500 bg-white px-4 py-2 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {resendingVerification
+                  ? "Sending..."
+                  : "Resend verification link"}
+                {!resendingVerification && (
+                  <span className="material-symbols-outlined text-[18px]">
+                    mark_email_unread
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
+
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             {twoFactorRequired ? (
               <div className="space-y-4">
                 <p className="text-sm text-[#5e3f3c]">
-                  A 6-digit verification code has been sent to your email address. Enter it here to continue.
+                  A 6-digit verification code has been sent to your email
+                  address. Enter it here to continue.
                 </p>
                 <div>
-                  <label htmlFor="mfaCode" className="block text-sm font-medium text-[#1A1A1A] mb-1">
+                  <label
+                    htmlFor="mfaCode"
+                    className="block text-sm font-medium text-[#1A1A1A] mb-1"
+                  >
                     6-Digit Verification Code
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="material-symbols-outlined text-primary/60">pin</span>
+                      <span className="material-symbols-outlined text-primary/60">
+                        pin
+                      </span>
                     </div>
                     <input
                       id="mfaCode"
@@ -147,7 +223,9 @@ function LoginForm() {
                       required
                       maxLength={6}
                       value={mfaCode}
-                      onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                      onChange={(e) =>
+                        setMfaCode(e.target.value.replace(/\D/g, ""))
+                      }
                       className="w-full pl-10 pr-4 py-3 text-center text-2xl tracking-widest font-bold rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-[#1A1A1A] bg-[#fcf9f8]"
                       placeholder="000000"
                     />
@@ -157,12 +235,17 @@ function LoginForm() {
             ) : (
               <div className="space-y-5">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-[#1A1A1A] mb-1">
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-[#1A1A1A] mb-1"
+                  >
                     Email address
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="material-symbols-outlined text-primary/60">mail</span>
+                      <span className="material-symbols-outlined text-primary/60">
+                        mail
+                      </span>
                     </div>
                     <input
                       id="email"
@@ -180,7 +263,10 @@ function LoginForm() {
 
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <label htmlFor="password" className="block text-sm font-medium text-[#1A1A1A]">
+                    <label
+                      htmlFor="password"
+                      className="block text-sm font-medium text-[#1A1A1A]"
+                    >
                       Password
                     </label>
                     <Link
@@ -192,7 +278,9 @@ function LoginForm() {
                   </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="material-symbols-outlined text-primary/60">lock</span>
+                      <span className="material-symbols-outlined text-primary/60">
+                        lock
+                      </span>
                     </div>
                     <input
                       id="password"
@@ -217,7 +305,10 @@ function LoginForm() {
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="h-4 w-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
                   />
-                  <label htmlFor="remember-me" className="ml-2 block text-sm text-[#5e3f3c] cursor-pointer select-none">
+                  <label
+                    htmlFor="remember-me"
+                    className="ml-2 block text-sm text-[#5e3f3c] cursor-pointer select-none"
+                  >
                     Remember me for 30 days
                   </label>
                 </div>
@@ -238,12 +329,16 @@ function LoginForm() {
                 ) : twoFactorRequired ? (
                   <>
                     Verify & Login
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    <span className="material-symbols-outlined text-[18px]">
+                      arrow_forward
+                    </span>
                   </>
                 ) : (
                   <>
                     Sign In
-                    <span className="material-symbols-outlined text-[18px]">login</span>
+                    <span className="material-symbols-outlined text-[18px]">
+                      login
+                    </span>
                   </>
                 )}
               </button>
@@ -251,7 +346,8 @@ function LoginForm() {
 
             {!twoFactorRequired && (
               <p className="pt-2 text-center text-xs leading-5 text-[#5e3f3c]">
-                Email verification is required before access to passenger, staff, or admin pages.
+                Email verification is required before access to passenger,
+                staff, or admin pages.
               </p>
             )}
           </form>
