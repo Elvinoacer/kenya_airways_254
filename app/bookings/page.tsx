@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import WorkflowShell from "../components/WorkflowShell";
+import PassportIdentityCard from "../components/passport/PassportIdentityCard";
 import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
 import { getProfileInfo } from "../actions/auth-actions";
 import {
@@ -9,6 +10,7 @@ import {
   hasRequiredPassportDetails,
   type PassportDetails,
 } from "../../lib/passport";
+import { getRouteConfig } from "../../lib/route-config";
 
 type TravelClassCode = "CLASS_A" | "CLASS_B" | "CLASS_C";
 
@@ -66,7 +68,13 @@ type HoldResponse = {
   ok: boolean;
   holdId: string;
   expiresAt: number;
-  fare: { baseFare: number; taxes: number; fees: number; discount: number; total: number };
+  fare: {
+    baseFare: number;
+    taxes: number;
+    fees: number;
+    discount: number;
+    total: number;
+  };
   hold: {
     flight: Flight;
     travelClassLabel: string;
@@ -139,7 +147,9 @@ const EMPTY_PASSPORT: PassportDetails = {
   dateOfExpiry: "",
 };
 
-function passportDraftFromPassenger(passenger?: PassengerProfile | null): PassportDetails {
+function passportDraftFromPassenger(
+  passenger?: PassengerProfile | null,
+): PassportDetails {
   return {
     ...EMPTY_PASSPORT,
     passportNo: passenger?.passportNo || "",
@@ -161,6 +171,14 @@ function formatMoney(value?: number | null) {
   return new Intl.NumberFormat("en-KE", {
     style: "currency",
     currency: "KES",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function formatUsd(value?: number | null) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
 }
@@ -254,7 +272,8 @@ export default function BookingPage() {
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [promoCode, setPromoCode] = useState("");
-  const [passportDraft, setPassportDraft] = useState<PassportDetails>(EMPTY_PASSPORT);
+  const [passportDraft, setPassportDraft] =
+    useState<PassportDetails>(EMPTY_PASSPORT);
   const [hold, setHold] = useState<HoldResponse | null>(null);
   const [confirmed, setConfirmed] = useState<ConfirmedBooking | null>(null);
   const [loading, setLoading] = useState(false);
@@ -309,7 +328,10 @@ export default function BookingPage() {
   }, [selectedFlightId, seatClass, hold, confirmed]);
 
   const selectedFlight = useMemo(
-    () => flights.find((flight) => flight.id === selectedFlightId) || hold?.hold.flight || null,
+    () =>
+      flights.find((flight) => flight.id === selectedFlightId) ||
+      hold?.hold.flight ||
+      null,
     [flights, selectedFlightId, hold],
   );
 
@@ -317,6 +339,10 @@ export default function BookingPage() {
     availability?.classes.find((entry) => entry.code === seatClass) ||
     availability?.selected ||
     null;
+  const selectedRoute = getRouteConfig(
+    selectedFlight?.origin,
+    selectedFlight?.destination,
+  );
   const allClassesFull =
     Boolean(availability?.classes?.length) &&
     availability?.classes.every((entry) => entry.available <= 0);
@@ -332,7 +358,9 @@ export default function BookingPage() {
     !loading;
 
   function chooseBestAvailableClass(nextAvailability: Availability | null) {
-    const nextClass = nextAvailability?.classes.find((entry) => entry.available > 0);
+    const nextClass = nextAvailability?.classes.find(
+      (entry) => entry.available > 0,
+    );
     if (nextClass) setSeatClass(nextClass.code);
   }
 
@@ -419,7 +447,9 @@ export default function BookingPage() {
       setConfirmed(data);
       setHold(null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to confirm booking.");
+      setError(
+        err instanceof Error ? err.message : "Failed to confirm booking.",
+      );
     } finally {
       setLoading(false);
     }
@@ -444,7 +474,10 @@ export default function BookingPage() {
         reference,
         flight,
         passenger,
-        travelClass: booking?.travelClass?.label || hold?.hold.travelClassLabel || selectedClass?.label,
+        travelClass:
+          booking?.travelClass?.label ||
+          hold?.hold.travelClassLabel ||
+          selectedClass?.label,
         fare: booking?.fare.total || hold?.fare.total,
         seat: booking?.passengers?.[0]?.seatAssignment,
       }),
@@ -474,13 +507,37 @@ export default function BookingPage() {
     doc.text(flight?.origin || "--", 64, 210);
     doc.text(flight?.destination || "--", 400, 210);
     doc.setFontSize(12);
-    doc.text(`Flight: ${flight?.flightNumber || booking?.flightNumber || "Not assigned"}`, 64, 270);
-    doc.text(`Passenger: ${safeText(`${passenger?.firstName || ""} ${passenger?.lastName || ""}`)}`, 64, 294);
+    doc.text(
+      `Flight: ${flight?.flightNumber || booking?.flightNumber || "Not assigned"}`,
+      64,
+      270,
+    );
+    doc.text(
+      `Passenger: ${safeText(`${passenger?.firstName || ""} ${passenger?.lastName || ""}`)}`,
+      64,
+      294,
+    );
     doc.text(`Passport: ${safeText(passenger?.passportNo)}`, 64, 318);
-    doc.text(`Class: ${booking?.travelClass?.label || hold?.hold.travelClassLabel || selectedClass?.label || "Not selected"}`, 64, 342);
-    doc.text(`Departure: ${formatDateTime(booking?.departureTime || flight?.departAt)}`, 64, 366);
-    doc.text(`Seat: ${booking?.passengers?.[0]?.seatAssignment || "Assigned at check-in"}`, 64, 390);
-    doc.text(`Fare: ${formatMoney(booking?.fare.total || hold?.fare.total)}`, 64, 414);
+    doc.text(
+      `Class: ${booking?.travelClass?.label || hold?.hold.travelClassLabel || selectedClass?.label || "Not selected"}`,
+      64,
+      342,
+    );
+    doc.text(
+      `Departure: ${formatDateTime(booking?.departureTime || flight?.departAt)}`,
+      64,
+      366,
+    );
+    doc.text(
+      `Seat: ${booking?.passengers?.[0]?.seatAssignment || "Assigned at check-in"}`,
+      64,
+      390,
+    );
+    doc.text(
+      `Fare: ${formatMoney(booking?.fare.total || hold?.fare.total)}`,
+      64,
+      414,
+    );
     doc.save(`${reference}-ticket.pdf`);
   }
 
@@ -502,7 +559,11 @@ export default function BookingPage() {
     doc.text(`Nationality: ${safeText(passenger.nationality)}`, 112, 274);
     doc.setTextColor(26, 26, 26);
     doc.setFontSize(12);
-    doc.text("Digital copy generated from the Kenya Airways passenger profile.", 80, 360);
+    doc.text(
+      "Digital copy generated from the Kenya Airways passenger profile.",
+      80,
+      360,
+    );
     doc.save(`${passenger.passportNo || "passport"}-copy.pdf`);
   }
 
@@ -512,28 +573,39 @@ export default function BookingPage() {
         <section className="border-b border-[#e2d8d5] bg-white">
           <div className="mx-auto grid max-w-7xl gap-6 px-4 py-7 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-8">
             <div className="min-w-0">
-              <p className="text-sm font-bold uppercase tracking-wide text-[#c8102e]">Book your flight</p>
+              <p className="text-sm font-bold uppercase tracking-wide text-[#c8102e]">
+                Book your flight
+              </p>
               <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
                 {selectedFlight
                   ? `${selectedFlight.origin} to ${selectedFlight.destination}`
                   : "Choose a flight"}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5e3f3c]">
-                Your passenger details are filled from your account. Choose a cabin, create a short hold, then print or export the ticket.
+                Your passenger details are filled from your account. Choose a
+                cabin, create a short hold, then print or export the ticket.
               </p>
             </div>
             <div className="rounded-lg border border-[#e2d8d5] bg-[#fcf9f8] p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Passenger</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
+                    Passenger
+                  </p>
                   <p className="mt-1 font-black">
-                    {passenger ? `${passenger.firstName} ${passenger.lastName}` : "Loading profile"}
+                    {passenger
+                      ? `${passenger.firstName} ${passenger.lastName}`
+                      : "Loading profile"}
                   </p>
                 </div>
-                <span className="material-symbols-outlined text-[30px] text-[#c8102e]">account_circle</span>
+                <span className="material-symbols-outlined text-[30px] text-[#c8102e]">
+                  account_circle
+                </span>
               </div>
               <div className="mt-3 text-sm text-[#5e3f3c]">
-                {passportReady ? passenger?.passportNo : "Passport details required before hold"}
+                {passportReady
+                  ? passenger?.passportNo
+                  : "Passport details required before hold"}
               </div>
             </div>
           </div>
@@ -545,7 +617,9 @@ export default function BookingPage() {
               <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
                 <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
                   <label className="block">
-                    <span className="text-sm font-bold text-[#5e3f3c]">Flight</span>
+                    <span className="text-sm font-bold text-[#5e3f3c]">
+                      Flight
+                    </span>
                     <select
                       className="mt-2 w-full rounded-lg border border-[#d8cfcc] bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#c8102e] focus:ring-2 focus:ring-[#c8102e]/20"
                       value={selectedFlightId}
@@ -557,13 +631,16 @@ export default function BookingPage() {
                     >
                       {flights.map((flight) => (
                         <option key={flight.id} value={flight.id}>
-                          {flight.flightNumber} - {flight.origin} to {flight.destination}
+                          {flight.flightNumber} - {flight.origin} to{" "}
+                          {flight.destination}
                         </option>
                       ))}
                     </select>
                   </label>
                   <label className="block">
-                    <span className="text-sm font-bold text-[#5e3f3c]">Promo code</span>
+                    <span className="text-sm font-bold text-[#5e3f3c]">
+                      Promo code
+                    </span>
                     <input
                       className="mt-2 w-full rounded-lg border border-[#d8cfcc] bg-white px-4 py-3 text-sm outline-none focus:border-[#c8102e] focus:ring-2 focus:ring-[#c8102e]/20"
                       value={promoCode}
@@ -575,25 +652,65 @@ export default function BookingPage() {
 
                 <div className="mt-5 grid gap-4 sm:grid-cols-3">
                   <div className="rounded-lg bg-[#f7f3f1] p-4">
-                    <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Flight</p>
-                    <p className="mt-1 text-lg font-black">{selectedFlight?.flightNumber || "Not selected"}</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
+                      Flight
+                    </p>
+                    <p className="mt-1 text-lg font-black">
+                      {selectedFlight?.flightNumber || "Not selected"}
+                    </p>
                   </div>
                   <div className="rounded-lg bg-[#f7f3f1] p-4">
-                    <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Departure</p>
-                    <p className="mt-1 text-sm font-bold">{formatDateTime(selectedFlight?.departAt)}</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
+                      Departure
+                    </p>
+                    <p className="mt-1 text-sm font-bold">
+                      {formatDateTime(selectedFlight?.departAt)}
+                    </p>
                   </div>
                   <div className="rounded-lg bg-[#f7f3f1] p-4">
-                    <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Base Fare</p>
-                    <p className="mt-1 text-lg font-black">{formatMoney(selectedFlight?.basePrice)}</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
+                      Base Fare
+                    </p>
+                    <p className="mt-1 text-lg font-black">
+                      {formatUsd(selectedFlight?.basePrice)}
+                    </p>
                   </div>
                 </div>
+
+                {selectedRoute ? (
+                  <div className="mt-5 overflow-hidden rounded-lg border border-[#e2d8d5] bg-[#fcf9f8]">
+                    <div className="grid gap-0 md:grid-cols-[180px_1fr]">
+                      <div className="relative min-h-35 bg-[#f4ece9]">
+                        <img
+                          src={selectedRoute.image}
+                          alt={selectedRoute.title}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="p-4">
+                        <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
+                          Destination preview
+                        </p>
+                        <h3 className="mt-2 text-xl font-black text-[#1A1A1A]">
+                          {selectedRoute.title}
+                        </h3>
+                        <p className="mt-1 text-sm text-[#5e3f3c]">
+                          Template: {selectedRoute.key} · Terminal{" "}
+                          {selectedRoute.terminal}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </section>
 
               <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-black">Choose cabin</h2>
-                    <p className="mt-1 text-sm text-[#5e3f3c]">Availability updates before every hold and confirmation.</p>
+                    <p className="mt-1 text-sm text-[#5e3f3c]">
+                      Availability updates before every hold and confirmation.
+                    </p>
                   </div>
                   {allClassesFull ? (
                     <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-[#c8102e]">
@@ -604,7 +721,9 @@ export default function BookingPage() {
 
                 <div className="mt-5 grid gap-4 md:grid-cols-3">
                   {TRAVEL_CLASSES.map((travelClass) => {
-                    const item = availability?.classes.find((entry) => entry.code === travelClass.code);
+                    const item = availability?.classes.find(
+                      (entry) => entry.code === travelClass.code,
+                    );
                     const isSelected = seatClass === travelClass.code;
                     const isFull = item?.isFull || false;
                     return (
@@ -617,7 +736,7 @@ export default function BookingPage() {
                           setHold(null);
                           setConfirmed(null);
                         }}
-                        className={`min-h-[150px] rounded-lg border p-4 text-left transition ${
+                        className={`min-h-37.5 rounded-lg border p-4 text-left transition ${
                           isSelected
                             ? "border-[#c8102e] bg-[#fff6f6] shadow-sm"
                             : "border-[#e2d8d5] bg-white hover:border-[#c8102e]/60"
@@ -625,8 +744,12 @@ export default function BookingPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="text-lg font-black">{travelClass.label}</p>
-                            <p className="mt-1 text-xs leading-5 text-[#5e3f3c]">{travelClass.description}</p>
+                            <p className="text-lg font-black">
+                              {travelClass.label}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-[#5e3f3c]">
+                              {travelClass.description}
+                            </p>
                           </div>
                           <span className="rounded-full bg-[#1A1A1A] px-2 py-1 text-xs font-black text-white">
                             {travelClass.shortCode}
@@ -634,10 +757,16 @@ export default function BookingPage() {
                         </div>
                         <div className="mt-5 flex items-end justify-between gap-3">
                           <div>
-                            <p className="text-2xl font-black">{item?.available ?? "-"}</p>
-                            <p className="text-xs font-bold text-[#5e3f3c]">available of {item?.capacity ?? "-"}</p>
+                            <p className="text-2xl font-black">
+                              {item?.available ?? "-"}
+                            </p>
+                            <p className="text-xs font-bold text-[#5e3f3c]">
+                              available of {item?.capacity ?? "-"}
+                            </p>
                           </div>
-                          <span className={`rounded-full px-2.5 py-1 text-xs font-black ${isFull ? "bg-red-50 text-[#c8102e]" : "bg-emerald-50 text-emerald-700"}`}>
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-black ${isFull ? "bg-red-50 text-[#c8102e]" : "bg-emerald-50 text-emerald-700"}`}
+                          >
                             {isFull ? "Full" : "Open"}
                           </span>
                         </div>
@@ -648,21 +777,32 @@ export default function BookingPage() {
 
                 {selectedClass?.isFull ? (
                   <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                    <p className="font-black">{selectedClass.label} is full for this flight.</p>
+                    <p className="font-black">
+                      {selectedClass.label} is full for this flight.
+                    </p>
                     {availability?.nextAvailable ? (
                       <button
                         type="button"
                         className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#1A1A1A] px-4 py-2 font-bold text-white"
                         onClick={() => {
-                          setSelectedFlightId(availability.nextAvailable?.flightId || selectedFlightId);
-                          setSeatClass(availability.nextAvailable?.class.code || seatClass);
+                          setSelectedFlightId(
+                            availability.nextAvailable?.flightId ||
+                              selectedFlightId,
+                          );
+                          setSeatClass(
+                            availability.nextAvailable?.class.code || seatClass,
+                          );
                         }}
                       >
                         Use next available flight
-                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        <span className="material-symbols-outlined text-[18px]">
+                          arrow_forward
+                        </span>
                       </button>
                     ) : (
-                      <p className="mt-2">No later flight with this class is currently available.</p>
+                      <p className="mt-2">
+                        No later flight with this class is currently available.
+                      </p>
                     )}
                   </div>
                 ) : null}
@@ -671,8 +811,12 @@ export default function BookingPage() {
               <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-xl font-black">Passenger and passport</h2>
-                    <p className="mt-1 text-sm text-[#5e3f3c]">Only your account passenger is used for this booking.</p>
+                    <h2 className="text-xl font-black">
+                      Passenger and passport
+                    </h2>
+                    <p className="mt-1 text-sm text-[#5e3f3c]">
+                      Only your account passenger is used for this booking.
+                    </p>
                   </div>
                   {passportReady ? (
                     <button
@@ -680,31 +824,22 @@ export default function BookingPage() {
                       onClick={downloadPassportPdf}
                       className="inline-flex items-center gap-2 rounded-lg border border-[#1A1A1A] px-4 py-2 text-sm font-black text-[#1A1A1A]"
                     >
-                      <span className="material-symbols-outlined text-[18px]">download</span>
+                      <span className="material-symbols-outlined text-[18px]">
+                        download
+                      </span>
                       Passport PDF
                     </button>
                   ) : null}
                 </div>
 
-                <div className="mt-5 grid gap-5 lg:grid-cols-[260px_1fr]">
-                  <div className="rounded-lg bg-[#145837] p-5 text-white shadow-sm">
-                    <p className="text-xs font-bold uppercase tracking-wide text-white/70">Republic of Kenya</p>
-                    <p className="mt-2 text-2xl font-black">Passport</p>
-                    <div className="mt-8 space-y-3 text-sm">
-                      <div>
-                        <p className="text-white/60">Name</p>
-                        <p className="font-bold">{passenger ? `${passenger.firstName} ${passenger.lastName}` : "Loading"}</p>
-                      </div>
-                      <div>
-                        <p className="text-white/60">Number</p>
-                        <p className="font-mono text-lg font-black">{safeText(passenger?.passportNo)}</p>
-                      </div>
-                      <div>
-                        <p className="text-white/60">Nationality</p>
-                        <p className="font-bold">{safeText(passenger?.nationality)}</p>
-                      </div>
-                    </div>
-                  </div>
+                <div className="mt-5 grid gap-5 lg:grid-cols-[320px_1fr]">
+                  <PassportIdentityCard
+                    firstName={passenger?.firstName || undefined}
+                    lastName={passenger?.lastName || undefined}
+                    passportNo={passenger?.passportNo || undefined}
+                    nationality={passenger?.nationality || undefined}
+                    dateOfBirth={passenger?.dateOfBirth || undefined}
+                  />
 
                   <div className="rounded-lg border border-[#e2d8d5] bg-[#fcf9f8] p-4">
                     <PassportRequirementPanel
@@ -730,7 +865,9 @@ export default function BookingPage() {
                         disabled={savingPassport || !passenger?.id}
                         className="inline-flex items-center gap-2 rounded-lg bg-[#1A1A1A] px-4 py-2 text-sm font-black text-white disabled:opacity-50"
                       >
-                        <span className="material-symbols-outlined text-[18px]">save</span>
+                        <span className="material-symbols-outlined text-[18px]">
+                          save
+                        </span>
                         {savingPassport ? "Saving..." : "Save passport"}
                       </button>
                       <button
@@ -744,7 +881,9 @@ export default function BookingPage() {
                         }
                         className="inline-flex items-center gap-2 rounded-lg border border-[#d8cfcc] bg-white px-4 py-2 text-sm font-black text-[#1A1A1A]"
                       >
-                        <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                        <span className="material-symbols-outlined text-[18px]">
+                          auto_awesome
+                        </span>
                         Generate details
                       </button>
                     </div>
@@ -759,11 +898,19 @@ export default function BookingPage() {
                 <div className="mt-5 space-y-4">
                   <div className="flex justify-between gap-4 border-b border-[#eee6e3] pb-3 text-sm">
                     <span className="text-[#5e3f3c]">Route</span>
-                    <span className="text-right font-bold">{selectedFlight ? `${selectedFlight.origin} to ${selectedFlight.destination}` : "Not selected"}</span>
+                    <span className="text-right font-bold">
+                      {selectedFlight
+                        ? `${selectedFlight.origin} to ${selectedFlight.destination}`
+                        : "Not selected"}
+                    </span>
                   </div>
                   <div className="flex justify-between gap-4 border-b border-[#eee6e3] pb-3 text-sm">
                     <span className="text-[#5e3f3c]">Class</span>
-                    <span className="font-bold">{selectedClass?.label || TRAVEL_CLASSES.find((entry) => entry.code === seatClass)?.label}</span>
+                    <span className="font-bold">
+                      {selectedClass?.label ||
+                        TRAVEL_CLASSES.find((entry) => entry.code === seatClass)
+                          ?.label}
+                    </span>
                   </div>
                   <div className="flex justify-between gap-4 border-b border-[#eee6e3] pb-3 text-sm">
                     <span className="text-[#5e3f3c]">Passenger</span>
@@ -771,21 +918,27 @@ export default function BookingPage() {
                   </div>
                   <div className="flex justify-between gap-4 text-sm">
                     <span className="text-[#5e3f3c]">Fare due</span>
-                    <span className="text-xl font-black">{hold ? formatMoney(hold.fare.total) : "After hold"}</span>
+                    <span className="text-xl font-black">
+                      {hold ? formatMoney(hold.fare.total) : "After hold"}
+                    </span>
                   </div>
                 </div>
 
                 <div className="mt-5 grid gap-3">
                   <label>
-                    <span className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Email</span>
+                    <span className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
+                      Email
+                    </span>
                     <input
-                      className="mt-1 w-full rounded-lg border border-[#d8cfcc] px-3 py-2 text-sm outline-none focus:border-[#c8102e]"
+                      readOnly
+                      className="mt-1 w-full rounded-lg border border-[#d8cfcc] bg-[#f7f3f1] px-3 py-2 text-sm outline-none focus:border-[#c8102e]"
                       value={contactEmail}
-                      onChange={(event) => setContactEmail(event.target.value)}
                     />
                   </label>
                   <label>
-                    <span className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Phone</span>
+                    <span className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
+                      Phone
+                    </span>
                     <input
                       className="mt-1 w-full rounded-lg border border-[#d8cfcc] px-3 py-2 text-sm outline-none focus:border-[#c8102e]"
                       value={contactPhone}
@@ -804,7 +957,9 @@ export default function BookingPage() {
                   {loading ? (
                     <span className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
                   ) : (
-                    <span className="material-symbols-outlined text-[18px]">lock_clock</span>
+                    <span className="material-symbols-outlined text-[18px]">
+                      lock_clock
+                    </span>
                   )}
                   Create booking hold
                 </button>
@@ -818,9 +973,16 @@ export default function BookingPage() {
 
               {hold ? (
                 <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-                  <p className="text-sm font-bold uppercase tracking-wide text-emerald-700">Hold created</p>
-                  <p className="mt-2 break-all font-mono text-sm font-black text-emerald-950">{hold.holdId}</p>
-                  <p className="mt-2 text-sm text-emerald-800">Expires {formatDateTime(new Date(hold.expiresAt).toISOString())}</p>
+                  <p className="text-sm font-bold uppercase tracking-wide text-emerald-700">
+                    Hold created
+                  </p>
+                  <p className="mt-2 break-all font-mono text-sm font-black text-emerald-950">
+                    {hold.holdId}
+                  </p>
+                  <p className="mt-2 text-sm text-emerald-800">
+                    Expires{" "}
+                    {formatDateTime(new Date(hold.expiresAt).toISOString())}
+                  </p>
                   <div className="mt-4 grid gap-2">
                     <button
                       type="button"
@@ -828,7 +990,9 @@ export default function BookingPage() {
                       disabled={loading}
                       className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-[18px]">payments</span>
+                      <span className="material-symbols-outlined text-[18px]">
+                        payments
+                      </span>
                       Confirm and issue ticket
                     </button>
                     <button
@@ -836,7 +1000,9 @@ export default function BookingPage() {
                       onClick={printTicket}
                       className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 bg-white px-4 py-3 text-sm font-black text-emerald-800"
                     >
-                      <span className="material-symbols-outlined text-[18px]">print</span>
+                      <span className="material-symbols-outlined text-[18px]">
+                        print
+                      </span>
                       Print hold
                     </button>
                   </div>
@@ -845,10 +1011,16 @@ export default function BookingPage() {
 
               {confirmed ? (
                 <section className="rounded-lg border border-[#d8c36a] bg-[#fff9d8] p-5 shadow-sm">
-                  <p className="text-sm font-bold uppercase tracking-wide text-[#5e3f3c]">Ticket issued</p>
-                  <p className="mt-2 font-mono text-2xl font-black">{confirmed.receipt.reference}</p>
+                  <p className="text-sm font-bold uppercase tracking-wide text-[#5e3f3c]">
+                    Ticket issued
+                  </p>
+                  <p className="mt-2 font-mono text-2xl font-black">
+                    {confirmed.receipt.reference}
+                  </p>
                   <p className="mt-1 text-sm text-[#5e3f3c]">
-                    Seat {confirmed.booking.passengers[0]?.seatAssignment || "assigned at check-in"}
+                    Seat{" "}
+                    {confirmed.booking.passengers[0]?.seatAssignment ||
+                      "assigned at check-in"}
                   </p>
                   <div className="mt-4 grid gap-2">
                     <button
@@ -856,7 +1028,9 @@ export default function BookingPage() {
                       onClick={printTicket}
                       className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1A1A1A] px-4 py-3 text-sm font-black text-white"
                     >
-                      <span className="material-symbols-outlined text-[18px]">print</span>
+                      <span className="material-symbols-outlined text-[18px]">
+                        print
+                      </span>
                       Print ticket
                     </button>
                     <button
@@ -864,7 +1038,9 @@ export default function BookingPage() {
                       onClick={downloadTicketPdf}
                       className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#1A1A1A] bg-white px-4 py-3 text-sm font-black text-[#1A1A1A]"
                     >
-                      <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                      <span className="material-symbols-outlined text-[18px]">
+                        picture_as_pdf
+                      </span>
                       Download ticket PDF
                     </button>
                   </div>
