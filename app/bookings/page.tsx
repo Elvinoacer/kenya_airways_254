@@ -588,22 +588,22 @@ export default function BookingPage() {
     <WorkflowShell>
       <div className="min-h-screen bg-[#f7f3f1] text-[#1A1A1A]">
         <section className="border-b border-[#e2d8d5] bg-white">
-          <div className="mx-auto grid max-w-7xl gap-6 px-4 py-7 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-8">
+          <div className="mx-auto grid max-w-[1500px] gap-6 px-4 py-8 sm:px-6 md:py-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
             <div className="min-w-0">
               <p className="text-sm font-bold uppercase tracking-wide text-[#c8102e]">
                 Book your flight
               </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">
                 {selectedFlight
                   ? `${selectedFlight.origin} to ${selectedFlight.destination}`
                   : "Choose a flight"}
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5e3f3c]">
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5e3f3c] sm:text-base">
                 Your passenger details are filled from your account. Choose a
                 cabin, create a short hold, then print or export the ticket.
               </p>
             </div>
-            <div className="rounded-lg border border-[#e2d8d5] bg-[#fcf9f8] p-4">
+            <div className="self-start rounded-xl border border-[#e2d8d5] bg-[#fcf9f8] p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
@@ -628,13 +628,13 @@ export default function BookingPage() {
           </div>
         </section>
 
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
           <div
             aria-hidden="true"
             className="pointer-events-none fixed top-0 overflow-hidden"
             style={{ left: "-9999px" }}
           >
-            <div ref={passportTemplateRef}>
+            <div ref={passportTemplateRef} style={{ width: "720px" }}>
               <PassportTemplateSpread
                 data={{
                   country: "REPUBLIC OF",
@@ -653,9 +653,9 @@ export default function BookingPage() {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-            <div className="space-y-6">
-              <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="space-y-8">
+              <section className="rounded-xl border border-[#e2d8d5] bg-white p-5 shadow-sm sm:p-6">
                 <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
                   <label className="block">
                     <span className="text-sm font-bold text-[#5e3f3c]">
@@ -692,7 +692,7 @@ export default function BookingPage() {
                 </div>
 
                 <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-lg bg-[#f7f3f1] p-4">
+                  <div className="rounded-xl bg-[#f7f3f1] p-4">
                     <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
                       Flight
                     </p>
@@ -700,7 +700,7 @@ export default function BookingPage() {
                       {selectedFlight?.flightNumber || "Not selected"}
                     </p>
                   </div>
-                  <div className="rounded-lg bg-[#f7f3f1] p-4">
+                  <div className="rounded-xl bg-[#f7f3f1] p-4">
                     <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
                       Departure
                     </p>
@@ -708,7 +708,7 @@ export default function BookingPage() {
                       {formatDateTime(selectedFlight?.departAt)}
                     </p>
                   </div>
-                  <div className="rounded-lg bg-[#f7f3f1] p-4">
+                  <div className="rounded-xl bg-[#f7f3f1] p-4">
                     <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">
                       Base Fare
                     </p>
@@ -719,9 +719,9 @@ export default function BookingPage() {
                 </div>
 
                 {selectedRoute ? (
-                  <div className="mt-5 overflow-hidden rounded-lg border border-[#e2d8d5] bg-[#fcf9f8]">
+                  <div className="mt-5 overflow-hidden rounded-xl border border-[#e2d8d5] bg-[#fcf9f8]">
                     <div className="grid gap-0 md:grid-cols-[180px_1fr]">
-                      <div className="relative min-h-35 bg-[#f4ece9]">
+                      <div className="relative min-h-[180px] bg-[#f4ece9] md:min-h-[150px]">
                         <Image
                           src={selectedRoute.image}
                           alt={selectedRoute.title}
@@ -747,7 +747,7 @@ export default function BookingPage() {
                 ) : null}
               </section>
 
-              <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
+              <section className="rounded-xl border border-[#e2d8d5] bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-black">Choose cabin</h2>
@@ -762,7 +762,7 @@ export default function BookingPage() {
                   ) : null}
                 </div>
 
-                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
                   {TRAVEL_CLASSES.map((travelClass) => {
                     const item = availability?.classes.find(
                       (entry) => entry.code === travelClass.code,
@@ -779,7 +779,7 @@ export default function BookingPage() {
                           setHold(null);
                           setConfirmed(null);
                         }}
-                        className={`min-h-37.5 rounded-lg border p-4 text-left transition ${
+                        className={`min-h-[170px] rounded-xl border p-4 text-left transition ${
                           isSelected
                             ? "border-[#c8102e] bg-[#fff6f6] shadow-sm"
                             : "border-[#e2d8d5] bg-white hover:border-[#c8102e]/60"
@@ -851,7 +851,7 @@ export default function BookingPage() {
                 ) : null}
               </section>
 
-              <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
+              <section className="rounded-xl border border-[#e2d8d5] bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-black">
@@ -875,24 +875,69 @@ export default function BookingPage() {
                   ) : null}
                 </div>
 
-                <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,680px)_1fr]">
-                  <PassportTemplateSpread
-                    data={{
-                      country: "REPUBLIC OF",
-                      countryFull: "KENYA",
-                      nationality: passenger?.nationality || "KEN",
-                      surname: passenger?.lastName || "",
-                      givenNames: passenger?.firstName || "",
-                      sex: "X",
-                      dateOfBirth: passenger?.dateOfBirth || "",
-                      placeOfBirth: passenger?.passportNo ? "NAIROBI" : "",
-                      dateOfIssue: "",
-                      dateOfExpiry: "",
-                      passportNumber: passenger?.passportNo || "",
-                    }}
-                  />
+                <div className="mt-6 rounded-2xl border border-[#e2d8d5] bg-[#f8f5f3] p-3 sm:p-5">
+                  <div className="mx-auto max-w-[820px]">
+                    <PassportTemplateSpread
+                      data={{
+                        country: "REPUBLIC OF",
+                        countryFull: "KENYA",
+                        nationality: passenger?.nationality || "KEN",
+                        surname: passenger?.lastName || "",
+                        givenNames: passenger?.firstName || "",
+                        sex: "X",
+                        dateOfBirth: passenger?.dateOfBirth || "",
+                        placeOfBirth: passenger?.passportNo ? "NAIROBI" : "",
+                        dateOfIssue: "",
+                        dateOfExpiry: "",
+                        passportNumber: passenger?.passportNo || "",
+                      }}
+                    />
+                  </div>
+                </div>
 
-                  <div className="rounded-lg border border-[#e2d8d5] bg-[#fcf9f8] p-4">
+                <div className="mt-5 rounded-xl border border-[#e2d8d5] bg-[#fcf9f8] p-4 sm:p-5">
+                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                    <div>
+                      <p className="text-sm font-black text-[#1A1A1A]">
+                        Passport details
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-[#5e3f3c]">
+                        Update the passport information used for this booking.
+                        The booklet preview above refreshes from your saved
+                        profile.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={savePassport}
+                        disabled={savingPassport || !passenger?.id}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1A1A1A] px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          save
+                        </span>
+                        {savingPassport ? "Saving..." : "Save passport"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPassportDraft(
+                            createKenyanPassportDetails({
+                              nationality: passenger?.nationality || "Kenyan",
+                            }),
+                          )
+                        }
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#d8cfcc] bg-white px-4 py-2.5 text-sm font-black text-[#1A1A1A]"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          auto_awesome
+                        </span>
+                        Generate details
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-4">
                     <PassportRequirementPanel
                       compact
                       firstName={passenger?.firstName || ""}
@@ -909,42 +954,13 @@ export default function BookingPage() {
                         }));
                       }}
                     />
-                    <div className="mt-4 flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={savePassport}
-                        disabled={savingPassport || !passenger?.id}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[#1A1A1A] px-4 py-2 text-sm font-black text-white disabled:opacity-50"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">
-                          save
-                        </span>
-                        {savingPassport ? "Saving..." : "Save passport"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPassportDraft(
-                            createKenyanPassportDetails({
-                              nationality: passenger?.nationality || "Kenyan",
-                            }),
-                          )
-                        }
-                        className="inline-flex items-center gap-2 rounded-lg border border-[#d8cfcc] bg-white px-4 py-2 text-sm font-black text-[#1A1A1A]"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">
-                          auto_awesome
-                        </span>
-                        Generate details
-                      </button>
-                    </div>
                   </div>
                 </div>
               </section>
             </div>
 
-            <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-              <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
+            <aside className="space-y-6 xl:sticky xl:top-24 xl:self-start">
+              <section className="rounded-xl border border-[#e2d8d5] bg-white p-5 shadow-sm">
                 <h2 className="text-xl font-black">Trip summary</h2>
                 <div className="mt-5 space-y-4">
                   <div className="flex justify-between gap-4 border-b border-[#eee6e3] pb-3 text-sm">

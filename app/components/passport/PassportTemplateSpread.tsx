@@ -191,8 +191,8 @@ function PassportCover({ data }: { data: PassportTemplateData }) {
   return (
     <div
       style={{
-        width: "340px",
-        height: "480px",
+        width: "min(340px, 100%)",
+        aspectRatio: "17 / 24",
         background:
           "linear-gradient(160deg, #07101f 0%, #0c1e3d 40%, #0a1a32 70%, #07101f 100%)",
         borderRadius: "6px 0 0 6px",
@@ -244,7 +244,7 @@ function PassportCover({ data }: { data: PassportTemplateData }) {
         { top: 20, right: 20, rotate: 90 },
         { bottom: 20, right: 20, rotate: 180 },
         { bottom: 20, left: 20, rotate: 270 },
-      ].map((pos, i) => (
+      ].map(({ rotate, ...position }, i) => (
         <div
           key={i}
           style={{
@@ -253,8 +253,8 @@ function PassportCover({ data }: { data: PassportTemplateData }) {
             height: 16,
             borderTop: "1.5px solid rgba(212,175,55,0.5)",
             borderLeft: "1.5px solid rgba(212,175,55,0.5)",
-            transform: `rotate(${pos.rotate}deg)`,
-            ...pos,
+            transform: `rotate(${rotate}deg)`,
+            ...position,
           }}
         />
       ))}
@@ -397,8 +397,8 @@ function PassportDataPage({
   return (
     <div
       style={{
-        width: "340px",
-        height: "480px",
+        width: "min(340px, 100%)",
+        aspectRatio: "17 / 24",
         background: "#f9f7f2",
         borderRadius: "0 6px 6px 0",
         position: "relative",
@@ -664,7 +664,7 @@ export default function PassportTemplateSpread({
   photo,
 }: PassportTemplateSpreadProps) {
   return (
-    <div className="flex flex-wrap justify-center gap-4 rounded-lg bg-white/0">
+    <div className="grid w-full grid-cols-1 justify-items-center gap-4 rounded-lg bg-white/0 md:grid-cols-[minmax(0,340px)_10px_minmax(0,340px)] md:items-stretch md:justify-center md:gap-0">
       <PassportCover data={data} />
       <div
         className="hidden md:block"
