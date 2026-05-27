@@ -561,34 +561,53 @@ export default function BookingPage() {
 
   async function downloadPassportPdf() {
     if (!passenger || !passportTemplateRef.current) return;
-    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-      import("html2canvas"),
-      import("jspdf"),
-    ]);
 
-    const canvas = await html2canvas(passportTemplateRef.current, {
-      scale: 3,
-      useCORS: true,
-      backgroundColor: null,
-      logging: false,
-    });
+    try {
+      await document.fonts?.ready;
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
 
-    const pdf = new jsPDF({
-      orientation: "landscape",
-      unit: "px",
-      format: [canvas.width, canvas.height],
-    });
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
 
-    const imageData = canvas.toDataURL("image/png");
-    pdf.addImage(imageData, "PNG", 0, 0, canvas.width, canvas.height);
-    pdf.save(`${passportTemplateData.passportNo || "passport"}-template.pdf`);
+      const canvas = await html2canvas(passportTemplateRef.current, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: null,
+        logging: false,
+      });
+
+      if (!canvas.width || !canvas.height) {
+        throw new Error("Passport preview could not be rendered for export.");
+      }
+
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "px",
+        format: [canvas.width, canvas.height],
+      });
+
+      const imageData = canvas.toDataURL("image/png");
+      pdf.addImage(imageData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.save(`${passportTemplateData.passportNo || "passport"}-template.pdf`);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Passport PDF export failed. Please try again.",
+      );
+    }
   }
 
   return (
     <WorkflowShell>
       <div className="min-h-screen bg-[#f7f3f1] text-[#1A1A1A]">
         <section className="border-b border-[#e2d8d5] bg-white">
-          <div className="mx-auto grid max-w-[1500px] gap-6 px-4 py-8 sm:px-6 md:py-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
+          <div
+            className="mx-auto grid gap-6 px-4 py-8 sm:px-6 md:py-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8"
+            style={{ maxWidth: 1500 }}
+          >
             <div className="min-w-0">
               <p className="text-sm font-bold uppercase tracking-wide text-[#c8102e]">
                 Book your flight
@@ -628,7 +647,10 @@ export default function BookingPage() {
           </div>
         </section>
 
-        <main className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
+        <main
+          className="mx-auto px-4 py-8 sm:px-6 lg:px-8"
+          style={{ maxWidth: 1500 }}
+        >
           <div
             aria-hidden="true"
             className="pointer-events-none fixed top-0 overflow-hidden"
@@ -721,7 +743,10 @@ export default function BookingPage() {
                 {selectedRoute ? (
                   <div className="mt-5 overflow-hidden rounded-xl border border-[#e2d8d5] bg-[#fcf9f8]">
                     <div className="grid gap-0 md:grid-cols-[180px_1fr]">
-                      <div className="relative min-h-[180px] bg-[#f4ece9] md:min-h-[150px]">
+                      <div
+                        className="relative bg-[#f4ece9]"
+                        style={{ minHeight: 180 }}
+                      >
                         <Image
                           src={selectedRoute.image}
                           alt={selectedRoute.title}
@@ -779,11 +804,12 @@ export default function BookingPage() {
                           setHold(null);
                           setConfirmed(null);
                         }}
-                        className={`min-h-[170px] rounded-xl border p-4 text-left transition ${
+                        className={`rounded-xl border p-4 text-left transition ${
                           isSelected
                             ? "border-[#c8102e] bg-[#fff6f6] shadow-sm"
                             : "border-[#e2d8d5] bg-white hover:border-[#c8102e]/60"
                         } ${isFull ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
+                        style={{ minHeight: 170 }}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -876,7 +902,7 @@ export default function BookingPage() {
                 </div>
 
                 <div className="mt-6 rounded-2xl border border-[#e2d8d5] bg-[#f8f5f3] p-3 sm:p-5">
-                  <div className="mx-auto max-w-[820px]">
+                  <div className="mx-auto" style={{ maxWidth: 820 }}>
                     <PassportTemplateSpread
                       data={{
                         country: "REPUBLIC OF",

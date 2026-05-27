@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 type PassportTemplateData = {
   country?: string | null;
   countryFull?: string | null;
@@ -84,6 +86,44 @@ function fmtDate(dateString?: string | null) {
   } catch {
     return dateString;
   }
+}
+
+type FieldProps = {
+  label: string;
+  value?: string | null;
+  col?: number;
+};
+
+function Field({ label, value, col = 1 }: FieldProps) {
+  return (
+    <div style={{ gridColumn: `span ${col}`, marginBottom: "8px" }}>
+      <div
+        style={{
+          fontSize: "6.5px",
+          letterSpacing: "1.2px",
+          color: "#1a3a70",
+          textTransform: "uppercase",
+          fontWeight: "700",
+          marginBottom: "2px",
+          fontFamily: "system-ui, sans-serif",
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: "12.5px",
+          color: "#06101e",
+          fontFamily: "'Palatino Linotype', Palatino, Georgia, serif",
+          borderBottom: "0.5px solid rgba(26,58,112,0.3)",
+          paddingBottom: "3px",
+          minHeight: "18px",
+        }}
+      >
+        {value || "—"}
+      </div>
+    </div>
+  );
 }
 
 function Emblem({ size = 110, gold = "#d4af37" }) {
@@ -354,46 +394,6 @@ function PassportDataPage({
 }) {
   const { line1, line2 } = buildMRZ(data);
 
-  function Field({
-    label,
-    value,
-    col = 1,
-  }: {
-    label: string;
-    value?: string | null;
-    col?: number;
-  }) {
-    return (
-      <div style={{ gridColumn: `span ${col}`, marginBottom: "8px" }}>
-        <div
-          style={{
-            fontSize: "6.5px",
-            letterSpacing: "1.2px",
-            color: "#1a3a70",
-            textTransform: "uppercase",
-            fontWeight: "700",
-            marginBottom: "2px",
-            fontFamily: "system-ui, sans-serif",
-          }}
-        >
-          {label}
-        </div>
-        <div
-          style={{
-            fontSize: "12.5px",
-            color: "#06101e",
-            fontFamily: "'Palatino Linotype', Palatino, Georgia, serif",
-            borderBottom: "0.5px solid rgba(26,58,112,0.3)",
-            paddingBottom: "3px",
-            minHeight: "18px",
-          }}
-        >
-          {value || "—"}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
       style={{
@@ -563,6 +563,7 @@ function PassportDataPage({
               height: "108px",
               background: photo ? "transparent" : "#e2ddd5",
               border: "1.5px solid #0e2756",
+              position: "relative",
               overflow: "hidden",
               display: "flex",
               alignItems: "center",
@@ -571,10 +572,12 @@ function PassportDataPage({
             }}
           >
             {photo ? (
-              <img
+              <Image
                 src={photo}
                 alt="portrait"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                fill
+                sizes="88px"
+                style={{ objectFit: "cover" }}
               />
             ) : (
               <div
