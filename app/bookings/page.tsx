@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import WorkflowShell from "../components/WorkflowShell";
 import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
 import PassportTemplateSpread from "../components/passport/PassportTemplateSpread";
@@ -279,6 +280,16 @@ export default function BookingPage() {
   const [loading, setLoading] = useState(false);
   const [savingPassport, setSavingPassport] = useState(false);
   const [error, setError] = useState("");
+  const passportTemplateRef = useRef<HTMLDivElement | null>(null);
+
+  const passportTemplateData = useMemo(
+    () =>
+      createKenyanPassportDetails({
+        passportNo: passportDraft.passportNo || passenger?.passportNo || undefined,
+        nationality: passportDraft.nationality || passenger?.nationality || undefined,
+      }),
+    [passportDraft.passportNo, passportDraft.nationality, passenger?.passportNo, passenger?.nationality],
+  );
 
   useEffect(() => {
     async function load() {
@@ -542,29 +553,28 @@ export default function BookingPage() {
   }
 
   async function downloadPassportPdf() {
-    if (!passenger) return;
-    const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    doc.setFillColor(20, 88, 55);
-    doc.roundedRect(80, 60, 435, 250, 12, 12, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
-    doc.text("REPUBLIC OF KENYA", 112, 104);
-    doc.setFontSize(28);
-    doc.text("PASSPORT", 112, 142);
-    doc.setFontSize(11);
-    doc.text(`Passport No: ${safeText(passenger.passportNo)}`, 112, 190);
-    doc.text(`Surname: ${safeText(passenger.lastName)}`, 112, 218);
-    doc.text(`Given Names: ${safeText(passenger.firstName)}`, 112, 246);
-    doc.text(`Nationality: ${safeText(passenger.nationality)}`, 112, 274);
-    doc.setTextColor(26, 26, 26);
-    doc.setFontSize(12);
-    doc.text(
-      "Digital copy generated from the Kenya Airways passenger profile.",
-      80,
-      360,
-    );
-    doc.save(`${passenger.passportNo || "passport"}-copy.pdf`);
+    if (!passenger || !passportTemplateRef.current) return;
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+      import("html2canvas"),
+      import("jspdf"),
+    ]);
+
+    const canvas = await html2canvas(passportTemplateRef.current, {
+      scale: 3,
+      useCORS: true,
+      backgroundColor: null,
+      logging: false,
+    });
+
+    const pdf = new jsPDF({
+      orientation: "landscape",
+      unit: "px",
+      format: [canvas.width, canvas.height],
+    });
+
+    const imageData = canvas.toDataURL("image/png");
+    pdf.addImage(imageData, "PNG", 0, 0, canvas.width, canvas.height);
+    pdf.save(`${passportTemplateData.passportNo || "passport"}-template.pdf`);
   }
 
   return (
@@ -612,6 +622,30 @@ export default function BookingPage() {
         </section>
 
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed top-0 overflow-hidden"
+            style={{ left: "-9999px" }}
+          >
+            <div ref={passportTemplateRef}>
+              <PassportTemplateSpread
+                data={{
+                  country: "REPUBLIC OF",
+                  countryFull: "KENYA",
+                  nationality: passportTemplateData.nationality,
+                  surname: passenger?.lastName || "",
+                  givenNames: passenger?.firstName || "",
+                  sex: "X",
+                  dateOfBirth: passenger?.dateOfBirth || "",
+                  placeOfBirth: passportTemplateData.placeOfBirth,
+                  dateOfIssue: passportTemplateData.dateOfIssue,
+                  dateOfExpiry: passportTemplateData.dateOfExpiry,
+                  passportNumber: passportTemplateData.passportNo,
+                }}
+              />
+            </div>
+          </div>
+
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
             <div className="space-y-6">
               <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
@@ -681,10 +715,12 @@ export default function BookingPage() {
                   <div className="mt-5 overflow-hidden rounded-lg border border-[#e2d8d5] bg-[#fcf9f8]">
                     <div className="grid gap-0 md:grid-cols-[180px_1fr]">
                       <div className="relative min-h-35 bg-[#f4ece9]">
-                        <img
+                        <Image
                           src={selectedRoute.image}
                           alt={selectedRoute.title}
-                          className="h-full w-full object-cover"
+                          fill
+                          className="object-cover"
+                          sizes="180px"
                         />
                       </div>
                       <div className="p-4">
