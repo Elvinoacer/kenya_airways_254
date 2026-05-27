@@ -2,8 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import WorkflowShell from "../components/WorkflowShell";
-import PassportIdentityCard from "../components/passport/PassportIdentityCard";
 import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
+import PassportTemplateSpread from "../components/passport/PassportTemplateSpread";
 import { getProfileInfo } from "../actions/auth-actions";
 import {
   createKenyanPassportDetails,
@@ -832,13 +832,21 @@ export default function BookingPage() {
                   ) : null}
                 </div>
 
-                <div className="mt-5 grid gap-5 lg:grid-cols-[320px_1fr]">
-                  <PassportIdentityCard
-                    firstName={passenger?.firstName || undefined}
-                    lastName={passenger?.lastName || undefined}
-                    passportNo={passenger?.passportNo || undefined}
-                    nationality={passenger?.nationality || undefined}
-                    dateOfBirth={passenger?.dateOfBirth || undefined}
+                <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,680px)_1fr]">
+                  <PassportTemplateSpread
+                    data={{
+                      country: "REPUBLIC OF",
+                      countryFull: "KENYA",
+                      nationality: passenger?.nationality || "KEN",
+                      surname: passenger?.lastName || "",
+                      givenNames: passenger?.firstName || "",
+                      sex: "X",
+                      dateOfBirth: passenger?.dateOfBirth || "",
+                      placeOfBirth: passenger?.passportNo ? "NAIROBI" : "",
+                      dateOfIssue: "",
+                      dateOfExpiry: "",
+                      passportNumber: passenger?.passportNo || "",
+                    }}
                   />
 
                   <div className="rounded-lg border border-[#e2d8d5] bg-[#fcf9f8] p-4">
