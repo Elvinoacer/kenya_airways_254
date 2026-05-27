@@ -33,6 +33,12 @@ function ensureCsrfCookie(response: NextResponse, hasCookie: boolean) {
   return response;
 }
 
+function getSafeCallbackUrl(req: NextRequest) {
+  const value = req.nextUrl.searchParams.get("callbackUrl");
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
+  return value;
+}
+
 export async function proxy(
   req: NextRequest,
 ): Promise<import("next/server").NextResponse> {
@@ -112,16 +118,20 @@ export async function proxy(
       }
       if (isProtectedPage || isOnboardingPage) {
         const loginUrl = new URL("/login", req.url);
-        loginUrl.searchParams.set("callbackUrl", pathname);
+        loginUrl.searchParams.set(
+          "callbackUrl",
+          `${pathname}${req.nextUrl.search}`,
+        );
         return ensureCsrfCookie(NextResponse.redirect(loginUrl), hasCsrfCookie);
       }
       return ensureCsrfCookie(NextResponse.next(), hasCsrfCookie);
     }
 
-    // 2. If authenticated and on an auth page, redirect to dashboard
+    // 2. If authenticated and on an auth page, continue the original flow when one exists.
     if (isAuthPage) {
+      const callbackUrl = getSafeCallbackUrl(req);
       return ensureCsrfCookie(
-        NextResponse.redirect(new URL("/dashboard", req.url)),
+        NextResponse.redirect(new URL(callbackUrl || "/dashboard", req.url)),
         hasCsrfCookie,
       );
     }
@@ -132,16 +142,22 @@ export async function proxy(
     if (role === "PASSENGER" && !onboardingCompleted) {
       // If onboarding is incomplete and they are not on the onboarding page, redirect to onboarding
       if (!isOnboardingPage && isProtectedPage) {
+        const onboardingUrl = new URL("/onboarding", req.url);
+        onboardingUrl.searchParams.set(
+          "callbackUrl",
+          `${pathname}${req.nextUrl.search}`,
+        );
         return ensureCsrfCookie(
-          NextResponse.redirect(new URL("/onboarding", req.url)),
+          NextResponse.redirect(onboardingUrl),
           hasCsrfCookie,
         );
       }
     } else {
       // If onboarding is complete (or role is staff/admin) and they try to go to onboarding, redirect to dashboard
       if (isOnboardingPage) {
+        const callbackUrl = getSafeCallbackUrl(req);
         return ensureCsrfCookie(
-          NextResponse.redirect(new URL("/dashboard", req.url)),
+          NextResponse.redirect(new URL(callbackUrl || "/dashboard", req.url)),
           hasCsrfCookie,
         );
       }

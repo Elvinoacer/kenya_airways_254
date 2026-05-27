@@ -12,7 +12,14 @@ import {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const rawCallbackUrl = searchParams.get("callbackUrl");
+  const callbackUrl =
+    rawCallbackUrl?.startsWith("/") && !rawCallbackUrl.startsWith("//")
+      ? rawCallbackUrl
+      : "/dashboard";
+  const registerHref = `/register?${new URLSearchParams({
+    callbackUrl,
+  }).toString()}`;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -73,8 +80,10 @@ function LoginForm() {
           }
         }
       }
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "An unexpected error occurred.",
+      );
     } finally {
       setLoading(false);
     }
@@ -92,15 +101,19 @@ function LoginForm() {
     setSuccess("");
 
     try {
-      const res = await resendVerificationAction(targetEmail);
+      const res = await resendVerificationAction(targetEmail, callbackUrl);
       if (res.success) {
         setSuccess(res.message || "A new verification link has been sent.");
         setVerificationEmail(targetEmail);
       } else {
         setError(res.error || "Could not resend the verification email.");
       }
-    } catch (err: any) {
-      setError(err.message || "Could not resend the verification email.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not resend the verification email.",
+      );
     } finally {
       setResendingVerification(false);
     }
@@ -152,7 +165,7 @@ function LoginForm() {
               <p className="text-[#5e3f3c]">
                 New to Kenya Airways?{" "}
                 <Link
-                  href="/register"
+                  href={registerHref}
                   className="font-semibold text-primary hover:text-[#e71520] transition-colors"
                 >
                   Create an account

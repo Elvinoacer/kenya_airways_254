@@ -28,6 +28,12 @@ const APP_URL =
   process.env.APP_URL ||
   "http://localhost:3000";
 
+function normalizeReturnPath(value?: string | null) {
+  if (!value || typeof value !== "string") return null;
+  if (!value.startsWith("/") || value.startsWith("//")) return null;
+  return value;
+}
+
 function isAtLeast18(dateOfBirthStr: string) {
   if (!dateOfBirthStr) return false;
 
@@ -88,6 +94,7 @@ export async function registerAction(
   email: string,
   password: string,
   name: string,
+  callbackUrl?: string,
 ) {
   try {
     const normalizedEmail =
@@ -133,7 +140,13 @@ export async function registerAction(
       "EMAIL_VERIFICATION",
     );
 
-    const verificationUrl = `${APP_URL}/verify-email?token=${token}`;
+    const verificationUrl = new URL("/verify-email", APP_URL);
+    verificationUrl.searchParams.set("token", token);
+    const returnPath = normalizeReturnPath(callbackUrl);
+    if (returnPath) {
+      verificationUrl.searchParams.set("callbackUrl", returnPath);
+    }
+
     const emailResult = await sendEmail(
       normalizedEmail,
       "Verify your Kenya Airways account",
@@ -141,7 +154,7 @@ export async function registerAction(
         `Hello ${normalizedName || "there"},`,
         "",
         "Welcome to Kenya Airways. Verify your email address to activate your passenger account:",
-        verificationUrl,
+        verificationUrl.toString(),
         "",
         "If you did not request this, you can ignore this message.",
       ].join("\n"),
@@ -149,7 +162,7 @@ export async function registerAction(
         eyebrow: "Account verification",
         preheader:
           "Confirm your email address and finish setting up your Kenya Airways account.",
-        cta: { label: "Verify email address", url: verificationUrl },
+        cta: { label: "Verify email address", url: verificationUrl.toString() },
       },
     );
 
@@ -347,7 +360,10 @@ export async function loginAction(
   }
 }
 
-export async function resendVerificationAction(email: string) {
+export async function resendVerificationAction(
+  email: string,
+  callbackUrl?: string,
+) {
   try {
     const normalizedEmail =
       typeof email === "string" ? email.trim().toLowerCase() : "";
@@ -373,7 +389,12 @@ export async function resendVerificationAction(email: string) {
       normalizedEmail,
       "EMAIL_VERIFICATION",
     );
-    const verificationUrl = `${APP_URL}/verify-email?token=${token}`;
+    const verificationUrl = new URL("/verify-email", APP_URL);
+    verificationUrl.searchParams.set("token", token);
+    const returnPath = normalizeReturnPath(callbackUrl);
+    if (returnPath) {
+      verificationUrl.searchParams.set("callbackUrl", returnPath);
+    }
 
     const emailResult = await sendEmail(
       normalizedEmail,
@@ -382,7 +403,7 @@ export async function resendVerificationAction(email: string) {
         `Hello ${user.name || "there"},`,
         "",
         "Your new Kenya Airways verification link is below:",
-        verificationUrl,
+        verificationUrl.toString(),
         "",
         "If you did not request this, you can ignore this message.",
       ].join("\n"),
@@ -390,7 +411,7 @@ export async function resendVerificationAction(email: string) {
         eyebrow: "Account verification",
         preheader:
           "Confirm your email address and finish setting up your Kenya Airways account.",
-        cta: { label: "Verify email address", url: verificationUrl },
+        cta: { label: "Verify email address", url: verificationUrl.toString() },
       },
     );
 

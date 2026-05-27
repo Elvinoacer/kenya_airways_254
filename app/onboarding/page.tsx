@@ -1,14 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { onboardPassengerAction, logoutAction } from "../actions/auth-actions";
 import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
 
 const MAX_DATE_OF_BIRTH = new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split("T")[0];
 
-export default function OnboardingPage() {
+function OnboardingForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawCallbackUrl = searchParams.get("callbackUrl");
+  const callbackUrl =
+    rawCallbackUrl?.startsWith("/") && !rawCallbackUrl.startsWith("//")
+      ? rawCallbackUrl
+      : "/dashboard";
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -32,14 +38,16 @@ export default function OnboardingPage() {
       if (res.success) {
         setSuccess(res.message || "Profile onboarding complete!");
         setTimeout(() => {
-          router.push("/dashboard");
+          router.push(callbackUrl);
           router.refresh();
         }, 1500);
       } else {
         setError(res.error || "Onboarding failed.");
       }
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "An unexpected error occurred.",
+      );
     } finally {
       setLoading(false);
     }
@@ -47,7 +55,7 @@ export default function OnboardingPage() {
 
   const handleSignOut = async () => {
     await logoutAction();
-    router.push("/login");
+    router.push(`/login?${new URLSearchParams({ callbackUrl }).toString()}`);
     router.refresh();
   };
 
@@ -68,7 +76,7 @@ export default function OnboardingPage() {
             </span>
           </span>
           <h2 className="text-4xl font-semibold mb-4 leading-tight">Welcome Aboard.</h2>
-          <p className="text-white/80 text-lg max-w-md">Let's get your details sorted before your next flight.</p>
+          <p className="text-white/80 text-lg max-w-md">Let&apos;s get your details sorted before your next flight.</p>
         </div>
       </div>
 
@@ -190,5 +198,19 @@ export default function OnboardingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#fcf9f8]">
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <OnboardingForm />
+    </Suspense>
   );
 }

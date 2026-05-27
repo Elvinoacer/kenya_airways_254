@@ -8,8 +8,18 @@ import { verifyEmailAction } from '../../actions/auth-actions';
 function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [verifying, setVerifying] = useState(true);
-  const [error, setError] = useState('');
+  const rawCallbackUrl = searchParams.get('callbackUrl');
+  const callbackUrl =
+    rawCallbackUrl?.startsWith('/') && !rawCallbackUrl.startsWith('//')
+      ? rawCallbackUrl
+      : '/dashboard';
+  const loginHref = `/login?${new URLSearchParams({ callbackUrl }).toString()}`;
+  const registerHref = `/register?${new URLSearchParams({ callbackUrl }).toString()}`;
+  const token = searchParams.get('token');
+  const [verifying, setVerifying] = useState(Boolean(token));
+  const [error, setError] = useState(
+    token ? '' : 'Invalid email verification link: Missing token.',
+  );
   const [success, setSuccess] = useState('');
   const runRef = useRef(false);
 
@@ -18,10 +28,7 @@ function VerifyEmailForm() {
     if (runRef.current) return;
     runRef.current = true;
 
-    const token = searchParams.get('token');
     if (!token) {
-      setError('Invalid email verification link: Missing token.');
-      setVerifying(false);
       return;
     }
 
@@ -30,22 +37,24 @@ function VerifyEmailForm() {
         const res = await verifyEmailAction(token);
         if (res.success) {
           setSuccess(res.message || 'Email verified successfully!');
-          // Redirect to login after 3 seconds
+          // Redirect to login after 3 seconds with the original booking flow preserved.
           setTimeout(() => {
-            router.push('/login');
+            router.push(loginHref);
           }, 3000);
         } else {
           setError(res.error || 'Email verification failed.');
         }
-      } catch (err: any) {
-        setError(err.message || 'An unexpected error occurred.');
+      } catch (err: unknown) {
+        setError(
+          err instanceof Error ? err.message : 'An unexpected error occurred.',
+        );
       } finally {
         setVerifying(false);
       }
     };
 
     runVerify();
-  }, [searchParams, router]);
+  }, [token, router, loginHref]);
 
   return (
     <div className="min-h-screen flex bg-[#fcf9f8]">
@@ -105,7 +114,7 @@ function VerifyEmailForm() {
               The link may have expired or is invalid. Please try requesting a new registration or password reset.
             </p>
             <div className="pt-4">
-              <Link href="/register" className="w-full py-3 px-4 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] transition-all inline-flex items-center justify-center gap-2 shadow-sm">
+              <Link href={registerHref} className="w-full py-3 px-4 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] transition-all inline-flex items-center justify-center gap-2 shadow-sm">
                 Back to Registration
                 <span className="material-symbols-outlined text-[18px]">person_add</span>
               </Link>
@@ -120,10 +129,10 @@ function VerifyEmailForm() {
             </div>
             <p className="text-[#1A1A1A] font-bold text-xl">{success}</p>
             <p className="text-sm text-[#5e3f3c]">
-              Your email has been verified. Redirecting you to the sign in page...
+              Your email has been verified. Redirecting you to sign in and continue...
             </p>
             <div className="pt-4">
-              <Link href="/login" className="w-full py-3 px-4 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] transition-all inline-flex items-center justify-center gap-2 shadow-sm">
+              <Link href={loginHref} className="w-full py-3 px-4 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] transition-all inline-flex items-center justify-center gap-2 shadow-sm">
                 Sign In Now
                 <span className="material-symbols-outlined text-[18px]">login</span>
               </Link>

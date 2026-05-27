@@ -1,15 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { registerAction } from "../../actions/auth-actions";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawCallbackUrl = searchParams.get("callbackUrl");
+  const callbackUrl =
+    rawCallbackUrl?.startsWith("/") && !rawCallbackUrl.startsWith("//")
+      ? rawCallbackUrl
+      : "/dashboard";
+  const loginHref = `/login?${new URLSearchParams({ callbackUrl }).toString()}`;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -21,21 +27,22 @@ export default function RegisterPage() {
     setSuccess("");
 
     try {
-      const res = await registerAction(email, password, name);
+      const res = await registerAction(email, password, "", callbackUrl);
       if (res.success) {
         setSuccess(res.message || "Registration successful!");
         setEmail("");
         setPassword("");
-        setName("");
-        // Wait 3 seconds and redirect to login
+        // Keep the original booking flow attached while the user verifies email.
         setTimeout(() => {
-          router.push("/login");
+          router.push(loginHref);
         }, 3000);
       } else {
         setError(res.error || "Registration failed.");
       }
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "An unexpected error occurred.",
+      );
     } finally {
       setLoading(false);
     }
@@ -78,12 +85,12 @@ export default function RegisterPage() {
             <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2">Create an account</h2>
             <p className="text-[#5e3f3c]">
               Already have an account?{" "}
-              <Link href="/login" className="font-semibold text-primary hover:text-[#e71520] transition-colors">
+              <Link href={loginHref} className="font-semibold text-primary hover:text-[#e71520] transition-colors">
                 Sign in
               </Link>
             </p>
             <p className="mt-3 text-sm text-[#5e3f3c]">
-              Passenger accounts are created here. Staff and admin access is assigned separately.
+              We only need your email and a password to start.
             </p>
           </div>
 
@@ -101,27 +108,6 @@ export default function RegisterPage() {
 
           <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
             <div className="space-y-4">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-[#1A1A1A] mb-1">
-                  Full Name
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="material-symbols-outlined text-primary/60">person</span>
-                  </div>
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-[#1A1A1A] bg-[#fcf9f8]"
-                    placeholder="John Doe"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-[#1A1A1A] mb-1">
                   Email address
@@ -189,5 +175,19 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#fcf9f8]">
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }
