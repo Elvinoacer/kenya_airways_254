@@ -1,17 +1,16 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
 import WorkflowShell from "../components/WorkflowShell";
-import {
-  accessibilityNeedsSummary,
-  type AccessibilityNeeds,
-} from "../../lib/accessibility";
+import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
+import { getProfileInfo } from "../actions/auth-actions";
 import {
   createKenyanPassportDetails,
   hasRequiredPassportDetails,
   type PassportDetails,
 } from "../../lib/passport";
+
+type TravelClassCode = "CLASS_A" | "CLASS_B" | "CLASS_C";
 
 type PassengerProfile = {
   id: string;
@@ -20,103 +19,279 @@ type PassengerProfile = {
   passportNo?: string | null;
   nationality?: string | null;
   dateOfBirth?: string | null;
-  vipLabel?: string | null;
-  tags?: string[];
-  travelPreferences?: Record<string, any>;
-  accessibilityNeeds?: AccessibilityNeeds | null;
-};
-
-type DraftPassenger = {
-  firstName: string;
-  lastName: string;
-  passportNo: string;
-  nationality: string;
-  dateOfBirth: string;
-  passportDetails?: PassportDetails;
-  travelPreferences: Record<string, any>;
-  accessibilityNeeds: AccessibilityNeeds;
+  phone?: string | null;
+  frequentFlyerNumber?: string | null;
 };
 
 type Flight = {
   id: string;
   flightNumber: string;
+  airline?: string;
   origin: string;
   destination: string;
   departAt: string;
+  arriveAt?: string;
+  aircraft?: string;
+  terminal?: string;
   basePrice: number;
-  classCapacity?: any[];
 };
 
-const TRAVEL_CLASSES = [
-  { code: "CLASS_A", shortCode: "A", label: "Class A: Executive" },
-  { code: "CLASS_B", shortCode: "B", label: "Class B: Middle class" },
-  { code: "CLASS_C", shortCode: "C", label: "Class C: Low class" },
+type ClassAvailability = {
+  code: TravelClassCode;
+  shortCode: string;
+  label: string;
+  description: string;
+  capacity: number;
+  occupied: number;
+  locked: number;
+  available: number;
+  isFull: boolean;
+};
+
+type Availability = {
+  selected: ClassAvailability;
+  classes: ClassAvailability[];
+  nextAvailable?: {
+    flightId: string;
+    flightNumber: string;
+    origin: string;
+    destination: string;
+    departureTime: string | null;
+    arrivalTime: string | null;
+    class: ClassAvailability;
+  } | null;
+};
+
+type HoldResponse = {
+  ok: boolean;
+  holdId: string;
+  expiresAt: number;
+  fare: { baseFare: number; taxes: number; fees: number; discount: number; total: number };
+  hold: {
+    flight: Flight;
+    travelClassLabel: string;
+    seats: number;
+    passengers: Array<{
+      firstName: string;
+      lastName: string;
+      passportNo?: string | null;
+      nationality?: string | null;
+    }>;
+  };
+  availability?: Availability;
+};
+
+type ConfirmedBooking = {
+  booking: {
+    id: string;
+    reference: string;
+    flightId: string;
+    flightNumber: string | null;
+    route: string | null;
+    departureTime: string | null;
+    status: string;
+    seatClass: string;
+    travelClass: { code: string; shortCode: string; label: string };
+    seats: number;
+    fare: { total: number };
+    passengers: Array<{
+      firstName: string;
+      lastName: string;
+      seatAssignment?: string | null;
+    }>;
+  };
+  receipt: { reference: string };
+};
+
+const TRAVEL_CLASSES: Array<{
+  code: TravelClassCode;
+  label: string;
+  shortCode: string;
+  description: string;
+}> = [
+  {
+    code: "CLASS_A",
+    label: "Executive",
+    shortCode: "A",
+    description: "Priority cabin, highest fare flexibility.",
+  },
+  {
+    code: "CLASS_B",
+    label: "Business",
+    shortCode: "B",
+    description: "Comfort cabin with balanced flexibility.",
+  },
+  {
+    code: "CLASS_C",
+    label: "Economy",
+    shortCode: "C",
+    description: "Best value for direct passenger travel.",
+  },
 ];
+
+const EMPTY_PASSPORT: PassportDetails = {
+  passportNo: "",
+  nationality: "Kenyan",
+  country: "Republic of Kenya",
+  countryCode: "KEN",
+  placeOfBirth: "Nairobi",
+  dateOfIssue: "",
+  dateOfExpiry: "",
+};
+
+function passportDraftFromPassenger(passenger?: PassengerProfile | null): PassportDetails {
+  return {
+    ...EMPTY_PASSPORT,
+    passportNo: passenger?.passportNo || "",
+    nationality: passenger?.nationality || "Kenyan",
+  };
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "Not scheduled";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not scheduled";
+  return new Intl.DateTimeFormat("en-KE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function formatMoney(value?: number | null) {
+  return new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function safeText(value?: string | null) {
+  return value?.trim() || "Not provided";
+}
+
+function ticketHtml({
+  title,
+  reference,
+  flight,
+  passenger,
+  travelClass,
+  fare,
+  seat,
+}: {
+  title: string;
+  reference: string;
+  flight?: Partial<Flight> | null;
+  passenger?: PassengerProfile | null;
+  travelClass?: string | null;
+  fare?: number | null;
+  seat?: string | null;
+}) {
+  return `<!doctype html>
+<html>
+<head>
+  <title>${title}</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; color: #1A1A1A; background: #f5f2f1; }
+    .ticket { width: 760px; margin: 32px auto; background: #fff; border: 1px solid #ddd4d2; }
+    .top { display: flex; justify-content: space-between; background: #410001; color: #fff; padding: 24px; }
+    .brand { font-size: 24px; font-weight: 900; letter-spacing: 1px; }
+    .ref { text-align: right; font-family: monospace; font-size: 18px; }
+    .route { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 28px; padding: 28px 24px; border-bottom: 1px solid #eee; }
+    .airport { font-size: 42px; font-weight: 900; }
+    .city { color: #5e3f3c; margin-top: 6px; }
+    .plane { color: #c8102e; font-size: 28px; }
+    .details { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding: 24px; }
+    .label { color: #5e3f3c; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+    .value { margin-top: 6px; font-weight: 800; }
+    .footer { padding: 18px 24px; background: #fcf9f8; color: #5e3f3c; font-size: 12px; }
+    @media print { body { background: #fff; } .ticket { margin: 0; width: 100%; } }
+  </style>
+</head>
+<body>
+  <main class="ticket">
+    <section class="top">
+      <div>
+        <div class="brand">KENYA AIRWAYS</div>
+        <div>${title}</div>
+      </div>
+      <div class="ref">
+        <div>${reference}</div>
+        <div>${flight?.flightNumber || ""}</div>
+      </div>
+    </section>
+    <section class="route">
+      <div>
+        <div class="airport">${flight?.origin || "--"}</div>
+        <div class="city">Departure</div>
+      </div>
+      <div class="plane">AIR</div>
+      <div style="text-align:right">
+        <div class="airport">${flight?.destination || "--"}</div>
+        <div class="city">Arrival</div>
+      </div>
+    </section>
+    <section class="details">
+      <div><div class="label">Passenger</div><div class="value">${safeText(`${passenger?.firstName || ""} ${passenger?.lastName || ""}`)}</div></div>
+      <div><div class="label">Passport</div><div class="value">${safeText(passenger?.passportNo)}</div></div>
+      <div><div class="label">Travel Class</div><div class="value">${safeText(travelClass)}</div></div>
+      <div><div class="label">Departure</div><div class="value">${formatDateTime(flight?.departAt)}</div></div>
+      <div><div class="label">Seat</div><div class="value">${safeText(seat)}</div></div>
+      <div><div class="label">Fare</div><div class="value">${formatMoney(fare)}</div></div>
+    </section>
+    <section class="footer">This is a passenger ticket document. Present it with a valid passport at airport processing.</section>
+  </main>
+</body>
+</html>`;
+}
 
 export default function BookingPage() {
   const [flights, setFlights] = useState<Flight[]>([]);
-  const [profiles, setProfiles] = useState<PassengerProfile[]>([]);
   const [selectedFlightId, setSelectedFlightId] = useState("");
-  const [seatClass, setSeatClass] = useState<"CLASS_A" | "CLASS_B" | "CLASS_C">("CLASS_C");
-  const [seatCount, setSeatCount] = useState(1);
-  const [availability, setAvailability] = useState<any>(null);
-  const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
-  const [draftPassengers, setDraftPassengers] = useState<DraftPassenger[]>([]);
-  const [draftPassenger, setDraftPassenger] = useState<DraftPassenger>({
-    firstName: "",
-    lastName: "",
-    passportNo: "",
-    nationality: "Kenyan",
-    dateOfBirth: "",
-    travelPreferences: {},
-    accessibilityNeeds: {
-      wheelchairAssistance: false,
-      visualImpairmentAssistance: false,
-      hearingImpairmentAssistance: false,
-      medicalAssistance: "",
-      specialMealRequest: "",
-      companionSupport: {
-        required: false,
-        companionCount: 0,
-        notes: "",
-      },
-      accessibleSeating: false,
-      notes: "",
-    },
-  });
+  const [seatClass, setSeatClass] = useState<TravelClassCode>("CLASS_C");
+  const [availability, setAvailability] = useState<Availability | null>(null);
+  const [passenger, setPassenger] = useState<PassengerProfile | null>(null);
+  const [userEmail, setUserEmail] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [promoCode, setPromoCode] = useState("");
-  const [hold, setHold] = useState<any>(null);
-  const [confirmed, setConfirmed] = useState<any>(null);
-  const [inquiryRef, setInquiryRef] = useState("");
-  const [inquiryBooking, setInquiryBooking] = useState<any>(null);
-  const [inquiryMessage, setInquiryMessage] = useState("");
-  const [error, setError] = useState("");
+  const [passportDraft, setPassportDraft] = useState<PassportDetails>(EMPTY_PASSPORT);
+  const [hold, setHold] = useState<HoldResponse | null>(null);
+  const [confirmed, setConfirmed] = useState<ConfirmedBooking | null>(null);
   const [loading, setLoading] = useState(false);
+  const [savingPassport, setSavingPassport] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     async function load() {
-      const [flightRes, passengerRes] = await Promise.all([
+      const requestedFlightId =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("flightId")
+          : null;
+      const [profileInfo, flightRes, passengerRes] = await Promise.all([
+        getProfileInfo(),
         fetch("/api/flights"),
         fetch("/api/passengers"),
       ]);
       const flightsData = await flightRes.json();
       const passengerData = await passengerRes.json();
+      const currentPassenger = passengerData.passengers?.[0] || null;
+
       setFlights(flightsData.results || []);
-      setProfiles(passengerData.passengers || []);
-      const requestedFlightId =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search).get("flightId")
-          : null;
-      if (!selectedFlightId && requestedFlightId) {
-        setSelectedFlightId(requestedFlightId);
-      } else if (!selectedFlightId && flightsData.results?.[0]?.id) {
-        setSelectedFlightId(flightsData.results[0].id);
-      }
+      setSelectedFlightId(
+        requestedFlightId || flightsData.results?.[0]?.id || "",
+      );
+      setPassenger(currentPassenger);
+
+      const email = profileInfo?.user?.email || "";
+      setUserEmail(email);
+      setContactEmail(email);
+      setContactPhone(currentPassenger?.phone || "");
+
+      setPassportDraft(passportDraftFromPassenger(currentPassenger));
     }
-    load().catch((err) =>
-      setError(err.message || "Failed to load booking data"),
+
+    load().catch((err: unknown) =>
+      setError(err instanceof Error ? err.message : "Failed to load booking."),
     );
   }, []);
 
@@ -129,187 +304,80 @@ export default function BookingPage() {
       const data = await res.json();
       setAvailability(data.classAvailability || null);
     }
+
     loadAvailability().catch(() => setAvailability(null));
   }, [selectedFlightId, seatClass, hold, confirmed]);
 
-  const selectedProfiles = useMemo(
-    () => profiles.filter((profile) => selectedProfileIds.includes(profile.id)),
-    [profiles, selectedProfileIds],
+  const selectedFlight = useMemo(
+    () => flights.find((flight) => flight.id === selectedFlightId) || hold?.hold.flight || null,
+    [flights, selectedFlightId, hold],
   );
 
-  const selectedProfilesMissingPassports = useMemo(
-    () =>
-      selectedProfiles.filter(
-        (profile) =>
-          !hasRequiredPassportDetails({
-            passportNo: profile.passportNo,
-            nationality: profile.nationality,
-          }),
-      ),
-    [selectedProfiles],
-  );
+  const selectedClass =
+    availability?.classes.find((entry) => entry.code === seatClass) ||
+    availability?.selected ||
+    null;
+  const allClassesFull =
+    Boolean(availability?.classes?.length) &&
+    availability?.classes.every((entry) => entry.available <= 0);
+  const passportReady = hasRequiredPassportDetails({
+    passportNo: passenger?.passportNo,
+    nationality: passenger?.nationality,
+  });
+  const canCreateHold =
+    Boolean(selectedFlightId && passenger?.id) &&
+    passportReady &&
+    !allClassesFull &&
+    !selectedClass?.isFull &&
+    !loading;
 
-  const draftPassengersMissingPassports = useMemo(
-    () =>
-      draftPassengers.filter(
-        (passenger) =>
-          !hasRequiredPassportDetails({
-            passportNo: passenger.passportNo,
-            nationality: passenger.nationality,
-          }),
-      ),
-    [draftPassengers],
-  );
-
-  const passportRequirementSatisfied =
-    selectedProfilesMissingPassports.length === 0 &&
-    draftPassengersMissingPassports.length === 0 &&
-    selectedProfiles.length + draftPassengers.length > 0;
-
-  function toggleProfile(profileId: string) {
-    setSelectedProfileIds((current) =>
-      current.includes(profileId)
-        ? current.filter((id) => id !== profileId)
-        : [...current, profileId],
-    );
+  function chooseBestAvailableClass(nextAvailability: Availability | null) {
+    const nextClass = nextAvailability?.classes.find((entry) => entry.available > 0);
+    if (nextClass) setSeatClass(nextClass.code);
   }
 
-  function updateDraftAccessibility(
-    patch: Partial<AccessibilityNeeds> & {
-      companionSupport?: Partial<
-        NonNullable<AccessibilityNeeds["companionSupport"]>
-      >;
-    },
-  ) {
-    setDraftPassenger((current) => ({
-      ...current,
-      accessibilityNeeds: {
-        ...current.accessibilityNeeds,
-        ...patch,
-        companionSupport: {
-          ...current.accessibilityNeeds.companionSupport,
-          ...patch.companionSupport,
-        },
-      },
-    }));
-  }
-
-  function addDraftPassenger() {
-    if (!draftPassenger.firstName || !draftPassenger.lastName) return;
-    if (
-      !hasRequiredPassportDetails({
-        passportNo: draftPassenger.passportNo,
-        nationality: draftPassenger.nationality,
-      })
-    ) {
-      setError("Add passport details before adding this passenger.");
-      return;
-    }
+  async function savePassport() {
+    if (!passenger?.id) return;
+    setSavingPassport(true);
     setError("");
-    setDraftPassengers((current) => [
-      ...current,
-      {
-        ...draftPassenger,
-        travelPreferences: {
-          ...draftPassenger.travelPreferences,
-          accessibilityNeeds: draftPassenger.accessibilityNeeds,
-        },
-      },
-    ]);
-    setDraftPassenger({
-      firstName: "",
-      lastName: "",
-      passportNo: "",
-      nationality: "Kenyan",
-      dateOfBirth: "",
-      travelPreferences: {},
-      accessibilityNeeds: {
-        wheelchairAssistance: false,
-        visualImpairmentAssistance: false,
-        hearingImpairmentAssistance: false,
-        medicalAssistance: "",
-        specialMealRequest: "",
-        companionSupport: {
-          required: false,
-          companionCount: 0,
-          notes: "",
-        },
-        accessibleSeating: false,
-        notes: "",
-      },
-    });
-  }
-
-  async function generatePassportForProfile(profile: PassengerProfile) {
-    setError("");
-    const details = createKenyanPassportDetails({
-      nationality: profile.nationality || "Kenyan",
-    });
-    const res = await fetch(`/api/passengers/${profile.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        firstName: profile.firstName,
-        lastName: profile.lastName,
-        phone: (profile as any).phone || undefined,
-        passportNo: details.passportNo,
-        nationality: details.nationality,
-        dateOfBirth: profile.dateOfBirth || undefined,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || "Could not update passenger passport details.");
-      return;
+    try {
+      const res = await fetch(`/api/passengers/${passenger.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: passenger.firstName,
+          lastName: passenger.lastName,
+          phone: passenger.phone || contactPhone || undefined,
+          passportNo: passportDraft.passportNo,
+          nationality: passportDraft.nationality,
+          dateOfBirth: passenger.dateOfBirth || undefined,
+          frequentFlyerNumber: passenger.frequentFlyerNumber || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not save passport.");
+      setPassenger(data.profile || passenger);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not save passport.");
+    } finally {
+      setSavingPassport(false);
     }
-    setProfiles((current) =>
-      current.map((item) =>
-        item.id === profile.id
-          ? {
-              ...item,
-              passportNo: data.profile?.passportNo || details.passportNo,
-              nationality: data.profile?.nationality || details.nationality,
-              dateOfBirth: data.profile?.dateOfBirth || item.dateOfBirth,
-            }
-          : item,
-      ),
-    );
   }
 
   async function createHold() {
+    if (!canCreateHold || !passenger) return;
     setLoading(true);
     setError("");
     setHold(null);
+    setConfirmed(null);
     try {
-      const passengerCount = selectedProfileIds.length + draftPassengers.length;
-      if (passengerCount === 0) {
-        throw new Error("Add or select at least one passenger before creating a booking hold.");
-      }
-      if (!passportRequirementSatisfied) {
-        throw new Error("Every passenger needs passport details before booking.");
-      }
       const payload = {
         flightId: selectedFlightId,
         travelClass: seatClass,
-        seats: passengerCount > 0 ? passengerCount : seatCount,
-        passengerProfileIds: selectedProfileIds,
-        passengers: draftPassengers.map((passenger, index) => ({
-          id: `draft-${index}-${Date.now()}`,
-          firstName: passenger.firstName,
-          lastName: passenger.lastName,
-          passportNo: passenger.passportNo,
-          nationality: passenger.nationality,
-          dob: passenger.dateOfBirth || undefined,
-          type: "ADULT",
-          travelPreferences: passenger.travelPreferences,
-          accessibilityNeeds: passenger.accessibilityNeeds,
-          mealPreference:
-            passenger.accessibilityNeeds.specialMealRequest || null,
-          specialAssistance:
-            accessibilityNeedsSummary(passenger.accessibilityNeeds) || null,
-        })),
-        contactEmail: contactEmail || undefined,
-        contactPhone: contactPhone || undefined,
+        seats: 1,
+        passengerProfileIds: [passenger.id],
+        contactEmail: contactEmail || userEmail || undefined,
+        contactPhone: contactPhone || passenger.phone || undefined,
         promoCode: promoCode || undefined,
       };
       const res = await fetch("/api/bookings", {
@@ -318,15 +386,16 @@ export default function BookingPage() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.error || "Failed to create booking hold");
+      if (!res.ok) throw new Error(data.error || "Failed to create hold.");
       if (data.ok === false) {
         setAvailability(data.availability || null);
+        chooseBestAvailableClass(data.availability || null);
         throw new Error(data.message || "Selected class is full.");
       }
       setHold(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to create booking hold");
+      setAvailability(data.availability || availability);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create hold.");
     } finally {
       setLoading(false);
     }
@@ -346,635 +415,465 @@ export default function BookingPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to confirm booking");
+      if (!res.ok) throw new Error(data.error || "Failed to confirm booking.");
       setConfirmed(data);
       setHold(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to confirm booking");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to confirm booking.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function lookupBooking() {
-    if (!inquiryRef.trim()) return;
-    setInquiryMessage("");
-    const res = await fetch(`/api/bookings/${encodeURIComponent(inquiryRef.trim())}`);
-    const data = await res.json();
-    if (!res.ok) {
-      setInquiryBooking(null);
-      setInquiryMessage(data.error || "Booking not found");
-      return;
-    }
-    setInquiryBooking(data.booking);
+  function printTicket() {
+    const booking = confirmed?.booking;
+    const reference = booking?.reference || hold?.holdId || "KQ-HOLD";
+    const flight = booking
+      ? {
+          flightNumber: booking.flightNumber || selectedFlight?.flightNumber,
+          origin: selectedFlight?.origin,
+          destination: selectedFlight?.destination,
+          departAt: booking.departureTime || selectedFlight?.departAt,
+        }
+      : hold?.hold.flight || selectedFlight;
+    const printWindow = window.open("", "_blank", "width=900,height=720");
+    if (!printWindow) return;
+    printWindow.document.write(
+      ticketHtml({
+        title: booking ? "Passenger Ticket" : "Booking Hold",
+        reference,
+        flight,
+        passenger,
+        travelClass: booking?.travelClass?.label || hold?.hold.travelClassLabel || selectedClass?.label,
+        fare: booking?.fare.total || hold?.fare.total,
+        seat: booking?.passengers?.[0]?.seatAssignment,
+      }),
+    );
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
   }
 
-  async function changeInquiryBooking(nextClass: string) {
-    if (!inquiryBooking?.id) return;
-    const res = await fetch("/api/bookings/modify", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bookingId: inquiryBooking.id,
-        changes: { travelClass: nextClass },
-        actor: "passenger",
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok || data.ok === false) {
-      setInquiryMessage(data.message || data.error || "Could not change booking");
-      return;
-    }
-    setInquiryBooking(data.booking);
-    setInquiryMessage("Booking changed successfully.");
+  async function downloadTicketPdf() {
+    const { jsPDF } = await import("jspdf");
+    const booking = confirmed?.booking;
+    const reference = booking?.reference || hold?.holdId || "KQ-HOLD";
+    const flight = hold?.hold.flight || selectedFlight;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    doc.setFillColor(65, 0, 1);
+    doc.rect(40, 40, 515, 96, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.text("KENYA AIRWAYS", 64, 82);
+    doc.setFontSize(12);
+    doc.text(booking ? "Passenger Ticket" : "Booking Hold", 64, 108);
+    doc.setFontSize(16);
+    doc.text(reference, 384, 82);
+    doc.setTextColor(26, 26, 26);
+    doc.setFontSize(42);
+    doc.text(flight?.origin || "--", 64, 210);
+    doc.text(flight?.destination || "--", 400, 210);
+    doc.setFontSize(12);
+    doc.text(`Flight: ${flight?.flightNumber || booking?.flightNumber || "Not assigned"}`, 64, 270);
+    doc.text(`Passenger: ${safeText(`${passenger?.firstName || ""} ${passenger?.lastName || ""}`)}`, 64, 294);
+    doc.text(`Passport: ${safeText(passenger?.passportNo)}`, 64, 318);
+    doc.text(`Class: ${booking?.travelClass?.label || hold?.hold.travelClassLabel || selectedClass?.label || "Not selected"}`, 64, 342);
+    doc.text(`Departure: ${formatDateTime(booking?.departureTime || flight?.departAt)}`, 64, 366);
+    doc.text(`Seat: ${booking?.passengers?.[0]?.seatAssignment || "Assigned at check-in"}`, 64, 390);
+    doc.text(`Fare: ${formatMoney(booking?.fare.total || hold?.fare.total)}`, 64, 414);
+    doc.save(`${reference}-ticket.pdf`);
   }
 
-  async function deleteInquiryBooking() {
-    if (!inquiryBooking?.id) return;
-    const res = await fetch("/api/bookings/cancel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bookingId: inquiryBooking.id,
-        reason: "Deleted from booking inquiry",
-        actor: "passenger",
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setInquiryMessage(data.error || "Could not delete booking");
-      return;
-    }
-    setInquiryBooking(data);
-    setInquiryMessage("Booking deleted/cancelled successfully.");
+  async function downloadPassportPdf() {
+    if (!passenger) return;
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    doc.setFillColor(20, 88, 55);
+    doc.roundedRect(80, 60, 435, 250, 12, 12, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.text("REPUBLIC OF KENYA", 112, 104);
+    doc.setFontSize(28);
+    doc.text("PASSPORT", 112, 142);
+    doc.setFontSize(11);
+    doc.text(`Passport No: ${safeText(passenger.passportNo)}`, 112, 190);
+    doc.text(`Surname: ${safeText(passenger.lastName)}`, 112, 218);
+    doc.text(`Given Names: ${safeText(passenger.firstName)}`, 112, 246);
+    doc.text(`Nationality: ${safeText(passenger.nationality)}`, 112, 274);
+    doc.setTextColor(26, 26, 26);
+    doc.setFontSize(12);
+    doc.text("Digital copy generated from the Kenya Airways passenger profile.", 80, 360);
+    doc.save(`${passenger.passportNo || "passport"}-copy.pdf`);
   }
 
   return (
     <WorkflowShell>
-    <div className="min-h-screen bg-[#fcf9f8] text-[#1A1A1A]">
-      <div className="bg-[#410001] py-12 mb-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Booking Creation</h1>
-          <p className="text-white/80">
-            Secure your flight and passenger details seamlessly.
-          </p>
-        </div>
-      </div>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-12">
-      <div className="grid gap-6 md:grid-cols-2 bg-white p-6 sm:p-8 rounded-2xl shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1] mb-8">
-        <label className="space-y-2">
-          <span className="block text-sm font-semibold text-[#5e3f3c]">Flight</span>
-          <select
-            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-            value={selectedFlightId}
-            onChange={(e) => setSelectedFlightId(e.target.value)}
-          >
-            {flights.map((flight) => (
-              <option key={flight.id} value={flight.id}>
-                {flight.flightNumber} - {flight.origin} to {flight.destination}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-2">
-          <span className="block text-sm font-semibold text-[#5e3f3c]">Booking Class</span>
-          <select
-            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-            value={seatClass}
-            onChange={(e) => setSeatClass(e.target.value as any)}
-          >
-            {TRAVEL_CLASSES.map((entry) => (
-              <option key={entry.code} value={entry.code}>{entry.label}</option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-2">
-          <span className="block text-sm font-semibold text-[#5e3f3c]">Seat Count</span>
-          <input
-            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-            type="number"
-            min={1}
-            value={seatCount}
-            onChange={(e) => setSeatCount(Number(e.target.value))}
-          />
-        </label>
-
-        <label className="space-y-2">
-          <span className="block text-sm font-semibold text-[#5e3f3c]">Promo Code</span>
-          <input
-            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-            value={promoCode}
-            onChange={(e) => setPromoCode(e.target.value)}
-            placeholder="Optional"
-          />
-        </label>
-
-        <label className="space-y-2">
-          <span className="block text-sm font-semibold text-[#5e3f3c]">Contact Email</span>
-          <input
-            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-            value={contactEmail}
-            onChange={(e) => setContactEmail(e.target.value)}
-            placeholder="Optional"
-          />
-        </label>
-
-        <label className="space-y-2">
-          <span className="block text-sm font-semibold text-[#5e3f3c]">Contact Phone</span>
-          <input
-            className="w-full rounded-lg border border-[#e5e2e1] p-3 focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-            value={contactPhone}
-            onChange={(e) => setContactPhone(e.target.value)}
-            placeholder="Optional"
-          />
-        </label>
-      </div>
-
-      <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
-        <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Seat Capacity by Class</h2>
-        <div className="grid gap-4 md:grid-cols-3" aria-live="polite">
-          {(availability?.classes || []).map((entry: any) => (
-            <div
-              key={entry.code}
-              className={`rounded-xl border p-4 ${entry.isFull ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50"}`}
-            >
-              <div className="text-sm font-bold text-[#1A1A1A]">{entry.label}</div>
-              <div className="mt-2 text-2xl font-black">{entry.available}/{entry.capacity}</div>
-              <div className="text-xs font-semibold text-[#5e3f3c] mt-1">
-                {entry.isFull ? "FULL" : "seats available"}
+      <div className="min-h-screen bg-[#f7f3f1] text-[#1A1A1A]">
+        <section className="border-b border-[#e2d8d5] bg-white">
+          <div className="mx-auto grid max-w-7xl gap-6 px-4 py-7 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-8">
+            <div className="min-w-0">
+              <p className="text-sm font-bold uppercase tracking-wide text-[#c8102e]">Book your flight</p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+                {selectedFlight
+                  ? `${selectedFlight.origin} to ${selectedFlight.destination}`
+                  : "Choose a flight"}
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5e3f3c]">
+                Your passenger details are filled from your account. Choose a cabin, create a short hold, then print or export the ticket.
+              </p>
+            </div>
+            <div className="rounded-lg border border-[#e2d8d5] bg-[#fcf9f8] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Passenger</p>
+                  <p className="mt-1 font-black">
+                    {passenger ? `${passenger.firstName} ${passenger.lastName}` : "Loading profile"}
+                  </p>
+                </div>
+                <span className="material-symbols-outlined text-[30px] text-[#c8102e]">account_circle</span>
+              </div>
+              <div className="mt-3 text-sm text-[#5e3f3c]">
+                {passportReady ? passenger?.passportNo : "Passport details required before hold"}
               </div>
             </div>
-          ))}
-        </div>
-        {availability?.selected?.isFull ? (
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
-            This class is full.
-            {availability.nextAvailable ? (
-              <span> Next available: {availability.nextAvailable.flightNumber} on {new Date(availability.nextAvailable.departureTime).toLocaleString()}.</span>
-            ) : (
-              <span> No later available flight was found for this route.</span>
-            )}
           </div>
-        ) : null}
-      </section>
+        </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
-          <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Saved Passengers</h2>
-          <div className="space-y-3 max-h-96 overflow-auto pr-2">
-            {profiles.length === 0 ? (
-              <p className="text-sm text-[#5e3f3c]">
-                No saved passengers found.
-              </p>
-            ) : (
-              profiles.map((profile) => {
-                const passportReady = hasRequiredPassportDetails({
-                  passportNo: profile.passportNo,
-                  nationality: profile.nationality,
-                });
-
-                return (
-                  <div
-                    key={profile.id}
-                    className={`flex items-start gap-4 rounded-xl border p-4 cursor-pointer transition-all ${
-                      selectedProfileIds.includes(profile.id)
-                        ? "border-primary bg-primary/5 shadow-sm"
-                        : "border-[#e5e2e1] hover:border-[#d7d3d2] hover:bg-[#fcf9f8]"
-                    }`}
-                  >
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="space-y-6">
+              <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                  <label className="block">
+                    <span className="text-sm font-bold text-[#5e3f3c]">Flight</span>
+                    <select
+                      className="mt-2 w-full rounded-lg border border-[#d8cfcc] bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#c8102e] focus:ring-2 focus:ring-[#c8102e]/20"
+                      value={selectedFlightId}
+                      onChange={(event) => {
+                        setSelectedFlightId(event.target.value);
+                        setHold(null);
+                        setConfirmed(null);
+                      }}
+                    >
+                      {flights.map((flight) => (
+                        <option key={flight.id} value={flight.id}>
+                          {flight.flightNumber} - {flight.origin} to {flight.destination}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-bold text-[#5e3f3c]">Promo code</span>
                     <input
-                      type="checkbox"
-                      className="mt-1 w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
-                      checked={selectedProfileIds.includes(profile.id)}
-                      onChange={() => toggleProfile(profile.id)}
-                      aria-label={`Select ${profile.firstName} ${profile.lastName}`}
+                      className="mt-2 w-full rounded-lg border border-[#d8cfcc] bg-white px-4 py-3 text-sm outline-none focus:border-[#c8102e] focus:ring-2 focus:ring-[#c8102e]/20"
+                      value={promoCode}
+                      onChange={(event) => setPromoCode(event.target.value)}
+                      placeholder="Optional"
                     />
-                    <div className="min-w-0 flex-1">
-                      <span className="block font-bold text-[#1A1A1A]">
-                        {profile.firstName} {profile.lastName}
-                      </span>
-                      <span className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[#5e3f3c]">
-                        <span>{profile.passportNo || "No passport"}</span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                            passportReady
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-red-50 text-[#c8102e]"
-                          }`}
-                        >
-                          {passportReady ? "Ready" : "Required"}
-                        </span>
-                        {profile.vipLabel ? ` • ${profile.vipLabel}` : ""}
-                      </span>
-                      {!passportReady ? (
-                        <button
-                          type="button"
-                          className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary bg-white px-3 py-2 text-xs font-bold text-primary hover:bg-primary/5"
-                          onClick={() => generatePassportForProfile(profile)}
-                        >
-                          <span className="material-symbols-outlined text-[16px]">
-                            auto_awesome
+                  </label>
+                </div>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-lg bg-[#f7f3f1] p-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Flight</p>
+                    <p className="mt-1 text-lg font-black">{selectedFlight?.flightNumber || "Not selected"}</p>
+                  </div>
+                  <div className="rounded-lg bg-[#f7f3f1] p-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Departure</p>
+                    <p className="mt-1 text-sm font-bold">{formatDateTime(selectedFlight?.departAt)}</p>
+                  </div>
+                  <div className="rounded-lg bg-[#f7f3f1] p-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Base Fare</p>
+                    <p className="mt-1 text-lg font-black">{formatMoney(selectedFlight?.basePrice)}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-black">Choose cabin</h2>
+                    <p className="mt-1 text-sm text-[#5e3f3c]">Availability updates before every hold and confirmation.</p>
+                  </div>
+                  {allClassesFull ? (
+                    <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-[#c8102e]">
+                      All classes full
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  {TRAVEL_CLASSES.map((travelClass) => {
+                    const item = availability?.classes.find((entry) => entry.code === travelClass.code);
+                    const isSelected = seatClass === travelClass.code;
+                    const isFull = item?.isFull || false;
+                    return (
+                      <button
+                        key={travelClass.code}
+                        type="button"
+                        disabled={isFull}
+                        onClick={() => {
+                          setSeatClass(travelClass.code);
+                          setHold(null);
+                          setConfirmed(null);
+                        }}
+                        className={`min-h-[150px] rounded-lg border p-4 text-left transition ${
+                          isSelected
+                            ? "border-[#c8102e] bg-[#fff6f6] shadow-sm"
+                            : "border-[#e2d8d5] bg-white hover:border-[#c8102e]/60"
+                        } ${isFull ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-lg font-black">{travelClass.label}</p>
+                            <p className="mt-1 text-xs leading-5 text-[#5e3f3c]">{travelClass.description}</p>
+                          </div>
+                          <span className="rounded-full bg-[#1A1A1A] px-2 py-1 text-xs font-black text-white">
+                            {travelClass.shortCode}
                           </span>
-                          Generate passport details
-                        </button>
-                      ) : null}
-                      {accessibilityNeedsSummary(
-                        profile.accessibilityNeeds ||
-                          profile.travelPreferences?.accessibilityNeeds ||
-                          null,
-                      ) ? (
-                        <span className="block text-sm text-primary mt-1">
-                          <span className="font-semibold">Accessibility:</span>{" "}
-                          {accessibilityNeedsSummary(
-                            profile.accessibilityNeeds ||
-                              profile.travelPreferences?.accessibilityNeeds ||
-                              null,
-                          )}
-                        </span>
-                      ) : null}
-                      {profile.tags?.length ? (
-                        <span className="block text-xs text-[#5e3f3c] mt-2 bg-[#f6f3f2] px-2 py-1 rounded w-fit">
-                          Tags: {profile.tags.join(", ")}
-                        </span>
-                      ) : null}
+                        </div>
+                        <div className="mt-5 flex items-end justify-between gap-3">
+                          <div>
+                            <p className="text-2xl font-black">{item?.available ?? "-"}</p>
+                            <p className="text-xs font-bold text-[#5e3f3c]">available of {item?.capacity ?? "-"}</p>
+                          </div>
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-black ${isFull ? "bg-red-50 text-[#c8102e]" : "bg-emerald-50 text-emerald-700"}`}>
+                            {isFull ? "Full" : "Open"}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedClass?.isFull ? (
+                  <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                    <p className="font-black">{selectedClass.label} is full for this flight.</p>
+                    {availability?.nextAvailable ? (
+                      <button
+                        type="button"
+                        className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#1A1A1A] px-4 py-2 font-bold text-white"
+                        onClick={() => {
+                          setSelectedFlightId(availability.nextAvailable?.flightId || selectedFlightId);
+                          setSeatClass(availability.nextAvailable?.class.code || seatClass);
+                        }}
+                      >
+                        Use next available flight
+                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                      </button>
+                    ) : (
+                      <p className="mt-2">No later flight with this class is currently available.</p>
+                    )}
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-black">Passenger and passport</h2>
+                    <p className="mt-1 text-sm text-[#5e3f3c]">Only your account passenger is used for this booking.</p>
+                  </div>
+                  {passportReady ? (
+                    <button
+                      type="button"
+                      onClick={downloadPassportPdf}
+                      className="inline-flex items-center gap-2 rounded-lg border border-[#1A1A1A] px-4 py-2 text-sm font-black text-[#1A1A1A]"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">download</span>
+                      Passport PDF
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="mt-5 grid gap-5 lg:grid-cols-[260px_1fr]">
+                  <div className="rounded-lg bg-[#145837] p-5 text-white shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wide text-white/70">Republic of Kenya</p>
+                    <p className="mt-2 text-2xl font-black">Passport</p>
+                    <div className="mt-8 space-y-3 text-sm">
+                      <div>
+                        <p className="text-white/60">Name</p>
+                        <p className="font-bold">{passenger ? `${passenger.firstName} ${passenger.lastName}` : "Loading"}</p>
+                      </div>
+                      <div>
+                        <p className="text-white/60">Number</p>
+                        <p className="font-mono text-lg font-black">{safeText(passenger?.passportNo)}</p>
+                      </div>
+                      <div>
+                        <p className="text-white/60">Nationality</p>
+                        <p className="font-bold">{safeText(passenger?.nationality)}</p>
+                      </div>
                     </div>
                   </div>
-                );
-              })
-            )}
-          </div>
-        </section>
 
-        <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
-          <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Add Draft Passenger</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            <input
-              className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-              placeholder="First name"
-              value={draftPassenger.firstName}
-              onChange={(e) =>
-                setDraftPassenger({
-                  ...draftPassenger,
-                  firstName: e.target.value,
-                })
-              }
-            />
-            <input
-              className="w-full px-4 py-2.5 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-[#fcf9f8]"
-              placeholder="Last name"
-              value={draftPassenger.lastName}
-              onChange={(e) =>
-                setDraftPassenger({
-                  ...draftPassenger,
-                  lastName: e.target.value,
-                })
-              }
-            />
-          </div>
-          <div className="mt-4">
-            <PassportRequirementPanel
-              compact
-              firstName={draftPassenger.firstName}
-              lastName={draftPassenger.lastName}
-              passportNo={draftPassenger.passportNo}
-              nationality={draftPassenger.nationality}
-              dateOfBirth={draftPassenger.dateOfBirth}
-              onChange={(patch) =>
-                setDraftPassenger((current) => ({
-                  ...current,
-                  ...patch,
-                  passportDetails:
-                    patch.passportDetails || current.passportDetails,
-                }))
-              }
-            />
-          </div>
-          <div className="mt-6 space-y-4 rounded-xl border border-[#e5e2e1] bg-[#fcf9f8] p-5">
-            <p className="text-sm font-bold text-[#1A1A1A]">Accessibility & Special Needs</p>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="flex items-center gap-2 text-sm text-[#5e3f3c] cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
-                  checked={
-                    draftPassenger.accessibilityNeeds.wheelchairAssistance
-                  }
-                  onChange={(e) =>
-                    updateDraftAccessibility({
-                      wheelchairAssistance: e.target.checked,
-                    })
-                  }
-                />
-                Wheelchair assistance
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[#5e3f3c] cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
-                  checked={
-                    draftPassenger.accessibilityNeeds.visualImpairmentAssistance
-                  }
-                  onChange={(e) =>
-                    updateDraftAccessibility({
-                      visualImpairmentAssistance: e.target.checked,
-                    })
-                  }
-                />
-                Visual impairment assistance
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[#5e3f3c] cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
-                  checked={
-                    draftPassenger.accessibilityNeeds
-                      .hearingImpairmentAssistance
-                  }
-                  onChange={(e) =>
-                    updateDraftAccessibility({
-                      hearingImpairmentAssistance: e.target.checked,
-                    })
-                  }
-                />
-                Hearing impairment assistance
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[#5e3f3c] cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
-                  checked={draftPassenger.accessibilityNeeds.accessibleSeating}
-                  onChange={(e) =>
-                    updateDraftAccessibility({
-                      accessibleSeating: e.target.checked,
-                    })
-                  }
-                />
-                Accessible seating
-              </label>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <input
-                className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
-                placeholder="Medical assistance request"
-                value={
-                  draftPassenger.accessibilityNeeds.medicalAssistance || ""
-                }
-                onChange={(e) =>
-                  updateDraftAccessibility({
-                    medicalAssistance: e.target.value,
-                  })
-                }
-              />
-              <input
-                className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
-                placeholder="Special meal request"
-                value={
-                  draftPassenger.accessibilityNeeds.specialMealRequest || ""
-                }
-                onChange={(e) =>
-                  updateDraftAccessibility({
-                    specialMealRequest: e.target.value,
-                  })
-                }
-              />
-              <label className="flex items-center gap-2 rounded-lg border border-[#e5e2e1] bg-white p-2 text-sm text-[#5e3f3c] cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-primary focus:ring-primary border-[#e5e2e1] rounded cursor-pointer"
-                  checked={
-                    draftPassenger.accessibilityNeeds.companionSupport
-                      ?.required ?? false
-                  }
-                  onChange={(e) =>
-                    updateDraftAccessibility({
-                      companionSupport: { required: e.target.checked },
-                    })
-                  }
-                />
-                Companion support required
-              </label>
-              <input
-                className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
-                type="number"
-                min={0}
-                placeholder="Companion count"
-                value={
-                  draftPassenger.accessibilityNeeds.companionSupport
-                    ?.companionCount || 0
-                }
-                onChange={(e) =>
-                  updateDraftAccessibility({
-                    companionSupport: {
-                      companionCount: Number(e.target.value),
-                    },
-                  })
-                }
-              />
-            </div>
-            <textarea
-              className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
-              rows={2}
-              placeholder="Accessibility notes"
-              value={draftPassenger.accessibilityNeeds.notes || ""}
-              onChange={(e) =>
-                updateDraftAccessibility({ notes: e.target.value })
-              }
-            />
-            <input
-              className="w-full px-4 py-2 rounded-lg border border-[#e5e2e1] focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[#1A1A1A] bg-white"
-              placeholder="Companion support notes"
-              value={
-                draftPassenger.accessibilityNeeds.companionSupport?.notes || ""
-              }
-              onChange={(e) =>
-                updateDraftAccessibility({
-                  companionSupport: { notes: e.target.value },
-                })
-              }
-            />
-          </div>
-          <button
-            type="button"
-            className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-primary px-4 py-3 font-semibold text-primary transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={addDraftPassenger}
-            disabled={
-              !draftPassenger.firstName ||
-              !draftPassenger.lastName ||
-              !hasRequiredPassportDetails({
-                passportNo: draftPassenger.passportNo,
-                nationality: draftPassenger.nationality,
-              })
-            }
-          >
-            <span className="material-symbols-outlined text-[18px]">person_add</span>
-            Add Draft Passenger
-          </button>
-
-          <div className="mt-6 space-y-3">
-            <h3 className="text-sm font-bold text-[#1A1A1A]">Draft Passengers Queue</h3>
-            {draftPassengers.length === 0 ? (
-              <p className="text-sm text-[#5e3f3c]">None added yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {draftPassengers.map((passenger, index) => (
-                  <div
-                    key={`${passenger.firstName}-${index}`}
-                    className="rounded-xl border border-primary bg-primary/5 p-4 text-sm"
-                  >
-                    <span className="font-bold text-[#1A1A1A]">{passenger.firstName} {passenger.lastName}</span> •{" "}
-                    <span className="text-[#5e3f3c]">
-                      {passenger.passportNo || "No passport"} · {passenger.nationality || "No nationality"}
-                    </span>
-                    {accessibilityNeedsSummary(
-                      passenger.accessibilityNeeds || null,
-                    ) ? (
-                      <span className="block text-xs font-semibold text-primary mt-1">
-                        Needs: {accessibilityNeedsSummary(passenger.accessibilityNeeds)}
-                      </span>
-                    ) : null}
+                  <div className="rounded-lg border border-[#e2d8d5] bg-[#fcf9f8] p-4">
+                    <PassportRequirementPanel
+                      compact
+                      firstName={passenger?.firstName || ""}
+                      lastName={passenger?.lastName || ""}
+                      passportNo={passportDraft.passportNo}
+                      nationality={passportDraft.nationality}
+                      dateOfBirth={passenger?.dateOfBirth || ""}
+                      onChange={(patch) => {
+                        setPassportDraft((current) => ({
+                          ...current,
+                          ...patch,
+                          passportNo: patch.passportNo ?? current.passportNo,
+                          nationality: patch.nationality ?? current.nationality,
+                        }));
+                      }}
+                    />
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={savePassport}
+                        disabled={savingPassport || !passenger?.id}
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#1A1A1A] px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">save</span>
+                        {savingPassport ? "Saving..." : "Save passport"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPassportDraft(
+                            createKenyanPassportDetails({
+                              nationality: passenger?.nationality || "Kenyan",
+                            }),
+                          )
+                        }
+                        className="inline-flex items-center gap-2 rounded-lg border border-[#d8cfcc] bg-white px-4 py-2 text-sm font-black text-[#1A1A1A]"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                        Generate details
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
+                </div>
+              </section>
+            </div>
 
-      <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
-        <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Booking Summary</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-          <div>
-            <span className="block text-xs text-[#5e3f3c] uppercase tracking-wider mb-1">Flight</span>
-            <span className="font-semibold text-[#1A1A1A]">{selectedFlightId || "none selected"}</span>
-          </div>
-          <div>
-            <span className="block text-xs text-[#5e3f3c] uppercase tracking-wider mb-1">Booking Class</span>
-            <span className="font-semibold text-[#1A1A1A]">
-              {TRAVEL_CLASSES.find((entry) => entry.code === seatClass)?.label}
-            </span>
-          </div>
-          <div>
-            <span className="block text-xs text-[#5e3f3c] uppercase tracking-wider mb-1">Seat Count</span>
-            <span className="font-semibold text-[#1A1A1A]">{seatCount}</span>
-          </div>
-          <div>
-            <span className="block text-xs text-[#5e3f3c] uppercase tracking-wider mb-1">Total Passengers</span>
-            <span className="font-semibold text-[#1A1A1A]">
-              {selectedProfiles.length + draftPassengers.length || seatCount}
-            </span>
-          </div>
-        </div>
-        <div
-          className={`mb-6 rounded-xl border p-4 text-sm font-semibold ${
-            passportRequirementSatisfied
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-red-100 bg-red-50 text-[#c8102e]"
-          }`}
-        >
-          {passportRequirementSatisfied
-            ? "Passport check complete for every passenger."
-            : "Select or add passengers, then complete passport details before creating the booking hold."}
-        </div>
-        
-        <button
-          type="button"
-          disabled={loading || (!selectedFlightId) || availability?.selected?.isFull || !passportRequirementSatisfied}
-          className="w-full sm:w-auto px-8 py-3 rounded-lg bg-primary text-white font-semibold hover:bg-[#e71520] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-          onClick={createHold}
-        >
-          {loading ? (
-            <>
-              <span className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              Create Booking Hold
-              <span className="material-symbols-outlined text-[18px]">airplane_ticket</span>
-            </>
-          )}
-        </button>
-        {error ? <p className="mt-4 text-sm font-semibold text-[#c8102e] bg-red-50 p-3 rounded-lg border border-red-100">{error}</p> : null}
-        {hold ? (
-          <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-              <p className="font-bold text-emerald-800 text-lg">Hold Successfully Created</p>
-            </div>
-            <div className="grid gap-2 text-sm text-emerald-700">
-              <p><span className="font-medium">Hold ID:</span> {hold.holdId}</p>
-              <p><span className="font-medium">Expires:</span> {new Date(hold.expiresAt).toLocaleString()}</p>
-              <p><span className="font-medium">Total:</span> {hold.fare?.total ?? "n/a"}</p>
-            </div>
-            <button
-              type="button"
-              className="mt-4 px-6 py-3 rounded-lg bg-emerald-700 text-white font-bold hover:bg-emerald-800"
-              onClick={confirmHold}
-              disabled={loading}
-            >
-              Process Payment & Print Ticket
-            </button>
-          </div>
-        ) : null}
-        {confirmed ? (
-          <div className="mt-6 rounded-xl border border-[#d8c36a] bg-[#fff9d8] p-6">
-            <p className="font-bold text-[#1A1A1A] text-lg">Ticket Processed Successfully</p>
-            <p className="text-sm text-[#5e3f3c] mt-2">
-              Reference: <span className="font-mono font-bold">{confirmed.receipt?.reference}</span>
-            </p>
-            <button className="mt-4 px-6 py-3 rounded-lg bg-[#1A1A1A] text-white font-bold" onClick={() => window.print()}>
-              Print Ticket Report
-            </button>
-          </div>
-        ) : null}
-      </section>
+            <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+              <section className="rounded-lg border border-[#e2d8d5] bg-white p-5 shadow-sm">
+                <h2 className="text-xl font-black">Trip summary</h2>
+                <div className="mt-5 space-y-4">
+                  <div className="flex justify-between gap-4 border-b border-[#eee6e3] pb-3 text-sm">
+                    <span className="text-[#5e3f3c]">Route</span>
+                    <span className="text-right font-bold">{selectedFlight ? `${selectedFlight.origin} to ${selectedFlight.destination}` : "Not selected"}</span>
+                  </div>
+                  <div className="flex justify-between gap-4 border-b border-[#eee6e3] pb-3 text-sm">
+                    <span className="text-[#5e3f3c]">Class</span>
+                    <span className="font-bold">{selectedClass?.label || TRAVEL_CLASSES.find((entry) => entry.code === seatClass)?.label}</span>
+                  </div>
+                  <div className="flex justify-between gap-4 border-b border-[#eee6e3] pb-3 text-sm">
+                    <span className="text-[#5e3f3c]">Passenger</span>
+                    <span className="font-bold">1 adult</span>
+                  </div>
+                  <div className="flex justify-between gap-4 text-sm">
+                    <span className="text-[#5e3f3c]">Fare due</span>
+                    <span className="text-xl font-black">{hold ? formatMoney(hold.fare.total) : "After hold"}</span>
+                  </div>
+                </div>
 
-      <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_12px_32px_rgba(13,13,13,0.08)] border border-[#e5e2e1]">
-        <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Booking Inquiry</h2>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            className="flex-1 px-4 py-3 rounded-lg border border-[#e5e2e1] text-[#1A1A1A]"
-            placeholder="Enter booking reference or ID"
-            value={inquiryRef}
-            onChange={(e) => setInquiryRef(e.target.value)}
-          />
-          <button className="px-6 py-3 rounded-lg bg-[#1A1A1A] text-white font-bold" onClick={lookupBooking}>
-            Add booking inquiry
-          </button>
-        </div>
-        {inquiryMessage ? <p className="mt-3 text-sm font-semibold text-primary">{inquiryMessage}</p> : null}
-        {inquiryBooking ? (
-          <div className="mt-5 rounded-xl border border-[#e5e2e1] bg-[#fcf9f8] p-5">
-            <div className="grid gap-2 md:grid-cols-3 text-sm">
-              <p><span className="font-bold">Reference:</span> {inquiryBooking.reference}</p>
-              <p><span className="font-bold">Status:</span> {inquiryBooking.status}</p>
-              <p><span className="font-bold">Class:</span> {inquiryBooking.travelClass?.label}</p>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {TRAVEL_CLASSES.map((entry) => (
+                <div className="mt-5 grid gap-3">
+                  <label>
+                    <span className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Email</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-[#d8cfcc] px-3 py-2 text-sm outline-none focus:border-[#c8102e]"
+                      value={contactEmail}
+                      onChange={(event) => setContactEmail(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span className="text-xs font-bold uppercase tracking-wide text-[#5e3f3c]">Phone</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-[#d8cfcc] px-3 py-2 text-sm outline-none focus:border-[#c8102e]"
+                      value={contactPhone}
+                      onChange={(event) => setContactPhone(event.target.value)}
+                      placeholder="+254..."
+                    />
+                  </label>
+                </div>
+
                 <button
-                  key={entry.code}
-                  className="px-4 py-2 rounded-lg border border-[#e5e2e1] bg-white text-sm font-bold"
-                  onClick={() => changeInquiryBooking(entry.code)}
+                  type="button"
+                  disabled={!canCreateHold}
+                  onClick={createHold}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#c8102e] px-5 py-3 text-sm font-black text-white transition hover:bg-[#a70d25] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Change booking to {entry.shortCode || entry.label}
+                  {loading ? (
+                    <span className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  ) : (
+                    <span className="material-symbols-outlined text-[18px]">lock_clock</span>
+                  )}
+                  Create booking hold
                 </button>
-              ))}
-              <button
-                className="px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-[#c8102e] text-sm font-bold"
-                onClick={deleteInquiryBooking}
-              >
-                Delete booking
-              </button>
-            </div>
+
+                {error ? (
+                  <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm font-bold text-[#c8102e]">
+                    {error}
+                  </div>
+                ) : null}
+              </section>
+
+              {hold ? (
+                <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+                  <p className="text-sm font-bold uppercase tracking-wide text-emerald-700">Hold created</p>
+                  <p className="mt-2 break-all font-mono text-sm font-black text-emerald-950">{hold.holdId}</p>
+                  <p className="mt-2 text-sm text-emerald-800">Expires {formatDateTime(new Date(hold.expiresAt).toISOString())}</p>
+                  <div className="mt-4 grid gap-2">
+                    <button
+                      type="button"
+                      onClick={confirmHold}
+                      disabled={loading}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">payments</span>
+                      Confirm and issue ticket
+                    </button>
+                    <button
+                      type="button"
+                      onClick={printTicket}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 bg-white px-4 py-3 text-sm font-black text-emerald-800"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">print</span>
+                      Print hold
+                    </button>
+                  </div>
+                </section>
+              ) : null}
+
+              {confirmed ? (
+                <section className="rounded-lg border border-[#d8c36a] bg-[#fff9d8] p-5 shadow-sm">
+                  <p className="text-sm font-bold uppercase tracking-wide text-[#5e3f3c]">Ticket issued</p>
+                  <p className="mt-2 font-mono text-2xl font-black">{confirmed.receipt.reference}</p>
+                  <p className="mt-1 text-sm text-[#5e3f3c]">
+                    Seat {confirmed.booking.passengers[0]?.seatAssignment || "assigned at check-in"}
+                  </p>
+                  <div className="mt-4 grid gap-2">
+                    <button
+                      type="button"
+                      onClick={printTicket}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1A1A1A] px-4 py-3 text-sm font-black text-white"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">print</span>
+                      Print ticket
+                    </button>
+                    <button
+                      type="button"
+                      onClick={downloadTicketPdf}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#1A1A1A] bg-white px-4 py-3 text-sm font-black text-[#1A1A1A]"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                      Download ticket PDF
+                    </button>
+                  </div>
+                </section>
+              ) : null}
+            </aside>
           </div>
-        ) : null}
-      </section>
+        </main>
       </div>
-    </div>
     </WorkflowShell>
   );
 }
