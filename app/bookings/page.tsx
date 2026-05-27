@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { createRoot } from "react-dom/client";
 import WorkflowShell from "../components/WorkflowShell";
 import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
 import PassportTemplateSpread from "../components/passport/PassportTemplateSpread";
@@ -560,18 +561,78 @@ export default function BookingPage() {
   }
 
   async function downloadPassportPdf() {
-    if (!passenger || !passportTemplateRef.current) return;
+    if (!passenger) return;
+
+    let iframe: HTMLIFrameElement | null = null;
+    let root: ReturnType<typeof createRoot> | null = null;
 
     try {
       await document.fonts?.ready;
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => resolve(null)),
+      );
 
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import("html2canvas"),
         import("jspdf"),
       ]);
 
-      const canvas = await html2canvas(passportTemplateRef.current, {
+      iframe = document.createElement("iframe");
+      iframe.setAttribute("aria-hidden", "true");
+      iframe.style.position = "fixed";
+      iframe.style.left = "-10000px";
+      iframe.style.top = "0";
+      iframe.style.width = "740px";
+      iframe.style.height = "1200px";
+      iframe.style.border = "0";
+      iframe.srcdoc =
+        "<html><body style='margin:0;background:transparent;'></body></html>";
+      document.body.appendChild(iframe);
+
+      const exportIframe = iframe;
+
+      await new Promise<void>((resolve, reject) => {
+        exportIframe.onload = () => resolve();
+        exportIframe.onerror = () =>
+          reject(new Error("Passport export iframe failed to load."));
+      });
+
+      const iframeDocument = iframe.contentDocument;
+      const iframeWindow = iframe.contentWindow;
+      if (!iframeDocument || !iframeWindow) {
+        iframe.remove();
+        throw new Error("Passport export iframe could not be initialized.");
+      }
+
+      const mountNode = iframeDocument.createElement("div");
+      mountNode.style.width = "720px";
+      mountNode.style.margin = "0";
+      iframeDocument.body.appendChild(mountNode);
+
+      root = createRoot(mountNode);
+      root.render(
+        <PassportTemplateSpread
+          data={{
+            country: "REPUBLIC OF",
+            countryFull: "KENYA",
+            nationality: passportTemplateData.nationality,
+            surname: passenger.lastName || "",
+            givenNames: passenger.firstName || "",
+            sex: "X",
+            dateOfBirth: passenger.dateOfBirth || "",
+            placeOfBirth: passportTemplateData.placeOfBirth,
+            dateOfIssue: passportTemplateData.dateOfIssue,
+            dateOfExpiry: passportTemplateData.dateOfExpiry,
+            passportNumber: passportTemplateData.passportNo,
+          }}
+        />,
+      );
+
+      await new Promise((resolve) =>
+        iframeWindow.requestAnimationFrame(() => resolve(null)),
+      );
+
+      const canvas = await html2canvas(mountNode, {
         scale: 3,
         useCORS: true,
         backgroundColor: null,
@@ -597,6 +658,9 @@ export default function BookingPage() {
           ? err.message
           : "Passport PDF export failed. Please try again.",
       );
+    } finally {
+      root?.unmount();
+      iframe?.remove();
     }
   }
 
