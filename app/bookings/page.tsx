@@ -285,10 +285,17 @@ export default function BookingPage() {
   const passportTemplateData = useMemo(
     () =>
       createKenyanPassportDetails({
-        passportNo: passportDraft.passportNo || passenger?.passportNo || undefined,
-        nationality: passportDraft.nationality || passenger?.nationality || undefined,
+        passportNo:
+          passportDraft.passportNo || passenger?.passportNo || undefined,
+        nationality:
+          passportDraft.nationality || passenger?.nationality || undefined,
       }),
-    [passportDraft.passportNo, passportDraft.nationality, passenger?.passportNo, passenger?.nationality],
+    [
+      passportDraft.passportNo,
+      passportDraft.nationality,
+      passenger?.passportNo,
+      passenger?.nationality,
+    ],
   );
 
   useEffect(() => {
