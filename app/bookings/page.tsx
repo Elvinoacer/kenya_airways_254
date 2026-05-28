@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { createRoot } from "react-dom/client";
 import WorkflowShell from "../components/WorkflowShell";
 import PassportRequirementPanel from "../components/passport/PassportRequirementPanel";
 import PassportTemplateSpread from "../components/passport/PassportTemplateSpread";
@@ -281,23 +280,7 @@ export default function BookingPage() {
   const [loading, setLoading] = useState(false);
   const [savingPassport, setSavingPassport] = useState(false);
   const [error, setError] = useState("");
-  const passportTemplateRef = useRef<HTMLDivElement | null>(null);
-
-  const passportTemplateData = useMemo(
-    () =>
-      createKenyanPassportDetails({
-        passportNo:
-          passportDraft.passportNo || passenger?.passportNo || undefined,
-        nationality:
-          passportDraft.nationality || passenger?.nationality || undefined,
-      }),
-    [
-      passportDraft.passportNo,
-      passportDraft.nationality,
-      passenger?.passportNo,
-      passenger?.nationality,
-    ],
-  );
+  const passportPreviewRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -561,10 +544,7 @@ export default function BookingPage() {
   }
 
   async function downloadPassportPdf() {
-    if (!passenger) return;
-
-    let iframe: HTMLIFrameElement | null = null;
-    let root: ReturnType<typeof createRoot> | null = null;
+    if (!passenger || !passportPreviewRef.current) return;
 
     try {
       await document.fonts?.ready;
@@ -577,90 +557,40 @@ export default function BookingPage() {
         import("jspdf"),
       ]);
 
-      iframe = document.createElement("iframe");
-      iframe.setAttribute("aria-hidden", "true");
-      iframe.style.position = "fixed";
-      iframe.style.left = "-10000px";
-      iframe.style.top = "0";
-      iframe.style.width = "740px";
-      iframe.style.height = "1200px";
-      iframe.style.border = "0";
-      iframe.srcdoc =
-        "<html><body style='margin:0;background:transparent;'></body></html>";
-      document.body.appendChild(iframe);
-
-      const exportIframe = iframe;
-
-      await new Promise<void>((resolve, reject) => {
-        exportIframe.onload = () => resolve();
-        exportIframe.onerror = () =>
-          reject(new Error("Passport export iframe failed to load."));
-      });
-
-      const iframeDocument = iframe.contentDocument;
-      const iframeWindow = iframe.contentWindow;
-      if (!iframeDocument || !iframeWindow) {
-        iframe.remove();
-        throw new Error("Passport export iframe could not be initialized.");
-      }
-
-      const mountNode = iframeDocument.createElement("div");
-      mountNode.style.width = "720px";
-      mountNode.style.margin = "0";
-      iframeDocument.body.appendChild(mountNode);
-
-      root = createRoot(mountNode);
-      root.render(
-        <PassportTemplateSpread
-          data={{
-            country: "REPUBLIC OF",
-            countryFull: "KENYA",
-            nationality: passportTemplateData.nationality,
-            surname: passenger.lastName || "",
-            givenNames: passenger.firstName || "",
-            sex: "X",
-            dateOfBirth: passenger.dateOfBirth || "",
-            placeOfBirth: passportTemplateData.placeOfBirth,
-            dateOfIssue: passportTemplateData.dateOfIssue,
-            dateOfExpiry: passportTemplateData.dateOfExpiry,
-            passportNumber: passportTemplateData.passportNo,
-          }}
-        />,
-      );
-
-      await new Promise((resolve) =>
-        iframeWindow.requestAnimationFrame(() => resolve(null)),
-      );
-
-      const canvas = await html2canvas(mountNode, {
+      const preview = passportPreviewRef.current;
+      const canvas = await html2canvas(preview, {
         scale: 3,
         useCORS: true,
-        backgroundColor: null,
+        backgroundColor: "#f8f5f3",
         logging: false,
+        scrollX: 0,
+        scrollY: -window.scrollY,
       });
 
       if (!canvas.width || !canvas.height) {
         throw new Error("Passport preview could not be rendered for export.");
       }
 
+      const margin = Math.round(Math.max(canvas.width, canvas.height) * 0.035);
+      const pageWidth = canvas.width + margin * 2;
+      const pageHeight = canvas.height + margin * 2;
       const pdf = new jsPDF({
-        orientation: "landscape",
+        orientation: pageWidth >= pageHeight ? "landscape" : "portrait",
         unit: "px",
-        format: [canvas.width, canvas.height],
+        format: [pageWidth, pageHeight],
       });
 
       const imageData = canvas.toDataURL("image/png");
-      pdf.addImage(imageData, "PNG", 0, 0, canvas.width, canvas.height);
-      pdf.save(`${passportTemplateData.passportNo || "passport"}-template.pdf`);
+      pdf.setFillColor(248, 245, 243);
+      pdf.rect(0, 0, pageWidth, pageHeight, "F");
+      pdf.addImage(imageData, "PNG", margin, margin, canvas.width, canvas.height);
+      pdf.save(`${passenger.passportNo || "passport"}-template.pdf`);
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : "Passport PDF export failed. Please try again.",
       );
-    } finally {
-      root?.unmount();
-      iframe?.remove();
     }
   }
 
@@ -715,30 +645,6 @@ export default function BookingPage() {
           className="mx-auto px-4 py-8 sm:px-6 lg:px-8"
           style={{ maxWidth: 1500 }}
         >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none fixed top-0 overflow-hidden"
-            style={{ left: "-9999px" }}
-          >
-            <div ref={passportTemplateRef} style={{ width: "720px" }}>
-              <PassportTemplateSpread
-                data={{
-                  country: "REPUBLIC OF",
-                  countryFull: "KENYA",
-                  nationality: passportTemplateData.nationality,
-                  surname: passenger?.lastName || "",
-                  givenNames: passenger?.firstName || "",
-                  sex: "X",
-                  dateOfBirth: passenger?.dateOfBirth || "",
-                  placeOfBirth: passportTemplateData.placeOfBirth,
-                  dateOfIssue: passportTemplateData.dateOfIssue,
-                  dateOfExpiry: passportTemplateData.dateOfExpiry,
-                  passportNumber: passportTemplateData.passportNo,
-                }}
-              />
-            </div>
-          </div>
-
           <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="space-y-8">
               <section className="rounded-xl border border-[#e2d8d5] bg-white p-5 shadow-sm sm:p-6">
@@ -965,7 +871,10 @@ export default function BookingPage() {
                   ) : null}
                 </div>
 
-                <div className="mt-6 rounded-2xl border border-[#e2d8d5] bg-[#f8f5f3] p-3 sm:p-5">
+                <div
+                  ref={passportPreviewRef}
+                  className="mt-6 rounded-2xl border border-[#e2d8d5] bg-[#f8f5f3] p-3 sm:p-5"
+                >
                   <div className="mx-auto" style={{ maxWidth: 820 }}>
                     <PassportTemplateSpread
                       data={{
